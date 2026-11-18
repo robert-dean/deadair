@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { Button, Chip, Divider, Group, Modal, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
+import { useEffect, type ReactNode } from 'react';
+import { Box, Button, Chip, Divider, Group, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { MixFlow, ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
@@ -38,7 +38,9 @@ import {
     stationSourceValue,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
+import { ShowSectionFrame, ShowSectionNav, showSectionsOf } from './show.sections';
 import { ShowSoundField } from './show.sound.field';
+import { ShowSummary, type ShowSummaryValues } from './show.summary';
 import { FestivalField } from './festival.field';
 import { MixFlowField } from '../mix/mix.flow.field';
 import { GuestHostsField, guestHostsOf, guestRowOf, guestRowProblem, type GuestRow } from './guest.hosts.field';
@@ -85,18 +87,35 @@ import { weekdayShort } from '../../i18n/format.locale';
  * station to change the show in place (`POST /schedule/{id}/apply`): the broadcast carries on, and
  * only what can change mid-show does. It is a button rather than a consequence of saving because a
  * label fixed or a change meant for next week must not throw away the rest of today's hour.
+ *
+ * ## The form, not the page
+ *
+ * `ShowEditorPage` is the page this is drawn on, and owns the saving. The form reports whether it
+ * holds unsaved edits through `onDirtyChange`, which is what the page's guard asks.
  */
-export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, saving, applying, deleting, error, applyError, airing }: Props) {
+export function SlotEditorForm({
+    target,
+    onCancel,
+    onDirtyChange,
+    onSubmit,
+    onApply,
+    onDelete,
+    saving,
+    applying,
+    deleting,
+    error,
+    applyError,
+    airing,
+}: SlotEditorFormProps) {
     const { t } = useTranslation(['schedule', 'common']);
-    const opened = target !== undefined;
     const slot = target?.kind === 'edit' ? target.slot : undefined;
     // Fixed for the life of the form: a weekly slot does not turn into a special by being edited, or
-    // the other way round. A special is started from the Specials tab, and the keyed mount means a
-    // different target is a different form.
+    // the other way round. A special is started from the Specials tab, and the route keys the page on
+    // what it is open on, so a different target is a different form.
     const special = isSpecialTarget(target);
 
     const form = useForm<FormValues>({
-        // Read ONCE per mount, which is why the page keys this component on what it is open on. A
+        // Read ONCE per mount, which is why the route keys `ShowEditorPage` on what it is open on. A
         // form that survived a close would open showing the last slot's values under the new one's
         // title, and a new slot would open showing the defaults it was first built with.
         initialValues: valuesOf(target),
@@ -228,17 +247,21 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
     const live = special && form.values.live;
     const offersApply = slot !== undefined && airing === true && onApply !== undefined && !live;
 
+    const sections = showSectionsOf({ live, mode: form.values.mode });
+
+    const dirty = form.isDirty();
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+
     return (
-        <Modal
-            opened={opened}
-            onClose={onClose}
-            title={titleOf(t, slot !== undefined, special)}
-            size="lg"
-            closeOnClickOutside={false}
-            closeOnEscape={!form.isDirty()}
-        >
-            <form onSubmit={submit}>
-                <Stack gap="md">
+        <form onSubmit={submit}>
+            <Group align="flex-start" wrap="nowrap" gap="xl">
+                {/* The page's parts down the side, on a screen wide enough to keep them beside the form. */}
+                <Box visibleFrom="md" w={160} style={STICKY}>
+                    <ShowSectionNav sections={sections} />
+                </Box>
+                <Stack gap="xl" style={{ flex: 1, minWidth: 0 }}>
                     {error ? <ErrorAlert title={t('slot.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}
                     {/* Its own alert rather than the save's, because the save DID land: what failed
                         is only the second half, and saying "could not be saved" would be untrue. */}
@@ -249,296 +272,297 @@ export function SlotEditor({ target, onClose, onSubmit, onApply, onDelete, savin
                     {/* The slot the running order belongs to right now: saving it is real, but the
                         station does not hear it until this block comes round again. Told here,
                         beside the form it is about, rather than left for the caption at the
-                        bottom of the modal to cover on its own. */}
+                        bottom of the page to cover on its own. */}
                     {slot && airing ? <ErrorAlert tone="notice">{t('slot.onAir')}</ErrorAlert> : undefined}
-
-                    {/* The when-half as one sentence. Four fields that only make sense together read
+                    <ShowSectionFrame section="when">
+                        {/* The when-half as one sentence. Four fields that only make sense together read
                         as four fields when they are stacked and as one statement when they are not,
                         and a schedule is a thing an operator says out loud: "put the breakfast show
                         on weekdays from six until ten". The what-half stays as fields below, because
                         it genuinely is a list of separate choices. */}
-                    <Stack gap="xs">
-                        <Group gap="xs" align="flex-start" wrap="wrap">
-                            <Word>{t('slot.sentence.put')}</Word>
-                            <TextInput
-                                aria-label={t('slot.nameLabel')}
-                                placeholder={t('slot.namePlaceholder')}
-                                w={200}
-                                {...form.getInputProps('label')}
-                            />
-                            <Word>{t('slot.sentence.from')}</Word>
-                            <TextInput
-                                aria-label={t('slot.startsAtLabel')}
-                                placeholder="06:00"
-                                w={84}
-                                className="da-num"
-                                {...form.getInputProps('startsAt')}
-                            />
-                            <Word>{t('slot.sentence.until')}</Word>
-                            <TextInput
-                                aria-label={t('slot.endsAtLabel')}
-                                placeholder="10:00"
-                                w={84}
-                                className="da-num"
-                                {...form.getInputProps('endsAt')}
-                            />
-                        </Group>
+                        <Stack gap="xs">
+                            <Group gap="xs" align="flex-start" wrap="wrap">
+                                <Word>{t('slot.sentence.put')}</Word>
+                                <TextInput
+                                    aria-label={t('slot.nameLabel')}
+                                    placeholder={t('slot.namePlaceholder')}
+                                    w={200}
+                                    {...form.getInputProps('label')}
+                                />
+                                <Word>{t('slot.sentence.from')}</Word>
+                                <TextInput
+                                    aria-label={t('slot.startsAtLabel')}
+                                    placeholder="06:00"
+                                    w={84}
+                                    className="da-num"
+                                    {...form.getInputProps('startsAt')}
+                                />
+                                <Word>{t('slot.sentence.until')}</Word>
+                                <TextInput
+                                    aria-label={t('slot.endsAtLabel')}
+                                    placeholder="10:00"
+                                    w={84}
+                                    className="da-num"
+                                    {...form.getInputProps('endsAt')}
+                                />
+                            </Group>
 
-                        {/* Asked before the days, because a rule takes them away: it says which day already. */}
-                        {special ? (
-                            <SegmentedControl
-                                aria-label={t('slot.special.whenLabel')}
-                                size="xs"
-                                w="fit-content"
-                                data={[
-                                    { value: 'dates', label: t('slot.special.onDates') },
-                                    { value: 'rule', label: t('slot.special.byRule') },
-                                ]}
-                                value={form.values.byRule ? 'rule' : 'dates'}
-                                onChange={value => form.setFieldValue('byRule', value === 'rule')}
-                            />
-                        ) : undefined}
+                            {/* Asked before the days, because a rule takes them away: it says which day already. */}
+                            {special ? (
+                                <SegmentedControl
+                                    aria-label={t('slot.special.whenLabel')}
+                                    size="xs"
+                                    w="fit-content"
+                                    data={[
+                                        { value: 'dates', label: t('slot.special.onDates') },
+                                        { value: 'rule', label: t('slot.special.byRule') },
+                                    ]}
+                                    value={form.values.byRule ? 'rule' : 'dates'}
+                                    onChange={value => form.setFieldValue('byRule', value === 'rule')}
+                                />
+                            ) : undefined}
 
-                        {/* Broken here on purpose rather than left to wrap. The days are the one part
-                            that cannot shrink, so a single row would fold at whatever width the modal
+                            {/* Broken here on purpose rather than left to wrap. The days are the one part
+                            that cannot shrink, so a single row would fold at whatever width the page
                             happened to be and the sentence would read as fragments. */}
-                        {special && form.values.byRule ? undefined : (
-                            <Group gap="xs" align="center" wrap="wrap">
-                                <Word>{t('slot.sentence.on')}</Word>
-                                {/* Chips rather than checkboxes: seven boxes in a row is a form control
+                            {special && form.values.byRule ? undefined : (
+                                <Group gap="xs" align="center" wrap="wrap">
+                                    <Word>{t('slot.sentence.on')}</Word>
+                                    {/* Chips rather than checkboxes: seven boxes in a row is a form control
                                     that happens to be about days, and seven toggles is the week. Nothing
                                     selected is every day, which the line below says because an empty row
                                     cannot. */}
-                                <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
-                                    <Group gap={4} wrap="wrap">
-                                        {DAYS.map(day => (
-                                            <Chip key={day} value={String(day)} size="sm" radius="sm">
-                                                {weekdayShort(day)}
-                                            </Chip>
-                                        ))}
-                                    </Group>
-                                </Chip.Group>
-                            </Group>
-                        )}
+                                    <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
+                                        <Group gap={4} wrap="wrap">
+                                            {DAYS.map(day => (
+                                                <Chip key={day} value={String(day)} size="sm" radius="sm">
+                                                    {weekdayShort(day)}
+                                                </Chip>
+                                            ))}
+                                        </Group>
+                                    </Chip.Group>
+                                </Group>
+                            )}
 
-                        {/* A special's dates finish the same sentence: "put Halloween from eight
+                            {/* A special's dates finish the same sentence: "put Halloween from eight
                             until eleven, between the 31st of October and the 31st of October". */}
-                        {special && form.values.byRule ? (
-                            <SpecialRuleField
-                                draft={form.values.rule}
-                                error={form.errors.rule}
-                                onChange={part => form.setFieldValue('rule', { ...form.values.rule, ...part })}
-                            />
-                        ) : undefined}
+                            {special && form.values.byRule ? (
+                                <SpecialRuleField
+                                    draft={form.values.rule}
+                                    error={form.errors.rule}
+                                    onChange={part => form.setFieldValue('rule', { ...form.values.rule, ...part })}
+                                />
+                            ) : undefined}
+
+                            {special && !form.values.byRule ? (
+                                <Group gap="xs" align="flex-start" wrap="wrap">
+                                    <Word>{t('slot.special.between')}</Word>
+                                    <DatePickerInput
+                                        type="range"
+                                        allowSingleDateInRange
+                                        aria-label={t('slot.special.datesLabel')}
+                                        placeholder={t('slot.special.datesPlaceholder')}
+                                        valueFormat="D MMM YYYY"
+                                        // No weekend colouring, as on the timetable: red is the on-air
+                                        // tally in this console, and a station's Saturday is not a
+                                        // different kind of day from its Tuesday.
+                                        weekendDays={[]}
+                                        miw={240}
+                                        value={form.values.dates}
+                                        onChange={dates => form.setFieldValue('dates', [dates[0] ?? null, dates[1] ?? null])}
+                                        error={form.errors.dates}
+                                    />
+                                </Group>
+                            ) : undefined}
+                        </Stack>
+
+                        <Switch
+                            label={t('slot.enabledLabel')}
+                            description={t('slot.enabledDescription')}
+                            {...form.getInputProps('enabled', { type: 'checkbox' })}
+                        />
 
                         {special && !form.values.byRule ? (
-                            <Group gap="xs" align="flex-start" wrap="wrap">
-                                <Word>{t('slot.special.between')}</Word>
-                                <DatePickerInput
-                                    type="range"
-                                    allowSingleDateInRange
-                                    aria-label={t('slot.special.datesLabel')}
-                                    placeholder={t('slot.special.datesPlaceholder')}
-                                    valueFormat="D MMM YYYY"
-                                    // No weekend colouring, as on the timetable: red is the on-air
-                                    // tally in this console, and a station's Saturday is not a
-                                    // different kind of day from its Tuesday.
-                                    weekendDays={[]}
-                                    miw={240}
-                                    value={form.values.dates}
-                                    onChange={dates => form.setFieldValue('dates', [dates[0] ?? null, dates[1] ?? null])}
-                                    error={form.errors.dates}
-                                />
-                            </Group>
+                            <Switch
+                                label={t('slot.special.yearlyLabel')}
+                                description={t('slot.special.yearlyDescription')}
+                                {...form.getInputProps('yearly', { type: 'checkbox' })}
+                            />
                         ) : undefined}
-                    </Stack>
 
-                    <Switch
-                        label={t('slot.enabledLabel')}
-                        description={t('slot.enabledDescription')}
-                        {...form.getInputProps('enabled', { type: 'checkbox' })}
-                    />
-
-                    {special && !form.values.byRule ? (
-                        <Switch
-                            label={t('slot.special.yearlyLabel')}
-                            description={t('slot.special.yearlyDescription')}
-                            {...form.getInputProps('yearly', { type: 'checkbox' })}
-                        />
-                    ) : undefined}
-
-                    {/* A presenter's booking rather than a programme. Only on a special, because a
+                        {/* A presenter's booking rather than a programme. Only on a special, because a
                         booking is for a date, and it takes every programme field below away: nothing
                         of the slot's own airs, since the weekly show plays until the encoder is heard. */}
-                    {special ? (
-                        <Switch
-                            label={t('slot.special.liveLabel')}
-                            description={t('slot.special.liveDescription')}
-                            {...form.getInputProps('live', { type: 'checkbox' })}
-                        />
-                    ) : undefined}
+                        {special ? (
+                            <Switch
+                                label={t('slot.special.liveLabel')}
+                                description={t('slot.special.liveDescription')}
+                                {...form.getInputProps('live', { type: 'checkbox' })}
+                            />
+                        ) : undefined}
 
-                    <Text size="xs" c="dimmed">
-                        {form.values.days.length === 0 && !(special && form.values.byRule)
-                            ? `${special ? t('slot.special.everyDay') : t('slot.everyDay')} `
-                            : ''}
-                        {live
-                            ? t('slot.special.liveNote')
-                            : !special
-                              ? t('slot.times')
-                              : form.values.byRule
-                                ? t('slot.special.ruleNote')
-                                : t('slot.special.note')}
-                    </Text>
-
+                        <Text size="xs" c="dimmed">
+                            {form.values.days.length === 0 && !(special && form.values.byRule)
+                                ? `${special ? t('slot.special.everyDay') : t('slot.everyDay')} `
+                                : ''}
+                            {live
+                                ? t('slot.special.liveNote')
+                                : !special
+                                  ? t('slot.times')
+                                  : form.values.byRule
+                                    ? t('slot.special.ruleNote')
+                                    : t('slot.special.note')}
+                        </Text>
+                    </ShowSectionFrame>
                     {live ? undefined : (
                         <>
-                            <SourceField description={t('slot.sourceDescription')} stationPlaylists {...form.getInputProps('source')} />
+                            <ShowSectionFrame section="presents">
+                                <HostField {...form.getInputProps('personaId')} />
+                                {/* Under the host it sits in for. */}
+                                <GuestHostsField
+                                    rows={form.values.guestHosts}
+                                    onChange={rows => form.setFieldValue('guestHosts', rows)}
+                                    {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
+                                    {...(form.errors.guestHosts === undefined ? {} : { errors: form.values.guestHosts.map(guestRowProblem) })}
+                                    taken={form.values.coHosts.map(row => row.personaId)}
+                                />
 
-                            {/* Only under a chart, because it means nothing under anything else. A row that
+                                {/* Beside the host, rather than instead of them. */}
+                                <GuestHostsField
+                                    role="cohost"
+                                    rows={form.values.coHosts}
+                                    onChange={rows => form.setFieldValue('coHosts', rows)}
+                                    {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
+                                    {...(form.errors.coHosts === undefined ? {} : { errors: form.values.coHosts.map(guestRowProblem) })}
+                                    taken={form.values.guestHosts.map(row => row.personaId)}
+                                />
+                            </ShowSectionFrame>
+                            <ShowSectionFrame section="music">
+                                <SourceField description={t('slot.sourceDescription')} stationPlaylists {...form.getInputProps('source')} />
+
+                                {/* Only under a chart, because it means nothing under anything else. A row that
                         sat there greyed out for every playlist would be a control explaining its own
                         irrelevance on the page an operator uses most. */}
-                            {splitSource(form.values.source)?.kind === 'chart' ? (
-                                <>
-                                    <ChartOrderField {...form.getInputProps('chartOrder')} />
-                                    <ChartPositionsField {...form.getInputProps('chartPositions', { type: 'checkbox' })} />
-                                </>
-                            ) : undefined}
+                                {splitSource(form.values.source)?.kind === 'chart' ? (
+                                    <>
+                                        <ChartOrderField {...form.getInputProps('chartOrder')} />
+                                        <ChartPositionsField {...form.getInputProps('chartPositions', { type: 'checkbox' })} />
+                                    </>
+                                ) : undefined}
+                                <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
 
-                            <HostField {...form.getInputProps('personaId')} />
-                            <ConcertsField {...form.getInputProps('concerts', { type: 'checkbox' })} />
-                            <FestivalField {...form.getInputProps('festivalId')} value={form.values.festivalId} />
-
-                            <ShowSoundField slotId={slot?.id} beds={form.getInputProps('beds', { type: 'checkbox' })} />
-
-                            {/* Under the host it sits in for. */}
-                            <GuestHostsField
-                                rows={form.values.guestHosts}
-                                onChange={rows => form.setFieldValue('guestHosts', rows)}
-                                {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
-                                {...(form.errors.guestHosts === undefined ? {} : { errors: form.values.guestHosts.map(guestRowProblem) })}
-                                taken={form.values.coHosts.map(row => row.personaId)}
-                            />
-
-                            {/* Beside the host, rather than instead of them. */}
-                            <GuestHostsField
-                                role="cohost"
-                                rows={form.values.coHosts}
-                                onChange={rows => form.setFieldValue('coHosts', rows)}
-                                {...(form.values.personaId ? { ownHostId: form.values.personaId } : {})}
-                                {...(form.errors.coHosts === undefined ? {} : { errors: form.values.coHosts.map(guestRowProblem) })}
-                                taken={form.values.guestHosts.map(row => row.personaId)}
-                            />
-
-                            <BriefField {...form.getInputProps('brief')} />
-
-                            <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
-
-                            <EraNote />
-
-                            <MoodStagesField value={form.values.moods} onChange={moods => form.setFieldValue('moods', moods)} />
-
-                            <AvoidMoodsField
-                                value={form.values.avoidMoods}
-                                leaning={form.values.moods}
-                                onChange={moods => form.setFieldValue('avoidMoods', moods)}
-                            />
-
-                            <ShapeFields mode={form.getInputProps('mode')} onEnd={form.getInputProps('onEnd')} />
-
-                            <ShapeNote what="block" />
-
-                            {/* Beside the shape, because it is the other half of how the block plays its
+                                <ShapeNote what="block" />
+                                {/* Beside the shape, because it is the other half of how the block plays its
                         playlist: the shape says what happens at the end of it, this says where it
                         starts. Only under a playlist, for the chart fields' reason above. */}
-                            {mixesInto(splitSource(form.values.source)) ? (
-                                <ResumePlaylistField
-                                    input={form.getInputProps('resumePlaylist', { type: 'checkbox' })}
-                                    {...(slot === undefined ? {} : { slotId: slot.id })}
-                                    saved={slot?.resumePlaylist === true && form.values.source === valuesOf(target).source}
+                                {mixesInto(splitSource(form.values.source)) ? (
+                                    <ResumePlaylistField
+                                        input={form.getInputProps('resumePlaylist', { type: 'checkbox' })}
+                                        {...(slot === undefined ? {} : { slotId: slot.id })}
+                                        saved={slot?.resumePlaylist === true && form.values.source === valuesOf(target).source}
+                                    />
+                                ) : undefined}
+
+                                {mixesInto(splitSource(form.values.source)) ? (
+                                    <ShufflePlaylistField input={form.getInputProps('shufflePlaylist', { type: 'checkbox' })} />
+                                ) : undefined}
+                                {mixesInto(splitSource(form.values.source)) ? (
+                                    <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
+                                ) : undefined}
+                                {form.values.mode === 'rotation' ? (
+                                    <RequestShowFields
+                                        on={form.getInputProps('requestShow', { type: 'checkbox' })}
+                                        count={form.getInputProps('requestFollowOn')}
+                                    />
+                                ) : undefined}
+                                <BriefField {...form.getInputProps('brief')} />
+                                <FestivalField {...form.getInputProps('festivalId')} value={form.values.festivalId} />
+                                <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
+
+                                <EraNote />
+
+                                <MoodStagesField value={form.values.moods} onChange={moods => form.setFieldValue('moods', moods)} />
+
+                                <AvoidMoodsField
+                                    value={form.values.avoidMoods}
+                                    leaning={form.values.moods}
+                                    onChange={moods => form.setFieldValue('avoidMoods', moods)}
                                 />
-                            ) : undefined}
-
-                            {mixesInto(splitSource(form.values.source)) ? (
-                                <ShufflePlaylistField input={form.getInputProps('shufflePlaylist', { type: 'checkbox' })} />
-                            ) : undefined}
-
-                            {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
-
-                            <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
-
-                            {mixesInto(splitSource(form.values.source)) ? (
-                                <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
-                            ) : undefined}
-
+                                {/* Only a rotation picks its own records, so only a rotation has a flow to judge them by. */}
+                                {form.values.mode === 'rotation' ? (
+                                    <MixFlowField
+                                        value={form.values.mixFlow}
+                                        onChange={flow => form.setFieldValue('mixFlow', flow)}
+                                        showName={form.values.label}
+                                        brief={form.values.brief}
+                                        changed={form.isDirty('mixFlow')}
+                                    />
+                                ) : undefined}
+                            </ShowSectionFrame>
+                            <ShowSectionFrame section="says">
+                                {/* A feature airs without a word from the host, so there is nothing to write first. */}
+                                {form.values.mode === 'feature' ? undefined : <WriterOrderField {...form.getInputProps('writerOrder')} />}
+                                {form.values.mode === 'setlist' ? <TalkField {...form.getInputProps('breaks', { type: 'checkbox' })} /> : undefined}
+                                <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
+                                <ConcertsField {...form.getInputProps('concerts', { type: 'checkbox' })} />
+                            </ShowSectionFrame>
+                            <ShowSectionFrame section="sound">
+                                <ShowSoundField slotId={slot?.id} beds={form.getInputProps('beds', { type: 'checkbox' })} />
+                            </ShowSectionFrame>
                             {form.values.mode === 'rotation' ? (
-                                <RequestShowFields
-                                    on={form.getInputProps('requestShow', { type: 'checkbox' })}
-                                    count={form.getInputProps('requestFollowOn')}
-                                />
-                            ) : undefined}
-
-                            {/* A feature airs without a word from the host, so there is nothing to write first. */}
-                            {form.values.mode === 'feature' ? undefined : <WriterOrderField {...form.getInputProps('writerOrder')} />}
-
-                            {form.values.mode === 'rotation' ? (
-                                <RepeatRulesFields
-                                    window={form.getInputProps('repeatWindowDays')}
-                                    cooldown={form.getInputProps('artistCooldownMinutes')}
-                                    perArtist={form.getInputProps('maxPerArtist')}
-                                />
-                            ) : undefined}
-
-                            {/* Only a rotation picks its own records, so only a rotation has a flow to judge them by. */}
-                            {form.values.mode === 'rotation' ? (
-                                <MixFlowField
-                                    value={form.values.mixFlow}
-                                    onChange={flow => form.setFieldValue('mixFlow', flow)}
-                                    showName={form.values.label}
-                                    brief={form.values.brief}
-                                    changed={form.isDirty('mixFlow')}
-                                />
+                                <ShowSectionFrame section="repeat">
+                                    <RepeatRulesFields
+                                        window={form.getInputProps('repeatWindowDays')}
+                                        cooldown={form.getInputProps('artistCooldownMinutes')}
+                                        perArtist={form.getInputProps('maxPerArtist')}
+                                    />
+                                </ShowSectionFrame>
                             ) : undefined}
                         </>
                     )}
+                    <Stack gap="md">
+                        <Text size="xs" c="dimmed">
+                            {live ? t('slot.special.liveSavingNote') : t('slot.savingNote')}
+                        </Text>
 
-                    <Text size="xs" c="dimmed">
-                        {live ? t('slot.special.liveSavingNote') : t('slot.savingNote')}
-                    </Text>
+                        <Divider />
 
-                    <Divider />
-
-                    <Group justify="space-between">
-                        {/* Delete lives here rather than on a card, because the grid has no room for
+                        <Group justify="space-between">
+                            {/* Delete lives here rather than on a card, because the grid has no room for
                             a per-block control and because deleting a slot is a decision made while
                             looking at what it says. Nothing is on air over it: the station keeps
                             playing what it has until the next slot begins. */}
-                        {slot ? (
-                            <Button variant="subtle" color="red" loading={deleting} onClick={() => onDelete(slot.id)}>
-                                {t('action.delete')}
-                            </Button>
-                        ) : (
-                            <span />
-                        )}
-                        <Group gap="xs">
-                            <Button variant="default" onClick={onClose}>
-                                {t('common:action.cancel')}
-                            </Button>
-                            {/* The plain save stays the form's submit, so Enter keeps doing what it
-                                always did: nothing on air changes unless somebody asks for it. */}
-                            <Button type="submit" variant={offersApply ? 'default' : 'filled'} loading={saving} disabled={applying}>
-                                {t('action.save')}
-                            </Button>
-                            {offersApply ? (
-                                <Button type="button" loading={applying} disabled={saving} onClick={() => submitAndApply()}>
-                                    {t('action.saveAndApply')}
+                            {slot ? (
+                                <Button variant="subtle" color="red" loading={deleting} onClick={() => onDelete(slot.id)}>
+                                    {t('action.delete')}
                                 </Button>
-                            ) : undefined}
+                            ) : (
+                                <span />
+                            )}
+                            <Group gap="xs">
+                                <Button variant="default" onClick={onCancel}>
+                                    {t('common:action.cancel')}
+                                </Button>
+                                {/* The plain save stays the form's submit, so Enter keeps doing what it
+                                always did: nothing on air changes unless somebody asks for it. */}
+                                <Button type="submit" variant={offersApply ? 'default' : 'filled'} loading={saving} disabled={applying}>
+                                    {t('action.save')}
+                                </Button>
+                                {offersApply ? (
+                                    <Button type="button" loading={applying} disabled={saving} onClick={() => submitAndApply()}>
+                                        {t('action.saveAndApply')}
+                                    </Button>
+                                ) : undefined}
+                            </Group>
                         </Group>
-                    </Group>
+                    </Stack>
                 </Stack>
-            </form>
-        </Modal>
+                {/* What the form adds up to, read as it stands, on a screen with room for a third column. */}
+                <Box visibleFrom="lg" w={280} style={STICKY}>
+                    <ShowSummary values={summaryOf(form.values, special)} />
+                </Box>
+            </Group>
+        </form>
     );
 }
 
@@ -558,7 +582,7 @@ function Word({ children }: { children: ReactNode }) {
 }
 
 /**
- * What the editor is open on: absent is closed, a slot is that slot, and a new one may arrive
+ * What the editor is open on: a slot is that slot, and a new one may arrive
  * knowing where on the grid it was asked for.
  *
  * A union rather than `slot | null | undefined` because the two states read differently at every use
@@ -568,7 +592,6 @@ function Word({ children }: { children: ReactNode }) {
  */
 export type EditorTarget = { kind: 'edit'; slot: ScheduleSlot } | { kind: 'new'; startsAtMinutes?: number; days?: number[]; special?: boolean };
 
-/** Whether the editor is open on a special: an existing one, or a new one asked for from the Specials tab. */
 /**
  * The rule half of the sentence. Its own component so the calendars are only asked for once somebody
  * chooses a rule: the months of each are read off the station, as the Occasions tab reads them.
@@ -618,15 +641,20 @@ function isSpecialTarget(target: EditorTarget | undefined): boolean {
     return target?.kind === 'edit' ? isSpecial(target.slot) : target?.special === true;
 }
 
-function titleOf(t: TFunction<['schedule', 'common']>, editing: boolean, special: boolean): string {
-    if (special) return editing ? t('slot.special.editTitle') : t('slot.special.newTitle');
+/** What the editor is called while it is open on `target`: a new or an existing slot, weekly or special. */
+export function slotEditorTitle(t: TFunction<['schedule', 'common']>, target: EditorTarget | undefined): string {
+    const editing = target?.kind === 'edit';
+    if (isSpecialTarget(target)) return editing ? t('slot.special.editTitle') : t('slot.special.newTitle');
 
     return editing ? t('slot.editTitle') : t('slot.newTitle');
 }
 
-interface Props {
-    target?: EditorTarget;
-    onClose: () => void;
+export interface SlotEditorFormProps {
+    target: EditorTarget;
+    /** The Cancel button. */
+    onCancel: () => void;
+    /** Told whenever the form gains or loses unsaved edits. */
+    onDirtyChange?: (dirty: boolean) => void;
     onSubmit: (draft: ScheduleSlotInput) => void;
     /**
      * Save the slot and apply it to the show on air. Absent means the page cannot, and no button is
@@ -766,6 +794,36 @@ function valuesOf(target?: EditorTarget): FormValues {
         coHosts: (slot?.coHosts ?? []).map(guestRowOf),
         mode: slot?.mode ?? 'rotation',
         onEnd: slot?.onEnd ?? 'extend',
+    };
+}
+
+/** Where the two side columns stay while the form scrolls: under the header, with the page's own margin. */
+const STICKY = { position: 'sticky', top: 'calc(var(--app-shell-header-height, 52px) + var(--mantine-spacing-md))', flexShrink: 0 } as const;
+
+/** The few fields the summary beside the form reads. */
+function summaryOf(values: FormValues, special: boolean): ShowSummaryValues {
+    return {
+        label: values.label,
+        startsAt: values.startsAt,
+        endsAt: values.endsAt,
+        days: values.days,
+        special,
+        byRule: values.byRule,
+        dates: values.dates,
+        yearly: values.yearly,
+        enabled: values.enabled,
+        live: special && values.live,
+        personaId: values.personaId,
+        guestCount: values.guestHosts.length,
+        coHostCount: values.coHosts.length,
+        sourceKind: splitSource(values.source)?.kind,
+        mode: values.mode,
+        brief: values.brief,
+        eraFrom: values.eraFrom,
+        eraTo: values.eraTo,
+        moods: values.moods,
+        mixFlow: values.mode === 'rotation' && values.mixFlow !== undefined && values.mixFlow.nodes.length > 0,
+        callins: values.callins,
     };
 }
 

@@ -222,7 +222,7 @@ export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnTy
         label: markOnAir && persona.presenting ? t('host.onAir', { label: persona.label }) : persona.label,
     }));
 
-    return <Select label={t('host.label')} description={t('host.description')} data={options} clearable {...input} />;
+    return <Select label={t('host.label')} description={t('host.description')} placeholder={t('host.ownHost')} data={options} clearable {...input} />;
 }
 
 /** What it is asked to play, in the operator's own words. */

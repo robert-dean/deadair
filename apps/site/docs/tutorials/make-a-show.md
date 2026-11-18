@@ -22,7 +22,8 @@ Without it the show still airs, with its host, on the station's ordinary rotatio
 ### 1. Open the timetable
 
 Open **Programme → Timetable**. It shows the week. Click an empty hour on the day the show starts; the
-**New slot** editor opens.
+show opens on a page of its own, **New slot**, in parts listed down the side. Leave **Hosted by**
+empty and the station's own host presents it.
 
 ### 2. Fill in the slot
 

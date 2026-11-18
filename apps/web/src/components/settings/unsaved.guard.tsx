@@ -6,6 +6,8 @@ import { ConfirmModal } from '../shared/confirm.modal';
 export interface UnsavedGuardProps {
     /** Whether anything on the page is holding an edit nobody has saved. */
     dirty: boolean;
+    /** What the dialog says, for a page whose saving works differently from Settings'. Absent is Settings' own sentence. */
+    body?: string;
 }
 
 /**
@@ -19,6 +21,9 @@ export interface UnsavedGuardProps {
  * them is the same tab strip that moves you anywhere else. Typing a new mount into Station and
  * clicking Rotation used to be scrolling and is now a navigation, so what was impossible to lose is
  * one click from gone.
+ *
+ * The show editor (`schedule/show.editor.page.tsx`) is the second page it guards, for the same
+ * reason: it was a dialog, and as a page the shell's keys and the back button can leave it.
  *
  * It is deliberately not a general facility. It takes a bit and asks a question; what counts as an
  * unsaved edit is `ConfigFieldsForm`'s question, answered there, because clearing a secret is an
@@ -45,7 +50,7 @@ export interface UnsavedGuardProps {
  * `disabled` rather than a `shouldBlockFn` that returns false: with nothing typed the blocker is not
  * merely permissive, it is not installed, so a clean page cannot pay for this at all.
  */
-export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
+export function UnsavedGuard({ dirty, body }: UnsavedGuardProps) {
     const { t } = useTranslation('settings');
     const blocker = useBlocker({
         shouldBlockFn: () => dirty,
@@ -65,7 +70,7 @@ export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
             title={t('unsaved.title')}
             confirmLabel={t('unsaved.confirm')}
         >
-            {t('unsaved.body')}
+            {body ?? t('unsaved.body')}
         </ConfirmModal>
     );
 }

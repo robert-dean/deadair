@@ -28,7 +28,7 @@ The console is in English unless you choose otherwise: under **Settings, Languag
 
 ## Moving around by keyboard
 
-The four destinations have keys: D, P, L and V. They do nothing while you are typing in a field or have a dialog open, so a letter never navigates away from unsaved work.
+The four destinations have keys: D, P, L and V. They do nothing while you are typing in a field or have a dialog open, so a letter never navigates away from unsaved work. On a show's page, which is not a dialog, they ask before leaving a change you have not saved.
 
 ⌘K (Ctrl+K off a Mac) opens Jump to anything: every destination, section and settings page, listed as soon as it opens. Type two characters or more and it also searches records, artists and characters by name.
 

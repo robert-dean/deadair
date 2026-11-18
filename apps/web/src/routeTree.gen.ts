@@ -24,7 +24,6 @@ import { Route as PartyPosterRouteImport } from './routes/party-poster'
 import { Route as PodcastsRouteImport } from './routes/podcasts'
 import { Route as RecordingsRouteImport } from './routes/recordings'
 import { Route as ReleasesRouteImport } from './routes/releases'
-import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as TracesRouteImport } from './routes/traces'
 import { Route as TrendsRouteImport } from './routes/trends'
 import { Route as VoiceRouteImport } from './routes/voice'
@@ -34,6 +33,7 @@ import { Route as CatalogSimilarityRouteImport } from './routes/catalog/similari
 import { Route as OauthAuthorizeRouteImport } from './routes/oauth/authorize'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
+import { Route as ScheduleIndexRouteImport } from './routes/schedule/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAnalysisRouteImport } from './routes/settings/analysis'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
@@ -64,6 +64,8 @@ import { Route as CatalogTracksIndexRouteImport } from './routes/catalog/tracks/
 import { Route as CatalogTracksTrackIdRouteImport } from './routes/catalog/tracks/$trackId'
 import { Route as PlaylistsPluginIdPlaylistIdRouteImport } from './routes/playlists/$pluginId/$playlistId'
 import { Route as PluginsIdIndexRouteImport } from './routes/plugins/$id/index'
+import { Route as ScheduleShowSlotIdRouteImport } from './routes/schedule/show.$slotId'
+import { Route as ScheduleShowNewRouteImport } from './routes/schedule/show.new'
 import { Route as PluginsIdOauthCallbackRouteImport } from './routes/plugins/$id/oauth.callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -141,11 +143,6 @@ const ReleasesRoute = ReleasesRouteImport.update({
   path: '/releases',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScheduleRoute = ScheduleRouteImport.update({
-  id: '/schedule',
-  path: '/schedule',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TracesRoute = TracesRouteImport.update({
   id: '/traces',
   path: '/traces',
@@ -189,6 +186,11 @@ const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
 const PluginsIndexRoute = PluginsIndexRouteImport.update({
   id: '/plugins/',
   path: '/plugins/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScheduleIndexRoute = ScheduleIndexRouteImport.update({
+  id: '/schedule/',
+  path: '/schedule/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
@@ -342,6 +344,16 @@ const PluginsIdIndexRoute = PluginsIdIndexRouteImport.update({
   path: '/plugins/$id/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScheduleShowSlotIdRoute = ScheduleShowSlotIdRouteImport.update({
+  id: '/schedule/show/$slotId',
+  path: '/schedule/show/$slotId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScheduleShowNewRoute = ScheduleShowNewRouteImport.update({
+  id: '/schedule/show/new',
+  path: '/schedule/show/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PluginsIdOauthCallbackRoute = PluginsIdOauthCallbackRouteImport.update({
   id: '/plugins/$id/oauth/callback',
   path: '/plugins/$id/oauth/callback',
@@ -364,7 +376,6 @@ export interface FileRoutesByFullPath {
   '/podcasts': typeof PodcastsRoute
   '/recordings': typeof RecordingsRoute
   '/releases': typeof ReleasesRoute
-  '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
@@ -397,11 +408,14 @@ export interface FileRoutesByFullPath {
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/schedule/': typeof ScheduleIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
+  '/schedule/show/$slotId': typeof ScheduleShowSlotIdRoute
+  '/schedule/show/new': typeof ScheduleShowNewRoute
   '/catalog/tracks/': typeof CatalogTracksIndexRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
@@ -422,7 +436,6 @@ export interface FileRoutesByTo {
   '/podcasts': typeof PodcastsRoute
   '/recordings': typeof RecordingsRoute
   '/releases': typeof ReleasesRoute
-  '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
@@ -455,11 +468,14 @@ export interface FileRoutesByTo {
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
+  '/schedule': typeof ScheduleIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
+  '/schedule/show/$slotId': typeof ScheduleShowSlotIdRoute
+  '/schedule/show/new': typeof ScheduleShowNewRoute
   '/catalog/tracks': typeof CatalogTracksIndexRoute
   '/plugins/$id': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
@@ -481,7 +497,6 @@ export interface FileRoutesById {
   '/podcasts': typeof PodcastsRoute
   '/recordings': typeof RecordingsRoute
   '/releases': typeof ReleasesRoute
-  '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/trends': typeof TrendsRoute
   '/voice': typeof VoiceRoute
@@ -514,11 +529,14 @@ export interface FileRoutesById {
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/schedule/': typeof ScheduleIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
+  '/schedule/show/$slotId': typeof ScheduleShowSlotIdRoute
+  '/schedule/show/new': typeof ScheduleShowNewRoute
   '/catalog/tracks/': typeof CatalogTracksIndexRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
@@ -541,7 +559,6 @@ export interface FileRouteTypes {
     | '/podcasts'
     | '/recordings'
     | '/releases'
-    | '/schedule'
     | '/traces'
     | '/trends'
     | '/voice'
@@ -574,11 +591,14 @@ export interface FileRouteTypes {
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
+    | '/schedule/'
     | '/settings/'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
     | '/catalog/tracks/$trackId'
     | '/playlists/$pluginId/$playlistId'
+    | '/schedule/show/$slotId'
+    | '/schedule/show/new'
     | '/catalog/tracks/'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
@@ -599,7 +619,6 @@ export interface FileRouteTypes {
     | '/podcasts'
     | '/recordings'
     | '/releases'
-    | '/schedule'
     | '/traces'
     | '/trends'
     | '/voice'
@@ -632,11 +651,14 @@ export interface FileRouteTypes {
     | '/catalog'
     | '/playlists'
     | '/plugins'
+    | '/schedule'
     | '/settings'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
     | '/catalog/tracks/$trackId'
     | '/playlists/$pluginId/$playlistId'
+    | '/schedule/show/$slotId'
+    | '/schedule/show/new'
     | '/catalog/tracks'
     | '/plugins/$id'
     | '/plugins/$id/oauth/callback'
@@ -657,7 +679,6 @@ export interface FileRouteTypes {
     | '/podcasts'
     | '/recordings'
     | '/releases'
-    | '/schedule'
     | '/traces'
     | '/trends'
     | '/voice'
@@ -690,11 +711,14 @@ export interface FileRouteTypes {
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
+    | '/schedule/'
     | '/settings/'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
     | '/catalog/tracks/$trackId'
     | '/playlists/$pluginId/$playlistId'
+    | '/schedule/show/$slotId'
+    | '/schedule/show/new'
     | '/catalog/tracks/'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
@@ -716,7 +740,6 @@ export interface RootRouteChildren {
   PodcastsRoute: typeof PodcastsRoute
   RecordingsRoute: typeof RecordingsRoute
   ReleasesRoute: typeof ReleasesRoute
-  ScheduleRoute: typeof ScheduleRoute
   TracesRoute: typeof TracesRoute
   TrendsRoute: typeof TrendsRoute
   VoiceRoute: typeof VoiceRoute
@@ -749,11 +772,14 @@ export interface RootRouteChildren {
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
+  ScheduleIndexRoute: typeof ScheduleIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
   CatalogArtistsArtistIdRoute: typeof CatalogArtistsArtistIdRoute
   CatalogTracksTrackIdRoute: typeof CatalogTracksTrackIdRoute
   PlaylistsPluginIdPlaylistIdRoute: typeof PlaylistsPluginIdPlaylistIdRoute
+  ScheduleShowSlotIdRoute: typeof ScheduleShowSlotIdRoute
+  ScheduleShowNewRoute: typeof ScheduleShowNewRoute
   CatalogTracksIndexRoute: typeof CatalogTracksIndexRoute
   PluginsIdIndexRoute: typeof PluginsIdIndexRoute
   PluginsIdOauthCallbackRoute: typeof PluginsIdOauthCallbackRoute
@@ -866,13 +892,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReleasesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/schedule': {
-      id: '/schedule'
-      path: '/schedule'
-      fullPath: '/schedule'
-      preLoaderRoute: typeof ScheduleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/traces': {
       id: '/traces'
       path: '/traces'
@@ -934,6 +953,13 @@ declare module '@tanstack/react-router' {
       path: '/plugins'
       fullPath: '/plugins/'
       preLoaderRoute: typeof PluginsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schedule/': {
+      id: '/schedule/'
+      path: '/schedule'
+      fullPath: '/schedule/'
+      preLoaderRoute: typeof ScheduleIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/': {
@@ -1146,6 +1172,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PluginsIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/schedule/show/$slotId': {
+      id: '/schedule/show/$slotId'
+      path: '/schedule/show/$slotId'
+      fullPath: '/schedule/show/$slotId'
+      preLoaderRoute: typeof ScheduleShowSlotIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schedule/show/new': {
+      id: '/schedule/show/new'
+      path: '/schedule/show/new'
+      fullPath: '/schedule/show/new'
+      preLoaderRoute: typeof ScheduleShowNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/plugins/$id/oauth/callback': {
       id: '/plugins/$id/oauth/callback'
       path: '/plugins/$id/oauth/callback'
@@ -1172,7 +1212,6 @@ const rootRouteChildren: RootRouteChildren = {
   PodcastsRoute: PodcastsRoute,
   RecordingsRoute: RecordingsRoute,
   ReleasesRoute: ReleasesRoute,
-  ScheduleRoute: ScheduleRoute,
   TracesRoute: TracesRoute,
   TrendsRoute: TrendsRoute,
   VoiceRoute: VoiceRoute,
@@ -1205,11 +1244,14 @@ const rootRouteChildren: RootRouteChildren = {
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
+  ScheduleIndexRoute: ScheduleIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,
   CatalogArtistsArtistIdRoute: CatalogArtistsArtistIdRoute,
   CatalogTracksTrackIdRoute: CatalogTracksTrackIdRoute,
   PlaylistsPluginIdPlaylistIdRoute: PlaylistsPluginIdPlaylistIdRoute,
+  ScheduleShowSlotIdRoute: ScheduleShowSlotIdRoute,
+  ScheduleShowNewRoute: ScheduleShowNewRoute,
   CatalogTracksIndexRoute: CatalogTracksIndexRoute,
   PluginsIdIndexRoute: PluginsIdIndexRoute,
   PluginsIdOauthCallbackRoute: PluginsIdOauthCallbackRoute,

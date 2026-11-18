@@ -26,6 +26,7 @@ export const programme = {
     host: {
         label: 'Hosted by',
         description: 'Empty means the station’s own host.',
+        ownHost: 'The station’s own host',
         onAir: '{{label}} (on air)',
     },
     brief: {

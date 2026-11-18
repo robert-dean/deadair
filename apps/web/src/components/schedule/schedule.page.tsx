@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Stack, Text, Title } from '@mantine/core';
 import { DayView, WeekView, type ScheduleEventData } from '@mantine/schedule';
+import { useNavigate } from '@tanstack/react-router';
 import type { ScheduleSlot, ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
 import { usePersonas } from '../../api/personas.queries';
-import { useApplySlot, useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
-import { notifyDone, notifyQueued } from '../shared/notify';
+import { useCurrentSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
 import { dayjsClock } from '../../i18n/format.locale';
 import { useSectionAttention } from '../shell/use.section.attention';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
@@ -15,14 +15,14 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
+import { DayStrip } from './day.strip';
+import { HourRulerPanel } from './hour.ruler';
 import { OnNowStrip } from './on.now.strip';
 import { FestivalsPanel } from './festivals.panel';
 import { OccasionsPanel } from './occasions.panel';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, stationClockAt, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, resizeEdit, writesOf, type DraggedBlock, type SlotEdit, type SlotTimes } from './schedule.edits';
-import { describeApplied } from './slot.applied';
-import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RulesPanel } from './rules.panel';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
@@ -142,15 +142,10 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     const schedule = useSchedule();
     const current = useCurrentSlot();
     // For the host's name on the strip. Cached for half a minute and fetched once on mount, which is
-    // the same list the slot editor on this page already reads.
+    // the same list the show page reads.
     const personas = usePersonas();
-    const create = useCreateSlot();
     const update = useUpdateSlot();
-    const remove = useDeleteSlot();
-    const applyTo = useApplySlot();
-    // Which of the editor's two buttons the save in flight came from, so only that one spins. The
-    // save itself is the same mutation either way.
-    const [applying, setApplying] = useState(false);
+    const navigate = useNavigate();
 
     const [view, setView] = useState<'week' | 'day'>('week');
     // `undefined` is the station's today, which only the API can work out. Every step after that is
@@ -159,7 +154,6 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
     const days = view === 'week' ? 7 : 1;
     const timetable = useTimetable(anchor, days);
-    const [editing, setEditing] = useState<EditorTarget | undefined>(undefined);
     // Why the last gesture sprang back. A drag that is refused looks identical to one that failed,
     // and the block returning to where it was is the only other feedback there is.
     const [refusal, setRefusal] = useState<string | undefined>(undefined);
@@ -170,48 +164,9 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
     const airingId = current.data?.airingSlotId;
 
-    const close = () => {
-        setEditing(undefined);
-        create.reset();
-        update.reset();
-        applyTo.reset();
-        setApplying(false);
-    };
-
-    const submit = (draft: ScheduleSlotInput) => {
-        const done = { onSuccess: close };
-        if (editing?.kind === 'edit') update.mutate({ id: editing.slot.id, body: draft }, done);
-        else create.mutate(draft, done);
-    };
-
-    /**
-     * Save, then apply what was saved to the show on air.
-     *
-     * In that order and only on success, because the station applies the slot as it is STORED: an
-     * apply racing its own save would change the show to the version being replaced. A save that
-     * lands and an apply that fails leave the editor open on the apply's own error, since the change
-     * is kept either way and the operator may want to try again.
-     */
-    const saveAndApply = (draft: ScheduleSlotInput) => {
-        if (editing?.kind !== 'edit') return;
-        const id = editing.slot.id;
-        setApplying(true);
-        update.mutate(
-            { id, body: draft },
-            {
-                onError: () => setApplying(false),
-                onSuccess: () =>
-                    applyTo.mutate(id, {
-                        onSuccess: answer => {
-                            const { message, queued } = describeApplied(answer);
-                            (queued ? notifyQueued : notifyDone)(message);
-                            close();
-                        },
-                        onError: () => setApplying(false),
-                    }),
-            },
-        );
-    };
+    // A show opens on a page of its own, which comes back to the tab it was opened from.
+    const editSlot = (slot: ScheduleSlot) => void navigate({ to: '/schedule/show/$slotId', params: { slotId: slot.id }, search: { from: tab } });
+    const newShow = (prefill: NewShowAt) => void navigate({ to: '/schedule/show/new', search: { from: tab, special: false, ...prefill } });
 
     /**
      * Carry out what a gesture came to, or say why it could not be.
@@ -239,7 +194,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
     const openSlot = (event: ScheduleEventData) => {
         const slot = slots.find(candidate => candidate.id === event.payload?.slotId);
-        if (slot) setEditing({ kind: 'edit', slot });
+        if (slot) editSlot(slot);
     };
 
     /**
@@ -268,7 +223,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
         // refuses anything longer), so paging a week forward used to answer "Bad Request".
         onDateChange: (date: string) => setAnchor(date.slice(0, 10)),
         onEventClick: openSlot,
-        onTimeSlotClick: ({ slotStart }: { slotStart: string }) => setEditing(newSlotAt(slotStart)),
+        onTimeSlotClick: ({ slotStart }: { slotStart: string }) => newShow(newSlotAt(slotStart)),
         withEventsDragAndDrop: true,
         withEventResize: true,
         // Empty rather than omitted: a radio station has no weekend, Saturday and Sunday are not
@@ -313,10 +268,6 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 <ErrorAlert title={t('page.timetableFailedTitle')} error={timetable.error} fallback={t('page.timetableFailedFallback')} />
             ) : undefined}
 
-            {remove.error ? (
-                <ErrorAlert title={t('page.deleteFailedTitle')} error={remove.error} fallback={t('page.deleteFailedFallback')} />
-            ) : undefined}
-
             {update.error ? (
                 <ErrorAlert title={t('page.updateFailedTitle')} error={update.error} fallback={t('page.updateFailedFallback')} />
             ) : undefined}
@@ -324,13 +275,13 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             {/* On Today, because "what is on" is the question somebody arrives with and reading it
                 off a week of columns is work. The takeover note lives inside it, on the block it is
                 about, rather than as a loose paragraph here. */}
+            {/* The whole day on one line, above what is on now, which carries the host lines this cannot. */}
             {tab === 'today' && current.data ? (
-                <OnNowStrip
-                    current={current.data}
-                    slots={slots}
-                    personas={personas.data?.personas ?? []}
-                    onEdit={slot => setEditing({ kind: 'edit', slot })}
-                />
+                <DayStrip now={current.data.now} slots={slots} airingSlotId={airingId} onEdit={editSlot} />
+            ) : undefined}
+
+            {tab === 'today' && current.data ? (
+                <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} onEdit={editSlot} />
             ) : undefined}
 
             {tab === 'week' && (schedule.isPending || timetable.isPending) ? <PageSkeleton variant="card" /> : undefined}
@@ -368,7 +319,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                     {/* A fact about every boundary drawn above, so it sits under the grid. */}
                     <OverrunPanel />
 
-                    <SwitchedOffPanel slots={switchedOff} onEdit={slot => setEditing({ kind: 'edit', slot })} />
+                    <SwitchedOffPanel slots={switchedOff} onEdit={editSlot} />
 
                     <ScheduleFileButtons />
                 </Stack>
@@ -381,8 +332,8 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                     slots={slots}
                     today={current.data.now.slice(0, 10)}
                     airingId={airingId}
-                    onEdit={slot => setEditing({ kind: 'edit', slot })}
-                    onNew={() => setEditing({ kind: 'new', special: true })}
+                    onEdit={editSlot}
+                    onNew={() => newShow({ special: true })}
                 />
             ) : undefined}
 
@@ -406,27 +357,12 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
             {/* The other half of "what happens when", and the reason Today is a tab rather than the
                 day grid: a band is a rule about every hour and has no place on a week. */}
-            {tab === 'today' ? <ClockPanel /> : undefined}
+            {/* Above the clock it answers: the dial says what each minute wants, this says how the hour is going. */}
+            {tab === 'today' && current.data ? (
+                <HourRulerPanel stationNow={stationClockAt(current.data.now, Date.now() - current.dataUpdatedAt)} />
+            ) : undefined}
 
-            <SlotEditor
-                // Keyed, so opening a different slot — or the same hour on a different day — builds
-                // a fresh form rather than showing the last one's values. `useForm` reads its
-                // `initialValues` once per mount, so without this the editor opens on whatever it
-                // was first constructed with, which is an empty new slot. Same reason and same
-                // spelling as the persona editor.
-                key={keyOf(editing)}
-                target={editing}
-                airing={editing?.kind === 'edit' && editing.slot.id === airingId}
-                onClose={close}
-                onSubmit={submit}
-                onApply={saveAndApply}
-                onDelete={id => remove.mutate(id, { onSuccess: close })}
-                saving={create.isPending || (update.isPending && !applying)}
-                applying={applying && (update.isPending || applyTo.isPending)}
-                deleting={remove.isPending}
-                error={create.error ?? update.error}
-                applyError={applyTo.error}
-            />
+            {tab === 'today' ? <ClockPanel /> : undefined}
         </Stack>
     );
 }
@@ -473,11 +409,18 @@ function toEvents(
  * Reachable only on a station with no schedule yet, since a partition leaves nothing else to click.
  * That is the case it exists for.
  */
-function newSlotAt(slotStart: string): EditorTarget {
+function newSlotAt(slotStart: string): NewShowAt {
     const [date, time] = slotStart.split(' ');
     const [hour, minute] = (time ?? '00:00:00').split(':').map(Number);
 
-    return { kind: 'new', startsAtMinutes: (hour ?? 0) * 60 + (minute ?? 0), days: [weekdayOf(date!)] };
+    return { startsAt: (hour ?? 0) * 60 + (minute ?? 0), day: weekdayOf(date!) };
+}
+
+/** What a new show is opened knowing: a special from its tab, or the hour and the weekday clicked on the grid. */
+interface NewShowAt {
+    special?: boolean;
+    startsAt?: number;
+    day?: number;
 }
 
 /**
@@ -493,20 +436,6 @@ function caption(t: TFunction<'schedule'>, slotCount: number): string {
     if (slotCount === 0) return t('page.caption.none');
 
     return t('page.caption.week');
-}
-
-/**
- * A key that changes whenever the editor should start over.
- *
- * The hour and the day are in it, not just the kind: clicking six on Wednesday and then six on
- * Thursday are two different forms, and a key of `new` for both would leave the second showing the
- * first's day.
- */
-function keyOf(target: EditorTarget | undefined): string {
-    if (target === undefined) return 'closed';
-    if (target.kind === 'edit') return target.slot.id;
-
-    return `new:${target.special === true ? 'special' : 'weekly'}:${target.startsAtMinutes ?? ''}:${(target.days ?? []).join(',')}`;
 }
 
 /** The slice of a rendered event the edit rules read, or nothing for one that carries no slot. */

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Chip, CloseButton, Group, Menu, SimpleGrid, Stack, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Button, Chip, CloseButton, Group, Menu, SimpleGrid, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconDots } from '@tabler/icons-react';
 import type { Persona, PersonaInput, ScheduleNow, ScheduleSlot, ScriptHistorySummaryRow } from '@deadair/sdk';
@@ -26,6 +26,7 @@ import { notifyDone } from '../shared/notify';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { usePhone } from '../shared/use.phone';
 import { PersonaCard } from './persona.card';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
@@ -46,6 +47,7 @@ import { PresentingBanner } from './presenting.banner';
  * was written in; nothing here can reach into audio that already exists.
  */
 export function PersonasPage() {
+    const phone = usePhone();
     const { t } = useTranslation('personas');
     const personas = usePersonas();
     const create = useCreatePersona();
@@ -174,14 +176,27 @@ export function PersonasPage() {
                             notification. */}
                         <Menu position="bottom-end" withinPortal>
                             <Menu.Target>
-                                <Button
-                                    variant="default"
-                                    leftSection={<IconDots size={16} />}
-                                    loading={exporting === ROSTER || restore.isPending}
-                                    aria-label={t('page.more.label')}
-                                >
-                                    {t('page.more.button')}
-                                </Button>
+                                {/* Icon-only on a phone: at 375px the word pushed New host off the
+                                    right edge of the row. */}
+                                {phone ? (
+                                    <ActionIcon
+                                        variant="default"
+                                        size="input-sm"
+                                        loading={exporting === ROSTER || restore.isPending}
+                                        aria-label={t('page.more.label')}
+                                    >
+                                        <IconDots size={16} />
+                                    </ActionIcon>
+                                ) : (
+                                    <Button
+                                        variant="default"
+                                        leftSection={<IconDots size={16} />}
+                                        loading={exporting === ROSTER || restore.isPending}
+                                        aria-label={t('page.more.label')}
+                                    >
+                                        {t('page.more.button')}
+                                    </Button>
+                                )}
                             </Menu.Target>
                             <Menu.Dropdown>
                                 {/* The whole roster as one file: a backup an operator can keep, and the

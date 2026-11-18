@@ -78,6 +78,8 @@ const targets = [
     { id: 'desk', path: '/' },
     { id: 'schedule.today', path: '/schedule?tab=today', ready: '#main svg' },
     { id: 'schedule.week', path: '/schedule?tab=week' },
+    // A new special's page, empty: opened by its address and never submitted, so nothing is created.
+    { id: 'schedule.special.editor', path: '/schedule/show/new?from=specials&special=true', ready: '#main h1' },
     { id: 'voice.characters', path: '/voice?tab=characters' },
     { id: 'voice.said', path: '/voice?tab=said' },
     { id: 'voice.productions', path: '/voice?tab=productions' },

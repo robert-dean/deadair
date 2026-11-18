@@ -17,7 +17,7 @@ import { SectionHeading } from './section.heading';
  *
  * **The shell survives on its own here, and that is a property of where it lives.** In this console
  * the `AppShell` is the ROOT route's component and every page renders through its `Outlet`, so an
- * error in a child route replaces the page and leaves the header, the rail and the tally mounted.
+ * error in a child route replaces the page and leaves the header and its tally mounted.
  * (v1 kept a list of console paths to decide when to re-wrap the shell by hand; that list was a
  * consequence of its shell being per-page, and porting it here would be a second answer to a
  * question the layout already answers.) The root's own `beforeLoad` catches its failures rather

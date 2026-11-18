@@ -11,7 +11,7 @@ import { i18n } from '../../i18n/i18n.setup';
 /**
  * The tabs, and the sentence behind each.
  *
- * `label` and `hint` are getters rather than strings, so the shell's rail and the palette, which read
+ * `label` and `hint` are getters rather than strings, so the shell and the palette, which read
  * this table directly, get the words in the language on screen at the moment they read them rather
  * than whatever was on screen when this module was imported.
  */
@@ -96,7 +96,7 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
 
     return (
         <Stack gap="lg">
-            {/* Name only: each tab opens with its own description, and the rail says what every
+            {/* Name only: each tab opens with its own description, and its tooltip says what every
                 section is. This one used to carry the Machinery tab's opening line almost word for
                 word, drawn directly above it. See `library.shell.tsx`. */}
             <Title order={1}>{t('shell.title')}</Title>

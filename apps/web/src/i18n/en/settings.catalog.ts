@@ -863,7 +863,7 @@ export const settings = {
         title: 'Settings',
         intro: 'The station itself, and the plugins it runs. Every section saves on its own, and nothing here can clear another. What plays between blocks is on Programme instead, beside the timetable that makes sense of it.',
     },
-    // Each section of Settings: its name, the line under it in the rail and the phone's list, and,
+    // Each section of Settings: its name, its tooltip in the section column and the line under it in the phone's list, and,
     // for a section that draws a group, the sentence under its heading.
     sections: {
         station: {

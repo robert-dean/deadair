@@ -92,7 +92,7 @@ import { i18n } from '../../i18n/i18n.setup';
 /**
  * The three questions a programme page answers, in the order they are asked.
  *
- * `label` and `hint` are getters, so the shell's rail and palette, which read this table directly,
+ * `label` and `hint` are getters, so the shell and palette, which read this table directly,
  * get the words in the language on screen when they read them rather than at import.
  */
 export const PROGRAMME_TABS = [

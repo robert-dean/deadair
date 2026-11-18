@@ -18,18 +18,17 @@ import { DEFAULT_VOICE_TAB, VOICE_TABS } from '../voice/voice.page';
  * and What it said — were simply not on the screen, and picking one from the middle scrolled the
  * first two off the other end. There was no scrollbar to say so: the strip hides it.
  *
- * Settings had already solved this, and solved it a different way: ten sections were too many for a
- * strip, so they are rows in the rail underneath Settings. That left the console navigating one way
- * in five places and another way in one, and the odd one out was the one that worked.
- *
- * So the rail carries every destination's sections now and the strip is the phone's. This table is
- * what both of them read.
+ * For a while a rail down the left listed every destination's sections as rows, and the strip was
+ * only the phone's. The rail cost every page its width and squeezed itself once Settings had grown to
+ * 22 rows. So the four destinations are tabs in the header now, each destination's strip is drawn on
+ * every width (scrolling and fading where it overflows), and Settings lists its own sections in a
+ * column beside the page. This table is what the header, the palette and those badges read.
  *
  * ## It restates nothing
  *
  * Every label here comes from the destination's own tab table — `VOICE_TABS`, `LIBRARY_TABS`,
  * `PROGRAMME_TABS`, `CHECKUP_TABS`, `SETTINGS_SECTIONS` — imported rather than copied, on the same
- * argument the palette already makes: a tab added to Voice appears in the rail and in the palette
+ * argument the palette already makes: a tab added to Voice appears in the palette
  * without anybody remembering this file. What this file adds is only the two things a tab table has
  * no opinion about: where each section goes as a `Link`, and which destination owns it.
  *
@@ -45,13 +44,13 @@ import { DEFAULT_VOICE_TAB, VOICE_TABS } from '../voice/voice.page';
  */
 export type NavLink = Pick<LinkProps, 'to' | 'search'>;
 
-// Every label below is a GETTER, read when the rail draws rather than when this module loads. The
+// Every label below is a GETTER, read when something draws rather than when this module loads. The
 // table is built once at import, and a label copied into it then would keep the language the console
 // happened to start in. A section reads its tab table's label at the same moment, for the same reason.
 
 export interface NavSection extends NavLink {
     label: string;
-    /** The heading the rail draws above the first row of a run sharing it. */
+    /** The heading drawn above the first tab or row of a run sharing it. */
     group?: string;
     /** What is behind it, drawn as the row's tooltip. Straight off the tab table. */
     hintText?: string;
@@ -82,7 +81,7 @@ export interface NavDestination extends NavLink {
     sections: NavSection[];
 }
 
-/** The four the rail lists, in the order it lists them. Keys bound by the shell against this table. */
+/** The four the header's tabs show, in their order. Keys bound by the shell against this table. */
 export const NAV_DESTINATIONS: NavDestination[] = [
     // Home and On air were two links and one question. The landing page was a masthead and a list of
     // faults, and the operator's next click was always the running order.
@@ -137,10 +136,10 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     },
     // Eight links became one destination, and eight tabs are what stopped fitting. An operator does
     // not arrive wanting "the pronunciations page", they arrive because the station said a name
-    // wrong — so the eight stay together and the rail is what lists them.
+    // wrong — so the eight stay together under one tab.
     //
     // `segment` and `persona` are emptied rather than omitted: both are part of this route's search
-    // shape, and a rail row is how somebody asks for the whole of What it said rather than for the
+    // shape, and this link is how somebody asks for the whole of What it said rather than for the
     // one break a link happened to leave in the URL.
     {
         to: '/voice',
@@ -221,9 +220,9 @@ export const DESTINATION_KEYS: { hint: string; to: NavLink['to'] }[] = NAV_DESTI
  * was clicked. `/plugins` counts as Settings, being a section of it that happens to have been a
  * route first.
  *
- * Deliberately NOT a search-param comparison. Whether the rail is expanded is a question about the
- * destination, not about which of its sections is open — the router decides that second question for
- * itself, on each row's own `Link`.
+ * Deliberately NOT a search-param comparison. Whether a header tab is current is a question about the
+ * destination, not about which of its sections is open: the router decides that second question for
+ * itself, on each section's own `Link`.
  */
 export function isInsideDestination(destination: NavDestination, pathname: string): boolean {
     const at = (path: string): boolean => pathname === path || pathname.startsWith(`${path}/`);

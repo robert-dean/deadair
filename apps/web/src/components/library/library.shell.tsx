@@ -30,7 +30,7 @@ export const LIBRARY_TABS = [
 ] as const satisfies readonly DestinationTab<string>[];
 
 /**
- * One tab, with its words read from the library catalog through getters, so the strip, the rail and
+ * One tab, with its words read from the library catalog through getters, so the strip, the shell and
  * the command palette get them in the language on screen when they read them rather than at import.
  */
 function libraryTab<TKey extends 'tracks' | 'artists' | 'similarity' | 'playlists' | 'charts' | 'news' | 'podcasts' | 'narrations'>(key: TKey) {
@@ -75,7 +75,7 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
             {/* The destination's name, and nothing under it. Every tab here carries its own
                 `PageHeader` description saying what THAT page is, so the two were drawn one above
                 the other and the reader's first two paragraphs were both preamble. The sentence
-                each section is worth is on its row in the rail now. */}
+                each section is worth is the tab's tooltip now. */}
             <Title order={1}>{t('title')}</Title>
 
             <DestinationTabs

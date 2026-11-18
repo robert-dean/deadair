@@ -25,8 +25,8 @@ describe('PhoneTabs', () => {
     });
 
     /**
-     * The desktop rail draws a mono letter beside each destination because `side.nav.tsx` binds it
-     * as a real keyboard shortcut. A phone has no keyboard, so this bar deliberately does not mirror
+     * On a desk each header tab's tooltip names its letter, because the shell binds it as a real
+     * keyboard shortcut. A phone has no keyboard, so this bar deliberately does not mirror
      * that: no letter, decorative or otherwise, should render alongside the label.
      */
     it('draws no keycap beside a label, because a phone has no keyboard to press it on', () => {

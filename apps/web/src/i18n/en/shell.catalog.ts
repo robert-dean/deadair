@@ -1,5 +1,5 @@
 /**
- * The shell's words: the rail, the phone's bar and menu, the command palette, the header's corner
+ * The shell's words: the header's tabs, the phone's bar and menu, the command palette, the header's corner
  * and the names of the console's themes.
  */
 export const shell = {

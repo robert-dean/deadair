@@ -55,8 +55,8 @@
     --da-tally-glow: rgb(255 75 75 / 40%);
 
     /* What a LINK is drawn in, which is the accent on two of the three consoles and deliberately not
-       on the third. A title in the running order, an artist credit and every entry in the settings
-       rail all go through `Anchor` with no colour of their own, so this one name decides the colour
+       on the third. A title in the running order, an artist credit and a back link all go
+       through `Anchor` with no colour of their own, so this one name decides the colour
        of most of the words on a dense page — which is exactly why it is separable from the accent
        rather than being it. */
     --da-link: var(--da-phosphor);
@@ -205,7 +205,7 @@
 
     /* The city, not the instrument. This is the one console where a link is not the accent, and the
        reason is a count rather than a taste: a running order draws every title and every artist
-       through `Anchor`, and the settings rail draws its whole contents that way, so at #fcee0a most
+       through `Anchor`, and the settings rail of the time drew its whole contents that way, so at #fcee0a most
        of the words on the densest page in the console were the brightest thing on it. Yellow is far
        more luminous than carbon's green at the same saturation, so what reads as an accent there
        reads as a page of highlighter here.

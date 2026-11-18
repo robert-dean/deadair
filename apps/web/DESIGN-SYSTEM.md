@@ -54,7 +54,7 @@ Mantine reads these through `cssVariablesResolver`: `--mantine-color-body` is `-
 
 | Token | Value (carbon) | Use |
 | --- | --- | --- |
-| `--da-chrome`, `--da-chrome-blur` | `var(--da-bg)`, `none` | Header, navbar and footer. Glass on neon. |
+| `--da-chrome`, `--da-chrome-blur` | `var(--da-bg)`, `none` | Header and the phone's tab bar. Glass on neon. |
 | `--da-glow-panel` | `none` | Card shadow. Only neon sets one. |
 | `--da-backdrop`, `--da-bg-glow` | one radial | The body background image. |
 | `--da-texture` | 2.5% white | The scanline colour. |
@@ -202,14 +202,15 @@ search param and `onSelect` navigates.
 
 | Prop | Type | Description |
 | --- | --- | --- |
-| `tabs` | `readonly DestinationTab<TKey>[]` | `{ key, label, group?, hint?, attention? }` |
+| `tabs` | `readonly DestinationTab<TKey>[]` | `{ key, label, group?, hint? }` |
 | `active` | `TKey` | The selected key |
 | `onSelect` | `(key: TKey) => void` | Navigate here |
 | `label` | `string` | Accessible name; a page can have more than one strip |
+| `attention` | `readonly (TabAttention \| undefined)[]` | In tab order: `{ count, severity }` draws a badge in the severity's colour |
 
-`group` and `hint` are read by the rail, not the strip. `attention` draws a count when above zero.
-One row that scrolls on a phone: the selected tab is scrolled into view and the overflowing edge is
-faded, both only when the row actually overflows. Tabs are buttons, not anchors, so the key union
+Drawn on every width. `group` draws a heading before the first tab of each run, and `hint` is the
+tab's tooltip. One row that scrolls when it overflows: the selected tab is scrolled into view and the
+overflowing edge is faded, both only when the row actually overflows. Tabs are buttons, not anchors, so the key union
 stays the thing that guarantees the set is complete.
 
 ### Loading, empty and failure

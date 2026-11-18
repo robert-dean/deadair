@@ -12,8 +12,8 @@ export interface SectionPaths {
 /**
  * How many things want somebody on each section of one destination, in the order its tabs are drawn.
  *
- * The same walk the rail's rows badge from, handed to a destination's tab strip, so a fault that
- * badges a tab and the row a rail would draw for it cannot disagree. It reads the attention query the
+ * The same walk the header's tabs badge from, handed to a destination's tab strip, so a fault that
+ * badges a section's tab and the header tab above it cannot disagree. It reads the attention query the
  * shell already polls, so a page asking for it adds no request.
  *
  * The page passes its own paths rather than this reading `destinations.ts`, because that table is

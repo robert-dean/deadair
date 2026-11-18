@@ -9,12 +9,12 @@ export const Route = createFileRoute('/settings/')({ component: SettingsIndexRou
 /**
  * What `/settings` with nothing after it means, which is not the same thing on a phone as on a desk.
  *
- * On a desk the rail already lists every section beside the page, so a landing page listing them
+ * On a desk the section column already lists every section beside the page, so a landing page listing them
  * again would be the same thing said twice and two URLs an operator could be told they are at. It
  * goes straight to Station, which is the first section and the one somebody setting a station up
  * needs first.
  *
- * On a phone the rail is collapsed and there is nothing else: the bottom bar holds four destinations
+ * On a phone there is no section column and nothing else: the bottom bar holds four destinations
  * by design and the kebab holds one flat Settings item. So this is the front door, and it lists the
  * sections with the sentence saying what each one holds.
  *

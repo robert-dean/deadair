@@ -273,8 +273,9 @@ async function visit(page, target) {
 async function openTrack(page) {
     if (values.track) return;
     await waitForQuiet(page);
-    const link = page.locator('#main a[href^="/catalog/tracks/"]:not([href="/catalog/tracks/"])').first();
-    await link.click();
+    // A row opens its record in a drawer, and the drawer carries the link to the record's own page.
+    await page.locator('#main tbody tr').first().locator('td').nth(2).locator('button').click();
+    await page.locator('a[href^="/catalog/tracks/"]:not([href="/catalog/tracks/"])').first().click();
     await page.waitForURL(/\/catalog\/tracks\/[^/?]+/);
 }
 

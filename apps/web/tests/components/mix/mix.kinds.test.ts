@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MixFlow } from '@deadair/sdk';
 
-import { flowProblems, freshNode, nextId, relinkSplit, songOf, starterFlow } from '../../../src/components/mix/mix.kinds';
+import { flowProblems, freshNode, nextId, relinkSplit, songOf, starterFlow, unwire } from '../../../src/components/mix/mix.kinds';
 import { mixFlowInput } from '../../../src/components/schedule/slot.editor';
 
 const split: MixFlow = {
@@ -39,6 +39,46 @@ describe('flowProblems', () => {
                 { nodeId: 'block-1', kind: 'noBands' },
             ]),
         );
+    });
+});
+
+describe('the checks the station makes too', () => {
+    const chain = (): MixFlow => ({
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'row', kind: 'noRepeat' },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'row', in: 0 },
+            { from: 'row', out: 0, to: 'merge', in: 0 },
+            { from: 'merge', out: 0, to: 'air', in: 0 },
+        ],
+    });
+
+    it('finds a circle, and a node nothing reaches', () => {
+        const looped = chain();
+        looped.links.push({ from: 'merge', out: 0, to: 'row', in: 0 });
+        expect(flowProblems(looped)).toContainEqual({ kind: 'circle' });
+
+        const stray = chain();
+        stray.nodes.push({ id: 'orphan', kind: 'noRepeat' });
+        stray.links.push({ from: 'orphan', out: 0, to: 'merge', in: 1 });
+        expect(flowProblems(stray)).toContainEqual({ nodeId: 'orphan', kind: 'unreached' });
+    });
+
+    it('lets a rule be bypassed and refuses it for a Merge, with the wires still checked', () => {
+        const flow = chain();
+        expect(flowProblems({ ...flow, nodes: flow.nodes.map(node => (node.id === 'row' ? { ...node, bypassed: true } : node)) })).toEqual([]);
+        expect(flowProblems({ ...flow, nodes: flow.nodes.map(node => (node.id === 'merge' ? { ...node, bypassed: true } : node)) })).toEqual([
+            { nodeId: 'merge', kind: 'cannotBypass' },
+        ]);
+    });
+
+    it('takes every wire into and out of a node off, and no others', () => {
+        expect(unwire(chain().links, 'row')).toEqual([{ from: 'merge', out: 0, to: 'air', in: 0 }]);
     });
 });
 

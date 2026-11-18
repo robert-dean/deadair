@@ -121,6 +121,16 @@ export const mix = {
         lastGenre: 'genre of the last record',
         judged: 'the model’s answer',
     },
+    toolbar: {
+        label: 'What to do with this node',
+        bypass: 'Bypass',
+        bypassHint: 'Switch it off without taking it out: it holds nothing and tells the model nothing until you switch it back.',
+        restore: 'Switch back on',
+        unwire: 'Take its wires off',
+        remove: 'Remove',
+        fixed: 'Every flow has one: it cannot be bypassed or removed.',
+    },
+    bypassed: 'Bypassed',
     problems: {
         onePicks: 'A flow has exactly one Picks.',
         oneOnAir: 'A flow has exactly one On air.',
@@ -136,5 +146,8 @@ export const mix = {
         noCount: '{{node}} has no count.',
         nothingRequired: '{{node}} names no genre and no records.',
         switchUnfinished: '{{node}} needs an hour and both values.',
+        circle: 'The wires go round in a circle, so a record would never reach On air.',
+        unreached: 'Nothing reaches {{node}}: wire it from Picks, a Require or a Time switch.',
+        cannotBypass: '{{node}} is not a rule, so it cannot be bypassed.',
     },
 } as const;

@@ -45,4 +45,12 @@ describe('MixFlowEditor', () => {
         expect(screen.getByRole('button', { name: 'Use this flow' })).toBeDisabled();
         expect(screen.getByRole('status')).toHaveTextContent('No two in a row (noRepeat-1) leads nowhere. Wire it on toward On air.');
     });
+
+    it('draws a bypassed node as bypassed, with its wires still checked', async () => {
+        const bypassed: MixFlow = { ...runs, nodes: runs.nodes.map(node => (node.id === 'noRepeat-1' ? { ...node, bypassed: true } : node)) };
+        render(<MixFlowEditor opened flow={bypassed} onDone={vi.fn()} onClose={vi.fn()} />);
+
+        expect(await screen.findByText('Bypassed')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Use this flow' })).toBeEnabled();
+    });
 });

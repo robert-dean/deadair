@@ -165,3 +165,23 @@
     border-top: 1px solid var(--da-border);
     padding-top: var(--mantine-spacing-xs);
 }
+
+/* Switched off and still wired: drawn faint, with a dashed edge, so it reads as present but not judging. */
+.node[data-bypassed='true'] {
+    opacity: 0.55;
+    border-style: dashed;
+}
+
+/* What is wrong with this node, on the node, as well as in the strip under the canvas. */
+.callout {
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--da-border);
+    background: var(--mantine-color-red-light);
+}
+
+.toolbar {
+    background: var(--da-raised);
+    border: 1px solid var(--da-border-strong);
+    border-radius: var(--mantine-radius-sm);
+    padding: 2px;
+}

@@ -110,7 +110,10 @@ export interface FlowProblem {
         | 'noAmount'
         | 'noCount'
         | 'nothingRequired'
-        | 'switchUnfinished';
+        | 'switchUnfinished'
+        | 'circle'
+        | 'unreached'
+        | 'cannotBypass';
     output?: number;
 }
 
@@ -138,8 +141,38 @@ export function flowProblems(flow: MixFlow): FlowProblem[] {
         if (ins.includes('records') && !fed.has(node.id)) problems.push({ nodeId: node.id, kind: 'nothingWiredIn' });
         const own = ownProblem(node, flow.links);
         if (own !== undefined) problems.push({ nodeId: node.id, kind: own });
+        if (node.bypassed === true && !canBypass(node)) problems.push({ nodeId: node.id, kind: 'cannotBypass' });
     }
+
+    // No circles, and nothing a record can never reach: the station's own two checks, so a flow the
+    // canvas calls ready is one the save takes.
+    const next = new Map<string, string[]>();
+    for (const link of flow.links) next.set(link.from, [...(next.get(link.from) ?? []), link.to]);
+    const reached = new Set<string>();
+    const state = new Map<string, 'open' | 'done'>();
+    const visit = (id: string): boolean => {
+        if (state.get(id) === 'done') return false;
+        if (state.get(id) === 'open') return true;
+        state.set(id, 'open');
+        reached.add(id);
+        const looped = (next.get(id) ?? []).some(visit);
+        state.set(id, 'done');
+        return looped;
+    };
+    const sources = flow.nodes.filter(node => node.kind === 'picks' || node.kind === 'require' || node.kind === 'timeSwitch');
+    if (sources.map(node => visit(node.id)).some(Boolean)) problems.push({ kind: 'circle' });
+    for (const node of flow.nodes) if (!reached.has(node.id)) problems.push({ nodeId: node.id, kind: 'unreached' });
     return problems;
+}
+
+/** Whether a node is a rule that can be switched off. Picks, On air and a Merge are not rules. */
+export function canBypass(node: Pick<MixNode, 'kind'>): boolean {
+    return node.kind !== 'picks' && node.kind !== 'onAir' && node.kind !== 'merge';
+}
+
+/** The links without any that touch a node, which is what "take its wires off" leaves. */
+export function unwire(links: readonly MixLink[], nodeId: string): MixLink[] {
+    return links.filter(link => link.from !== nodeId && link.to !== nodeId);
 }
 
 function nodeOf(flow: MixFlow, id: string): MixNode | undefined {

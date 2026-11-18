@@ -23,7 +23,7 @@ import { useDraftMixFlow } from '../../api/schedule.queries';
 import { useTheme } from '../../theme.store';
 import { ErrorAlert } from '../shared/error.alert';
 import { MixReadings } from './mix.readings';
-import { flowProblems, freshNode, nextId, PALETTE_KINDS, relinkSplit, socketsOf, starterFlow, type FlowProblem } from './mix.kinds';
+import { flowProblems, freshNode, nextId, PALETTE_KINDS, relinkSplit, socketsOf, starterFlow, unwire, type FlowProblem } from './mix.kinds';
 import { MixNodeView, type MixFlowNode } from './mix.node';
 import classes from './mix.flow.module.css';
 
@@ -168,6 +168,12 @@ function Canvas({ title, initial, brief, draftOnOpen, onDone, onClose }: CanvasP
         }));
     }, []);
 
+    const unwireNode = useCallback((id: string) => setFlow(current => ({ ...current, links: unwire(current.links, id) })), []);
+    const removeNode = useCallback(
+        (id: string) => setFlow(current => ({ ...current, nodes: current.nodes.filter(node => node.id !== id), links: unwire(current.links, id) })),
+        [],
+    );
+
     const nodes: MixFlowNode[] = useMemo(
         () =>
             flow.nodes.map(node => ({
@@ -176,9 +182,17 @@ function Canvas({ title, initial, brief, draftOnOpen, onDone, onClose }: CanvasP
                 position: { x: node.x ?? 0, y: node.y ?? 0 },
                 // Picks and On air are what every flow is; removing either leaves nothing that can run.
                 deletable: node.kind !== 'picks' && node.kind !== 'onAir',
-                data: { node, problems: problems.filter(problem => problem.nodeId === node.id), lit: lit.includes(node.id), onChange: changeNode },
+                data: {
+                    node,
+                    problems: problems.filter(problem => problem.nodeId === node.id),
+                    problemTexts: problems.filter(problem => problem.nodeId === node.id).map(problem => problemText(t, problem, flow.nodes)),
+                    lit: lit.includes(node.id),
+                    onChange: changeNode,
+                    onUnwire: unwireNode,
+                    onRemove: removeNode,
+                },
             })),
-        [flow.nodes, problems, lit, changeNode],
+        [flow.nodes, problems, lit, changeNode, unwireNode, removeNode, t],
     );
 
     const edges: Edge[] = useMemo(() => {

@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { ActionIcon, Button, Group, NumberInput, Select, TagsInput, Text, TextInput } from '@mantine/core';
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { IconX } from '@tabler/icons-react';
+import { ActionIcon, Badge, Button, Group, NumberInput, Select, TagsInput, Text, TextInput, Tooltip } from '@mantine/core';
+import { Handle, NodeToolbar, Position, type Node, type NodeProps } from '@xyflow/react';
+import { IconLock, IconPlugConnectedX, IconPower, IconTrash, IconX } from '@tabler/icons-react';
 import type { MixBranch, MixNode } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
-import { SPLIT_BY_VALUES, socketsOf, songOf, songText, type FlowProblem, type SocketType } from './mix.kinds';
+import { canBypass, SPLIT_BY_VALUES, socketsOf, songOf, songText, type FlowProblem, type SocketType } from './mix.kinds';
 import classes from './mix.flow.module.css';
 
 /** What the canvas hands each node: the node itself, its problems, and how to change it. */
@@ -15,6 +15,11 @@ export interface MixNodeData extends Record<string, unknown> {
     /** Drawn from the phrase the operator is pointing at in the draft's readings. */
     lit?: boolean;
     onChange: (next: MixNode, relink?: { removed: number } | { addedAt: number }) => void;
+    /** The problems on this node, worded, so they can be drawn on it as well as in the strip. */
+    problemTexts: readonly string[];
+    /** Take every wire into and out of this node off. */
+    onUnwire: (id: string) => void;
+    onRemove: (id: string) => void;
 }
 
 export type MixFlowNode = Node<MixNodeData, 'mix'>;
@@ -45,13 +50,82 @@ export function MixNodeView({ data, selected }: NodeProps<MixFlowNode>) {
     const { node, problems, onChange } = data;
     const { ins, outs } = socketsOf(node);
     const set = (part: Partial<MixNode>) => onChange({ ...node, ...part } as MixNode);
+    const bypassed = node.bypassed === true;
+    const fixed = node.kind === 'picks' || node.kind === 'onAir';
 
     return (
-        <div className={classes.node} data-selected={selected === true} data-problem={problems.length > 0} data-lit={data.lit === true}>
+        <div
+            className={classes.node}
+            data-selected={selected === true}
+            data-problem={problems.length > 0}
+            data-lit={data.lit === true}
+            data-bypassed={bypassed}
+        >
+            {/* Over the node while it is selected: what can be done to it, here rather than in a menu. */}
+            <NodeToolbar position={Position.Top} offset={8}>
+                <Group gap={4} className={classes.toolbar} role="toolbar" aria-label={t('toolbar.label')}>
+                    {fixed ? (
+                        <Group gap={4} px={6}>
+                            <IconLock size={12} aria-hidden />
+                            <Text size="xs" c="dimmed">
+                                {t('toolbar.fixed')}
+                            </Text>
+                        </Group>
+                    ) : (
+                        <>
+                            {canBypass(node) ? (
+                                <Tooltip label={t('toolbar.bypassHint')} multiline w={240} disabled={bypassed}>
+                                    <Button
+                                        size="compact-xs"
+                                        variant={bypassed ? 'filled' : 'subtle'}
+                                        color={bypassed ? 'yellow' : 'gray'}
+                                        leftSection={<IconPower size={12} />}
+                                        onClick={() => set({ bypassed: bypassed ? undefined : true })}
+                                    >
+                                        {bypassed ? t('toolbar.restore') : t('toolbar.bypass')}
+                                    </Button>
+                                </Tooltip>
+                            ) : undefined}
+                            <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                color="gray"
+                                leftSection={<IconPlugConnectedX size={12} />}
+                                onClick={() => data.onUnwire(node.id)}
+                            >
+                                {t('toolbar.unwire')}
+                            </Button>
+                            <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                color="red"
+                                leftSection={<IconTrash size={12} />}
+                                onClick={() => data.onRemove(node.id)}
+                            >
+                                {t('toolbar.remove')}
+                            </Button>
+                        </>
+                    )}
+                </Group>
+            </NodeToolbar>
             <div className={classes.title}>
                 <span className={classes.dot} style={{ background: DOT[node.kind] }} />
                 <span>{t(`kinds.${node.kind}`)}</span>
+                {bypassed ? (
+                    <Badge size="xs" variant="light" color="yellow" ml="auto">
+                        {t('bypassed')}
+                    </Badge>
+                ) : undefined}
             </div>
+            {data.problemTexts.length === 0 ? undefined : (
+                <div className={classes.callout}>
+                    {data.problemTexts.map(text => (
+                        <Text key={text} size="xs" c="red">
+                            {text}
+                        </Text>
+                    ))}
+                </div>
+            )}
             {node.fromBrief === undefined || node.fromBrief.length === 0 ? undefined : (
                 <div className={classes.from} title={node.fromBrief}>
                     {t('draft.quoted', { quote: node.fromBrief })}

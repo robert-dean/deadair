@@ -119,4 +119,14 @@ describe('mixFlowProblems', () => {
             'Split "split" has a branch for an answer other than yes or no',
         );
     });
+
+    it('lets a rule be bypassed with its wires still checked, and refuses bypassing Picks, On air or a Merge', () => {
+        expect(mixFlowProblems(replacing(church(), 'share', { bypassed: true }))).toEqual([]);
+        expect(mixFlowProblems(replacing(church(), 'merge', { bypassed: true }))).toContain('Merge "merge" cannot be bypassed');
+        expect(mixFlowProblems(replacing(church(), 'picks', { bypassed: true }))).toContain('Picks "picks" cannot be bypassed');
+        const loose = replacing(church(), 'block', { bypassed: true });
+        expect(mixFlowProblems({ ...loose, links: loose.links.filter(link => link.from !== 'block') })).toContain(
+            'Block "block" leads nowhere; wire it on toward On air',
+        );
+    });
 });

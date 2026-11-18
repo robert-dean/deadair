@@ -143,6 +143,12 @@ export const MixNode = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(1000))
         .optional()
         .describe('`timeSwitch`: its value before `fromHour`'),
+    bypassed: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Switched off without being taken out: it judges nothing, counts nothing and tells the model nothing, and its wires still have to be whole. A Block, a limit or No two in a row lets every record through, a Split sends every record down "everything else", a Require never falls due and a Time switch leaves its limit on its own `percent`. Picks, On air and Merge cannot be bypassed. Absent is no',
+        ),
     fromBrief: z.string().max(200).optional().describe('The phrase of the brief this node was drafted from, shown on the canvas. Nothing reads it'),
     x: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())

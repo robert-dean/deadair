@@ -220,13 +220,15 @@ public struct MixNode: Codable, Equatable, Sendable {
     public var thenValue: Double?
     /// `timeSwitch`: its value before `fromHour`
     public var elseValue: Double?
+    /// Switched off without being taken out: it judges nothing, counts nothing and tells the model nothing, and its wires still have to be whole. A Block, a limit or No two in a row lets every record through, a Split sends every record down "everything else", a Require never falls due and a Time switch leaves its limit on its own `percent`. Picks, On air and Merge cannot be bypassed. Absent is no
+    public var bypassed: Bool?
     /// The phrase of the brief this node was drafted from, shown on the canvas. Nothing reads it
     public var fromBrief: String?
     /// Where the canvas draws it. Nothing else reads it
     public var x: Double?
     public var y: Double?
 
-    public init(id: String, kind: MixNodeKind, bands: [String]? = nil, splitBy: MixNodeSplitBy? = nil, branches: [MixBranch]? = nil, question: String? = nil, percent: Double? = nil, count: Int? = nil, per: MixNodePer? = nil, requireGenres: [String]? = nil, requireMode: MixNodeRequireMode? = nil, songs: [MixSong]? = nil, afterPercent: Double? = nil, fromHour: Int? = nil, thenValue: Double? = nil, elseValue: Double? = nil, fromBrief: String? = nil, x: Double? = nil, y: Double? = nil) {
+    public init(id: String, kind: MixNodeKind, bands: [String]? = nil, splitBy: MixNodeSplitBy? = nil, branches: [MixBranch]? = nil, question: String? = nil, percent: Double? = nil, count: Int? = nil, per: MixNodePer? = nil, requireGenres: [String]? = nil, requireMode: MixNodeRequireMode? = nil, songs: [MixSong]? = nil, afterPercent: Double? = nil, fromHour: Int? = nil, thenValue: Double? = nil, elseValue: Double? = nil, bypassed: Bool? = nil, fromBrief: String? = nil, x: Double? = nil, y: Double? = nil) {
         self.id = id
         self.kind = kind
         self.bands = bands
@@ -243,6 +245,7 @@ public struct MixNode: Codable, Equatable, Sendable {
         self.fromHour = fromHour
         self.thenValue = thenValue
         self.elseValue = elseValue
+        self.bypassed = bypassed
         self.fromBrief = fromBrief
         self.x = x
         self.y = y
@@ -265,6 +268,7 @@ public struct MixNode: Codable, Equatable, Sendable {
         case fromHour = "fromHour"
         case thenValue = "thenValue"
         case elseValue = "elseValue"
+        case bypassed = "bypassed"
         case fromBrief = "fromBrief"
         case x = "x"
         case y = "y"
@@ -288,6 +292,7 @@ public struct MixNode: Codable, Equatable, Sendable {
         self.fromHour = try container.decodeIfPresent(Int.self, forKey: .fromHour)
         self.thenValue = try container.decodeIfPresent(Double.self, forKey: .thenValue)
         self.elseValue = try container.decodeIfPresent(Double.self, forKey: .elseValue)
+        self.bypassed = try container.decodeIfPresent(Bool.self, forKey: .bypassed)
         self.fromBrief = try container.decodeIfPresent(String.self, forKey: .fromBrief)
         self.x = try container.decodeIfPresent(Double.self, forKey: .x)
         self.y = try container.decodeIfPresent(Double.self, forKey: .y)
@@ -311,6 +316,7 @@ public struct MixNode: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.fromHour, forKey: .fromHour)
         try container.encodeIfPresent(self.thenValue, forKey: .thenValue)
         try container.encodeIfPresent(self.elseValue, forKey: .elseValue)
+        try container.encodeIfPresent(self.bypassed, forKey: .bypassed)
         try container.encodeIfPresent(self.fromBrief, forKey: .fromBrief)
         try container.encodeIfPresent(self.x, forKey: .x)
         try container.encodeIfPresent(self.y, forKey: .y)

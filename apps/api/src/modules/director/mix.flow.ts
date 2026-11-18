@@ -36,7 +36,8 @@ export function judgeKey(question: string): string {
 export function judgeQuestions(flow: MixFlow): { key: string; question: string }[] {
     const questions = new Map<string, string>();
     for (const node of flow.nodes) {
-        if (node.kind === 'split' && node.splitBy === 'judged' && node.question !== undefined) questions.set(judgeKey(node.question), node.question);
+        if (node.kind === 'split' && node.splitBy === 'judged' && node.question !== undefined && node.bypassed !== true)
+            questions.set(judgeKey(node.question), node.question);
     }
     return [...questions].map(([key, question]) => ({ key, question }));
 }
@@ -123,7 +124,7 @@ class Wires {
     share(node: MixNode, hour: number): number | undefined {
         const source = this.numberInto.get(node.id);
         const fed = source === undefined ? undefined : this.nodes.get(source);
-        if (fed?.kind === 'timeSwitch' && fed.fromHour !== undefined) {
+        if (fed?.kind === 'timeSwitch' && fed.bypassed !== true && fed.fromHour !== undefined) {
             const value = hour >= fed.fromHour ? fed.thenValue : fed.elseValue;
             if (value !== undefined) return value / 100;
         }
@@ -141,6 +142,8 @@ const inScope = (counted: readonly CountedRecord[], per: 'show' | 'hour' | undef
  */
 export function splitOutput(node: MixNode, record: MixRecord, ctx: MixContext): number {
     const branches = node.branches ?? [];
+    // Bypassed: every record goes the way a record matching nothing would.
+    if (node.bypassed === true) return branches.length;
     const index = branches.findIndex(branch => matches(node, branch, record, ctx));
     return index < 0 ? branches.length : index;
 }
@@ -182,6 +185,8 @@ function inRange(value: number, branch: MixBranch): boolean {
  * through, so 10% is a share and never a ban on a show that has aired nothing yet.
  */
 function holds(wires: Wires, node: MixNode, record: MixRecord, ctx: MixContext): boolean {
+    // Switched off: it holds nothing, whatever it is.
+    if (node.bypassed === true) return false;
     switch (node.kind) {
         // A question the model has not answered about this record yet: never aired on a guess. The record
         // waits a refill while `MixJudgeJob` asks, the same spirit as a band with no genre matching none.
@@ -228,7 +233,9 @@ export function walkRecord(
     let node = options.entry === undefined ? wires.picks() : wires.node(options.entry);
     // A valid flow has no circles; the bound is for one that somehow does.
     for (let step = 0; node !== undefined && step <= flow.nodes.length; step += 1) {
-        path.push(node.id);
+        // A bypassed node is passed through without being counted, so a limit switched off for an hour
+        // has not been filling up while it was off.
+        if (node.bypassed !== true) path.push(node.id);
         if (node.kind === 'onAir') return { path };
         // `blocksOnly` is giving way: only a Block holds. See `holdMixFlow`.
         const counts = options.blocksOnly !== true || node.kind === 'block';
@@ -259,7 +266,7 @@ export function countThrough(flow: MixFlow, records: readonly (MixRecord & { hou
 /** The `require` nodes that are due now, with what would still satisfy each. */
 export function dueRequirements(flow: MixFlow, ctx: MixContext): MixRequirement[] {
     return flow.nodes.flatMap(node => {
-        if (node.kind !== 'require') return [];
+        if (node.kind !== 'require' || node.bypassed === true) return [];
         if (ctx.showProgress < (node.afterPercent ?? 0)) return [];
         const songs = (node.songs ?? []).map(song => ({ title: song.title, ...(song.artist === undefined ? {} : { artist: song.artist }) }));
         const wanted = node.requireGenres ?? [];
@@ -281,6 +288,8 @@ export function dueRequirements(flow: MixFlow, ctx: MixContext): MixRequirement[
 export function budgetLeft(flow: MixFlow, ctx: MixContext): MixBudgetLine[] {
     const wires = new Wires(flow);
     return flow.nodes.flatMap((node): MixBudgetLine[] => {
+        // Switched off: nothing to tell the model, since it holds nothing.
+        if (node.bypassed === true) return [];
         const reaching = reachingDescription(wires, node.id);
         if (node.kind === 'block') return [{ nodeId: node.id, kind: 'block', reaching, bands: [...(node.bands ?? [])] }];
         if (node.kind !== 'limitShare' && node.kind !== 'limitCount') return [];
@@ -308,13 +317,17 @@ function reachingDescription(wires: Wires, target: string): string[] {
         if (node.id === target) return said;
         if (seen.has(node.id)) return undefined;
         seen.add(node.id);
-        const outs = node.kind === 'split' ? (node.branches?.length ?? 0) + 1 : 1;
-        for (let out = 0; out < outs; out += 1) {
+        const branchCount = node.branches?.length ?? 0;
+        // A bypassed split sends everything down "everything else", and says nothing about what it reads.
+        const bypassedSplit = node.kind === 'split' && node.bypassed === true;
+        const outs = node.kind === 'split' && !bypassedSplit ? branchCount + 1 : 1;
+        for (let index = 0; index < outs; index += 1) {
+            const out = bypassedSplit ? branchCount : index;
             const next = wires.next(node.id, out);
             if (next === undefined) continue;
             const branch = node.kind === 'split' ? node.branches?.[out] : undefined;
             const words =
-                node.kind !== 'split'
+                node.kind !== 'split' || bypassedSplit
                     ? said
                     : branch === undefined
                       ? [...said, `not ${describeSplit(node)}`]

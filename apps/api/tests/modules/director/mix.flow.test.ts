@@ -332,3 +332,43 @@ describe('counting by how far through the show', () => {
         expect(late!.path).toContain('second');
     });
 });
+
+describe('a bypassed node', () => {
+    const bypass = (flow: MixFlow, ...ids: string[]): MixFlow => ({
+        ...flow,
+        nodes: flow.nodes.map(node => (ids.includes(node.id) ? { ...node, bypassed: true } : node)),
+    });
+
+    it('holds nothing and is left off the path, so a limit switched off is not filling up while it is off', () => {
+        const flow = bypass(church(), 'block', 'share');
+        const walk = walkRecord(flow, rec('Burzum', 'black metal'), ctx([...heavy(9), blackMetal()]));
+        expect(walk).toEqual({ path: ['picks', 'split', 'merge', 'air'] });
+        expect(countThrough(flow, [{ ...rec('Mayhem', 'black metal'), hour: 20 }])[0]?.path).not.toContain('share');
+    });
+
+    it("sends every record down a bypassed split's everything else", () => {
+        const walk = walkRecord(bypass(church(), 'split'), rec('Britney Spears', 'pop'), ctx());
+        expect(walk.path).toEqual(['picks', 'block', 'merge', 'air']);
+    });
+
+    it('tells the model nothing about it, and a bypassed time switch leaves the limit on its own percent', () => {
+        const flow = bypass(church(), 'block', 'count', 'clock');
+        const lines = budgetLeft(flow, ctx(heavy(3)));
+        expect(lines.map(line => line.nodeId)).toEqual(['share']);
+        // The limit has no percent of its own, so with its switch off it holds nothing.
+        expect(walkRecord(flow, rec('Emperor', 'black metal'), ctx([...heavy(9), blackMetal()])).heldAt).toBeUndefined();
+    });
+
+    it('never falls due as a Require, and asks nothing as a judge', () => {
+        expect(dueRequirements(bypass(church(), 'pop'), ctx([], 20, 90))).toEqual([]);
+        const judging: MixFlow = {
+            ...church(),
+            nodes: church().nodes.map(node =>
+                node.id === 'split'
+                    ? { ...node, splitBy: 'judged' as const, question: 'Is it sinful?', bypassed: true, branches: [{ values: ['yes'] }] }
+                    : node,
+            ),
+        };
+        expect(judgeQuestions(judging)).toEqual([]);
+    });
+});

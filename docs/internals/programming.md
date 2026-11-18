@@ -589,6 +589,13 @@ it**, and the counts come from replaying the show's aired and queued records thr
 the show so far by its new wiring. A record a Require added is replayed from Picks, since the history does
 not say which node added it, so once it is queued it counts against the limits it skipped. The first record of a
 group is always let through, so 10% is a share and never a ban on a show that has aired nothing yet.
+**A node can be bypassed** (`MixNode.bypassed`): switched off without being taken out, so an operator can
+hear the show without one rule and put it back. It holds nothing and is left off the path, so a limit switched
+off for an hour has not been filling up while it was off (`walkRecord` and so `countThrough`); `budgetLeft`
+tells the model nothing about it; a bypassed Split sends everything down "everything else", a bypassed Require
+never falls due, a bypassed judge asks nothing, and a bypassed Time switch leaves its limit on its own
+`percent`. Its wires are checked as if it were on, so switching it back can never produce a flow that does not
+run; Picks, On air and Merge cannot be bypassed, since none of them is a rule.
 `mixFlowProblems` (`schedule/mix.flow.validate.ts`) refuses at the save anything that would not run as drawn:
 a loose output, which would drop records without a word; a circle; a wire joining records to a number; a node
 missing what it needs.

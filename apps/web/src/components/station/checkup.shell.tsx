@@ -3,6 +3,7 @@ import { Stack, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
+import { useSectionAttention } from '../shell/use.section.attention';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 import { i18n } from '../../i18n/i18n.setup';
@@ -10,7 +11,7 @@ import { i18n } from '../../i18n/i18n.setup';
 /**
  * The tabs, and the sentence behind each.
  *
- * `label` and `hint` are getters rather than strings, so the shell's rail and the palette, which read
+ * `label` and `hint` are getters rather than strings, so the shell and the palette, which read
  * this table directly, get the words in the language on screen at the moment they read them rather
  * than whatever was on screen when this module was imported.
  */
@@ -90,11 +91,12 @@ export interface CheckupShellProps {
  */
 export function CheckupShell({ active, children }: CheckupShellProps) {
     const { t } = useTranslation('station');
+    const sectionAttention = useSectionAttention({ to: '/checkup', sections: CHECKUP_TABS.map(tab => ({ to: CHECKUP_ROUTES[tab.key] })) });
     const navigate = useNavigate();
 
     return (
         <Stack gap="lg">
-            {/* Name only: each tab opens with its own description, and the rail says what every
+            {/* Name only: each tab opens with its own description, and its tooltip says what every
                 section is. This one used to carry the Machinery tab's opening line almost word for
                 word, drawn directly above it. See `library.shell.tsx`. */}
             <Title order={1}>{t('shell.title')}</Title>
@@ -103,6 +105,7 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
                 tabs={CHECKUP_TABS}
                 active={active}
                 label={t('shell.title')}
+                attention={sectionAttention}
                 onSelect={key => {
                     void navigate({ to: CHECKUP_ROUTES[key] });
                 }}

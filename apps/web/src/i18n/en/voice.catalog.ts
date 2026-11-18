@@ -1,4 +1,4 @@
-/** The Voice destination: its heading and the tabs under it, which the shell's rail and palette also read. */
+/** The Voice destination: its heading and the tabs under it, which the shell and palette also read. */
 export const voice = {
     title: 'Voice',
     group: {

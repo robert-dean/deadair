@@ -87,8 +87,7 @@ describe('theme tokens: WCAG AA text contrast', () => {
         const tokens = readThemeTokens(themeId);
 
         // `--da-text-dimmed` and `--da-text-secondary` are the two tokens every under-18px dimmed
-        // or secondary label in the console reads through (the nav rail's hint letter, the station
-        // clock, a disabled Button label, a SegmentedControl's inactive label), so both have to
+        // or secondary label in the console reads through (the station clock, a disabled Button label, a SegmentedControl's inactive label), so both have to
         // clear AA against whichever of the two grounds they might sit on — a panel-on-panel card
         // is common enough that "passes on the desk but not on a card" is still a real failure.
         it.each(['--da-text-dimmed', '--da-text-secondary'] as const)('%s clears 4.5:1 against --da-bg and --da-panel', tokenName => {

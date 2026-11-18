@@ -191,14 +191,14 @@ only ad hoc so macOS asks you to allow it on the first launch, or which you can 
 from `apps/streamdeck`) puts
 what is on air, Skip, Like, Dislike and Stop or start on keys, with an API key from Settings, Sign-in and security.
 
-A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the
+Four destinations sit as tabs across the header, with a key each: D, P, L and V. **Desk** is the
 running order, live, with the playhead, every item's state and whatever needs you. **Programme** is
 Today, the Timetable across the week, Specials (shows on dates, like Halloween, which take over from
 the week for their hours), and Sustaining, which is what plays when nothing is scheduled.
 **Library** is Tracks, Artists, Playlists, Charts and News. **Voice** is who the station is when it
 talks and how it says things: Characters, Auditions, Voices, Segments, Pronunciations, Soundboard,
 Subjects, Productions, and What it said, which is every break it has written and every one it
-declined. Below a rule sit **Check-up** and **Settings**. Check-up is what is wrong right now:
+declined. Pinned at the right of the header are **Check-up** and **Settings**. Check-up is what is wrong right now:
 Machinery for every part as it stands, What it has been doing for what aired and what failed, What it
 cost for every call the station made, and Logs for what the processes themselves wrote.
 

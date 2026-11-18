@@ -35,8 +35,8 @@ export interface AttentionDestination {
  *
  * ## One table, two readers
  *
- * `attention.list.tsx` draws the link on the row and the nav counts the badge from it — `side.nav.tsx`
- * for the four destinations, `nav.footer.tsx` for Check-up and Settings. They were separate before
+ * `attention.list.tsx` draws the link on the row and the nav counts the badge from it: the header's
+ * tabs (`header.nav.tsx`) and each destination's tab strip. They were separate before
  * and could disagree about where a fault belonged; a badge pointing at one page while the row linked
  * to another is worse than either alone. All of them read this now.
  *
@@ -120,9 +120,8 @@ export interface AttentionCount {
 /**
  * Which page each thing belongs to, and how bad the worst of them is.
  *
- * Here rather than in `side.nav.tsx` because the rail and its footer are two components drawing one
- * answer: the destinations badge from the same map that Check-up and Settings badge from, and a
- * second copy of this walk is a second place for the two halves of one nav to disagree.
+ * Here rather than in `header.nav.tsx` because the header and each destination's tab strip draw one
+ * answer, and a second copy of this walk is a second place for them to disagree.
  *
  * A row whose destination is not a page in the nav is simply not counted anywhere — it is still on
  * the desk, which is the surface that has to be complete.
@@ -146,6 +145,35 @@ export function attentionCounts(items: readonly AttentionItem[]): Map<string, At
     }
 
     return counts;
+}
+
+/**
+ * Everything that wants somebody anywhere in one destination, as one count and the worst of it.
+ *
+ * What a header tab carries: the tab stands for the whole destination, so a fault on any of its
+ * sections belongs on it. Each path is counted once, which is the rule `attentionForDestination`
+ * keeps for rows, since a destination's sections share paths.
+ */
+export function attentionAcross(
+    counts: ReadonlyMap<string, AttentionCount>,
+    destination: { to?: LinkProps['to']; sections: readonly { to?: LinkProps['to'] }[] },
+): AttentionCount | undefined {
+    const worst: Record<Severity, number> = { failure: 0, warning: 1, notice: 2 };
+    const paths = new Set<string>();
+    for (const to of [destination.to, ...destination.sections.map(section => section.to)]) {
+        if (typeof to === 'string') paths.add(to);
+    }
+
+    let total: AttentionCount | undefined;
+    for (const path of paths) {
+        const found = counts.get(path);
+        if (found === undefined) continue;
+        total =
+            total === undefined
+                ? { ...found }
+                : { count: total.count + found.count, severity: worst[found.severity] < worst[total.severity] ? found.severity : total.severity };
+    }
+    return total;
 }
 
 /** Which row of one destination carries each count: its own, and one per section in order. */

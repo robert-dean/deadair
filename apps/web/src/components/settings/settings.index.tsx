@@ -8,7 +8,7 @@ import classes from './settings.index.module.css';
 /**
  * Every section, as a list to tap through.
  *
- * The phone's front door, and only the phone's: the rail is what navigates Settings on a desk, and
+ * The phone's front door, and only the phone's: the section column beside each section (`SettingsSectionNav`) navigates Settings on a desk, and
  * it is collapsed below `sm`. Without this a phone would have the sections nowhere at all — the
  * bottom bar holds four destinations by design and the kebab holds one flat Settings item.
  *

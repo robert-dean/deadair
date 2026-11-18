@@ -36,10 +36,9 @@ describe('SettingsShell', () => {
         // literal `<h1>` in this test would pass straight through and prove nothing either way.
     });
 
-    // It navigated the sections three ways: anchors down one long page, then a strip of ten tabs,
-    // and now neither. The rail lists them on a desk and `SettingsIndex` does on a phone, so a
-    // navigator here would be a third copy of one list and the one with least room for it.
-    it('navigates nothing itself, on the widths where something else does', () => {
+    // The rail used to list the sections on a desk. It gives way to header tabs, so the shell keeps a
+    // column of its own instead, never a strip: 22 tabs is the shape this destination dropped.
+    it('lists its sections in a column beside the one being read, on a desk', () => {
         render(
             <SettingsShell active="rotation">
                 <div />
@@ -47,7 +46,7 @@ describe('SettingsShell', () => {
         );
 
         expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
-        expect(screen.queryByRole('link', { name: 'Measurement' })).not.toBeInTheDocument();
+        expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeInTheDocument();
     });
 
     it('says the sections save separately, where the section list used to', () => {

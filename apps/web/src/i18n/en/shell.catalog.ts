@@ -1,5 +1,5 @@
 /**
- * The shell's words: the rail, the phone's bar and menu, the command palette, the header's corner
+ * The shell's words: the header's tabs, the phone's bar and menu, the command palette, the header's corner
  * and the names of the console's themes.
  */
 export const shell = {
@@ -19,9 +19,18 @@ export const shell = {
         attention_other: '{{label}}, {{count}} things need attention',
         withHint: '{{label}}. {{hint}}',
     },
+    headerNav: {
+        label: 'Destinations',
+        key: 'Press {{key}}',
+    },
+    onAir: {
+        tag: 'On air',
+        label: 'On air: {{title}}, {{remaining}} left. Open the desk.',
+        labelNoTime: 'On air: {{title}}. Open the desk.',
+    },
     logout: 'Logout',
     phoneMenu: {
-        label: 'Check-up, Settings and Logout',
+        label: 'More',
     },
     phoneTabs: {
         label: 'Destinations',

@@ -9,6 +9,7 @@ import { usePersonas } from '../../api/personas.queries';
 import { useApplySlot, useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
 import { notifyDone, notifyQueued } from '../shared/notify';
 import { dayjsClock } from '../../i18n/format.locale';
+import { useSectionAttention } from '../shell/use.section.attention';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -91,7 +92,7 @@ import { i18n } from '../../i18n/i18n.setup';
 /**
  * The three questions a programme page answers, in the order they are asked.
  *
- * `label` and `hint` are getters, so the shell's rail and palette, which read this table directly,
+ * `label` and `hint` are getters, so the shell and palette, which read this table directly,
  * get the words in the language on screen when they read them rather than at import.
  */
 export const PROGRAMME_TABS = [
@@ -137,6 +138,7 @@ export interface SchedulePageProps {
 
 export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     const { t } = useTranslation('schedule');
+    const sectionAttention = useSectionAttention({ to: '/schedule', sections: PROGRAMME_TABS.map(() => ({ to: '/schedule' })) });
     const schedule = useSchedule();
     const current = useCurrentSlot();
     // For the host's name on the strip. Cached for half a minute and fetched once on mount, which is
@@ -301,7 +303,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 </Text>
             </Stack>
 
-            <DestinationTabs tabs={PROGRAMME_TABS} active={tab} onSelect={onSelect} label={t('page.title')} />
+            <DestinationTabs tabs={PROGRAMME_TABS} active={tab} onSelect={onSelect} label={t('page.title')} attention={sectionAttention} />
 
             {schedule.error ? (
                 <ErrorAlert title={t('page.scheduleFailedTitle')} error={schedule.error} fallback={t('page.scheduleFailedFallback')} />

@@ -3,7 +3,7 @@ import { useMediaQuery } from '@mantine/hooks';
 
 /**
  * Whether the console is being read on a phone — below the `sm` breakpoint, the same line the shell
- * collapses its navbar on and swaps the rail for the bottom bar.
+ * swaps the header's tabs for the bottom bar on.
  *
  * One hook rather than a media query written where it is needed, because the query had already been
  * hand-rolled twice (`__root.tsx` and `station.order.table.tsx`) and a third copy is where the two

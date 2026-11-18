@@ -59,6 +59,11 @@ export const common = {
     statusLamp: {
         label: 'Status: {{label}}',
     },
+    // A destination's tab strip, for a tab with something waiting on it.
+    destinationTabs: {
+        attention_one: '{{label}}, {{count}} thing needs attention',
+        attention_other: '{{label}}, {{count}} things need attention',
+    },
     feed: {
         failedTitle: 'Nothing to show',
     },

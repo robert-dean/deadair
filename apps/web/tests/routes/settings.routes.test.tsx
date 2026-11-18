@@ -1,4 +1,4 @@
-// `/settings` is where every link that names Settings without naming a part of it lands: the rail's
+// `/settings` is where every link that names Settings without naming a part of it lands: the header's
 // pinned entry, the phone's kebab, and every attention row whose destination is the page rather than
 // a section. What it means differs by viewport, and this is what pins both halves — a change that
 // drops either one breaks a whole form factor at once and silently.
@@ -37,10 +37,10 @@ afterEach(() => {
 });
 
 describe('/settings', () => {
-    it('goes straight to the first section on a desk, where the rail already lists them all', () => {
+    it('goes straight to the first section on a desk, where the section column already lists them all', () => {
         render(<IndexComponent />);
 
-        // A landing page listing the sections beside a rail listing the sections is the same thing
+        // A landing page listing the sections beside a column listing the sections is the same thing
         // said twice, and two URLs an operator could be told they are at.
         const redirect = screen.getByTestId('redirect');
         expect(redirect).toHaveAttribute('data-to', '/settings/station');
@@ -49,7 +49,7 @@ describe('/settings', () => {
         expect(redirect).toHaveAttribute('data-replace', 'true');
     });
 
-    it('is the list of sections on a phone, which has no rail to list them', () => {
+    it('is the list of sections on a phone, which has no section column to list them', () => {
         phone = true;
         render(<IndexComponent />);
 

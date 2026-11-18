@@ -37,10 +37,8 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 describe('VoicePage', () => {
-    // The strip is drawn only on a phone now — a desk lists these eight as rows in the rail instead,
-    // which is `side.nav.test.tsx`'s case, since the rail is what has room for eight without any of
-    // Voice's tabs running off the end of it. These three cases are the strip's own behaviour, so
-    // they are the ones that stub the phone.
+    // The strip is drawn on every width. These cases stub the phone because the phone is where its
+    // eight tabs most often overflow, which is the behaviour they pin.
     describe('the phone strip', () => {
         let restore: () => void;
         beforeEach(() => {
@@ -81,10 +79,10 @@ describe('VoicePage', () => {
         });
     });
 
-    it('draws no strip at all on a desk, where the rail lists these instead', () => {
+    it('draws its tab strip on a desk too, with the tab it is on selected', () => {
         render(<VoicePage tab="characters" onSelect={() => undefined} />);
 
-        expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Characters' })).toHaveAttribute('aria-selected', 'true');
     });
 
     it('draws only the tab it is on', () => {
@@ -134,7 +132,7 @@ describe('VoicePage', () => {
     it('draws one intro, not two', () => {
         // The destination used to carry its own blurb above the tab it opened on, which also carries
         // a description — so two paragraphs of preamble ran before anything a tab is actually about.
-        // The destination's own sentence is on its row in the rail now; the page keeps the one that
+        // The destination's own sentence is its header tab's business now; the page keeps the one that
         // is specific to what it opened on.
         render(<VoicePage tab="voices" onSelect={() => undefined} />);
 

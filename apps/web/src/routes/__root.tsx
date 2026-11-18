@@ -21,7 +21,6 @@ import { JumpTo } from '../components/shell/jump.to';
 import { PhoneTabs } from '../components/shell/phone.tabs';
 import { DESTINATION_KEYS } from '../components/shell/destinations';
 import { ShellHeader } from '../components/shell/shell.header';
-import { ShellRail } from '../components/shell/shell.rail';
 import { useLogoutFlow } from '../components/shell/use.logout.flow';
 import { useShellAccount } from '../components/shell/use.shell.account';
 import { useAccountLanguage } from '../api/languages.queries';
@@ -99,7 +98,7 @@ export function RootLayout() {
     const phone = usePhone();
     const pathname = useRouterState({ select: state => state.location.pathname });
 
-    // The letters drawn in the rail's gutter, bound to the destinations that draw them. Read off
+    // The letters named in each header tab's tooltip, bound to the destinations that draw them. Read off
     // `DESTINATION_KEYS` rather than restated here, so a hint the nav shows and a key the shell
     // listens for cannot come apart.
     //
@@ -122,7 +121,7 @@ export function RootLayout() {
     );
 
     // A page that is the whole screen, drawn without the shell: the party's poster, on a TV across
-    // the room, where a header and a rail would only be things for a guest to read instead of the code.
+    // the room, where a header would only be things for a guest to read instead of the code.
     if (BARE_PATHS.includes(pathname)) return <Outlet />;
 
     if (signedIn && !ANY_ACCOUNT_PATHS.some(prefix => pathname.startsWith(prefix))) {
@@ -147,16 +146,11 @@ export function RootLayout() {
     }
 
     return (
-        <AppShell
-            header={{ height: 52 }}
-            navbar={signedIn ? { width: 204, breakpoint: 'sm', collapsed: { mobile: true } } : undefined}
-            footer={signedIn && phone ? { height: 64 } : undefined}
-            padding="md"
-        >
+        <AppShell header={{ height: 52 }} footer={signedIn && phone ? { height: 64 } : undefined} padding="md">
             {/* First focusable element in the document, so it is the first Tab stop on every page.
                 Everything else in the shell comes before the content it names: the wordmark, the
                 tally, the jump button, four destinations, two pinned links — eight stops before an
-                operator who cannot see the rail reaches the running order it exists to get them to.
+                operator who cannot see the header reaches the running order it exists to get them to.
                 Visible only on focus, through `.da-skip` in `tokens.css`; `href="#main"` is a
                 fragment rather than a route, so this is a plain `Anchor` and not a `renderRoot`
                 `Link` — there is no route here for the router's typing to protect. */}
@@ -167,20 +161,12 @@ export function RootLayout() {
             <ShellHeader
                 signedIn={signedIn}
                 status={playout.data}
+                attention={attention.data?.items}
                 loggingOut={logout.isPending}
                 onLogout={() => {
                     void handleLogout();
                 }}
             />
-            {signedIn ? (
-                <ShellRail
-                    attention={attention.data?.items}
-                    loggingOut={logout.isPending}
-                    onLogout={() => {
-                        void handleLogout();
-                    }}
-                />
-            ) : undefined}
             <AppShell.Main id="main" tabIndex={-1}>
                 {/* Above everything, including the page's own failures, and drawn whether or not
                     anybody is signed in: an unreachable API is why the login page will not submit

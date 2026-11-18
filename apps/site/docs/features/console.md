@@ -11,16 +11,16 @@ _Fig. 1. What it has been doing._
 
 ## Where things are
 
-A rail down the left carries four destinations, each with its sections listed beneath it:
+Four destinations sit as tabs across the header, and each opens with its own sections as tabs under its title:
 
 - **Desk**: what is on air now, what needs you, and the running order, with Skip and Stop beside the thing they act on, and Take a call, Bring in a guest and Request a record beside it. The Live card under On air now is where you [go live](./live.md). See [the running order](./running-order.md), [phone-ins](./phone-ins.md) and [requests](./programme.md#requests).
 - **Programme**: Today, the Timetable across the week, Specials (shows on dates, like Halloween), Sustaining (what plays when nothing is scheduled), Requests (and a party's code, for guests to ask from their phones), and Leans and rules. See [the programme](./programme.md).
 - **Library**: Tracks, Artists, Playlists, Charts, News, Podcasts and Readings. See [the library](./library.md), [podcasts](./podcasts.md) and [readings](./narrations.md).
 - **Voice**: Characters, Auditions, Voices, Segments, Pronunciations, Soundboard, Subjects, Productions, and What it said. See [characters](./characters.md).
 
-Below a rule sit **Check-up**, for what is wrong right now (see [the check-up](./check-up.md)), and **Settings**.
+Pinned at the right of the header are **Check-up**, for what is wrong right now (see [the check-up](./check-up.md)), and **Settings**, whose sections are listed in a column beside the one you are reading, with a box to find one by name. A tab carries a count when something inside it wants you. Logout is in the menu in the corner.
 
-The header carries the tally: whether the station is on air, how many are listening, and on which mount. It sits in the chrome for the reason a studio puts the tally over the door: every page needs it and no page owns it.
+The header carries the tally: whether the station is on air, how many are listening, and on which mount. On a wide screen it also names the record on air and how long it has left; pressing it takes you to the desk. It sits in the chrome for the reason a studio puts the tally over the door: every page needs it and no page owns it.
 
 ## Its language
 
@@ -57,7 +57,7 @@ _Fig. 2. Appearance._
 
 ## On a phone
 
-On a narrow screen the rail becomes a bar across the bottom with the four destinations, one thumb-sized tap each. Check-up, Settings and Logout sit behind the menu in the top corner, beside a search button for Jump to anything. Most tables become cards rather than scrolling sideways, so a control you need is never off the edge of the screen.
+On a narrow screen the four destinations move to a bar across the bottom, one thumb-sized tap each. Check-up, Settings and Logout sit behind the menu in the top corner, beside a search button for Jump to anything. Most tables become cards rather than scrolling sideways, so a control you need is never off the edge of the screen.
 
 ## On a Stream Deck
 
@@ -90,4 +90,4 @@ Until a mail server is set, the station sends nothing and says so. It will not o
 
 ## In the console
 
-The rail holds Desk, Programme, Library and Voice, with Check-up and Settings below the rule. The activity feed and the cost of each decision are under Check-up. Themes are Settings → Appearance; sign-in is Settings → Sign-in and security and Settings → Mail; other people's accounts are Settings → People. The pictures a listener's player shows while the station is talking are Settings → Artwork.
+The header holds Desk, Programme, Library and Voice, with Check-up and Settings pinned at its right. The activity feed and the cost of each decision are under Check-up. Themes are Settings → Appearance; sign-in is Settings → Sign-in and security and Settings → Mail; other people's accounts are Settings → People. The pictures a listener's player shows while the station is talking are Settings → Artwork.

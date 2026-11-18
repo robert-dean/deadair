@@ -4,22 +4,19 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
 /**
- * The machinery and the way out, on a phone: the three rows of `nav.footer.tsx`, behind one corner
- * control.
+ * The way out, behind one corner control, and on a phone the machinery too.
  *
- * Below `sm` the rail does not exist, and with it went Check-up, Settings and Logout — the bottom
- * bar deliberately carries only the four destinations (`phone.tabs.tsx` says why four), which left
- * Logout with no phone path at all. This is not the drawer that bar replaced: the drawer was two
- * gestures to reach PRIMARY navigation and covered the page while you chose. This is a
- * dismiss-on-tap menu for the three things an operator reaches for rarely and on purpose, in the
- * corner the header's own comment calls "the way to move around".
+ * Logout sat at the foot of the rail. With the rail gone it lives here on every width: it is reached
+ * for rarely and on purpose, which is what a menu is for. On a desk the header pins Check-up and
+ * Settings itself, so the menu holds only Logout; below `sm` the header has no room for them and the
+ * bottom bar carries only the four destinations (`phone.tabs.tsx` says why four), so they are here.
  */
 export function PhoneMenu({ onLogout, loggingOut }: { onLogout: () => void; loggingOut?: boolean }) {
     const { t } = useTranslation('shell');
     return (
         <Menu position="bottom-end" withinPortal>
             <Menu.Target>
-                <ActionIcon variant="default" size="lg" aria-label={t('phoneMenu.label')} hiddenFrom="sm">
+                <ActionIcon variant="default" size="lg" aria-label={t('phoneMenu.label')}>
                     <IconDotsVertical size={18} stroke={1.8} />
                 </ActionIcon>
             </Menu.Target>
@@ -27,9 +24,13 @@ export function PhoneMenu({ onLogout, loggingOut }: { onLogout: () => void; logg
                 {/* Annotated for the reason every `renderRoot` in this console is: Mantine hands
                     back `any`, and spreading an `any` into a `Link` switches off the check that
                     `to` is a route that exists. */}
-                <Menu.Item renderRoot={(props: object) => <Link to="/checkup" {...props} />}>{t('destination.checkup')}</Menu.Item>
-                <Menu.Item renderRoot={(props: object) => <Link to="/settings" {...props} />}>{t('destination.settings')}</Menu.Item>
-                <Menu.Divider />
+                <Menu.Item hiddenFrom="sm" renderRoot={(props: object) => <Link to="/checkup" {...props} />}>
+                    {t('destination.checkup')}
+                </Menu.Item>
+                <Menu.Item hiddenFrom="sm" renderRoot={(props: object) => <Link to="/settings" {...props} />}>
+                    {t('destination.settings')}
+                </Menu.Item>
+                <Menu.Divider hiddenFrom="sm" />
                 <Menu.Item disabled={loggingOut} onClick={onLogout}>
                     {t('logout')}
                 </Menu.Item>

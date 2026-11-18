@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { SdkError } from '@deadair/sdk';
 
 import { EmptyState } from '../../../src/components/shared/empty.state';
@@ -7,6 +7,7 @@ import { Eyebrow } from '../../../src/components/shared/eyebrow';
 import { EmbeddedPage, PageHeader } from '../../../src/components/shared/page.header';
 import { PageSkeleton } from '../../../src/components/shared/page.skeleton';
 import { StatusLamp } from '../../../src/components/shared/status.lamp';
+import { stubPhoneMedia } from '../../utils/phone';
 import { render, screen } from '../../utils/render';
 
 describe('ErrorAlert', () => {
@@ -77,6 +78,49 @@ describe('PageHeader', () => {
         expect(screen.getByRole('button', { name: 'New' })).toBeInTheDocument();
         const heading = screen.getByRole('heading', { level: 2, name: 'Characters' });
         expect(heading.closest('[class*="mantine-VisuallyHidden-root"]')).not.toBeNull();
+    });
+});
+
+describe('PageHeader on a phone', () => {
+    let restore: (() => void) | undefined;
+    afterEach(() => {
+        restore?.();
+        restore = undefined;
+    });
+
+    function embeddedActionsRow() {
+        render(
+            <EmbeddedPage>
+                <PageHeader
+                    title="Characters"
+                    description="Who the station has cast."
+                    actions={
+                        <>
+                            <button type="button">New</button>
+                            <button type="button">Import</button>
+                            <button type="button">Export</button>
+                        </>
+                    }
+                />
+            </EmbeddedPage>,
+        );
+        return screen.getByRole('button', { name: 'New' }).closest<HTMLElement>('[class*="mantine-Group-root"]')!;
+    }
+
+    /** Voice > Characters at 375px: a row that wraps but may not shrink keeps its one-line width and runs off the edge. */
+    it('lets an embedded page wrap its actions and shrink to the width it has', () => {
+        restore = stubPhoneMedia();
+        const row = embeddedActionsRow();
+
+        expect(row.style.getPropertyValue('--group-wrap')).toBe('wrap');
+        expect(row.style.flexShrink).toBe('');
+    });
+
+    it('keeps the actions pinned on one line on a desk', () => {
+        const row = embeddedActionsRow();
+
+        expect(row.style.getPropertyValue('--group-wrap')).toBe('nowrap');
+        expect(row.style.flexShrink).toBe('0');
     });
 });
 

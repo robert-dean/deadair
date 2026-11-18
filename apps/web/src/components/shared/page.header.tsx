@@ -73,7 +73,10 @@ export function PageHeader({ title, eyebrow, description, actions, children }: P
                         <span />
                     )}
                     {actions ? (
-                        <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'} style={{ flexShrink: 0 }}>
+                        // Shrink-proof on a desk only. On a phone a `flexShrink: 0` row keeps its
+                        // one-line width whatever `wrap` says, so the buttons never wrapped and ran
+                        // off the right edge of a 375px page instead.
+                        <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'} style={phone ? undefined : { flexShrink: 0 }}>
                             {actions}
                         </Group>
                     ) : undefined}

@@ -172,6 +172,7 @@ the right.
 | Desk | Actions pinned right and shrink-proof; a long title gives way first |
 | Phone (`usePhone`) | Actions drop under the title and wrap |
 | Inside `EmbeddedPage` | Title is `VisuallyHidden` at `h2`, eyebrow dropped; description and actions share a wrapping row |
+| Inside `EmbeddedPage`, phone | The actions wrap among themselves and, when the description fills the row, drop to a line of their own, as on a full page |
 
 **`EmbeddedPage`** wraps a tab body so the `PageHeader` inside it stops drawing a second page title.
 The destination says it once, by context, rather than every page taking a flag.

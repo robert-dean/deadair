@@ -102,6 +102,14 @@ export const schedule = {
         days_one: 'a day',
         days_other: '{{count}} days',
     },
+    hourRuler: {
+        label: 'This hour, {{hour}}:00, against the format clock',
+        minute: ':{{minute}}',
+        band: '{{label}} wants :{{minute}}, at the first boundary after it',
+        bandHard: '{{label}} airs at :{{minute}} exactly',
+        aired: '{{title}}, aired',
+        coming: '{{title}}, still to come',
+    },
     dayStrip: {
         label: 'Today, hour by hour',
         span: '{{from}} to {{to}}',

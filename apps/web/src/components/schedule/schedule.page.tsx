@@ -16,6 +16,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
 import { DayStrip } from './day.strip';
+import { HourRulerPanel } from './hour.ruler';
 import { OnNowStrip } from './on.now.strip';
 import { FestivalsPanel } from './festivals.panel';
 import { OccasionsPanel } from './occasions.panel';
@@ -356,6 +357,11 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
             {/* The other half of "what happens when", and the reason Today is a tab rather than the
                 day grid: a band is a rule about every hour and has no place on a week. */}
+            {/* Above the clock it answers: the dial says what each minute wants, this says how the hour is going. */}
+            {tab === 'today' && current.data ? (
+                <HourRulerPanel stationNow={stationClockAt(current.data.now, Date.now() - current.dataUpdatedAt)} />
+            ) : undefined}
+
             {tab === 'today' ? <ClockPanel /> : undefined}
         </Stack>
     );

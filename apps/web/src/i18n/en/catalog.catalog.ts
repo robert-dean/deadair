@@ -18,6 +18,7 @@ export const catalog = {
     tracks: {
         title: 'Tracks',
         description: 'Every track the station has ingested.',
+        open: 'Open {{title}}',
         search: 'Search tracks',
         loadFailedTitle: 'The tracks could not be loaded',
         loadFailedFallback: 'The catalog is unavailable.',
@@ -129,6 +130,19 @@ export const catalog = {
         disliked: { hint: 'Never play {{label}}', aria: 'Dislike {{label}}' },
         neutral: { hint: 'No opinion about {{label}}', aria: 'No opinion about {{label}}' },
         liked: { hint: 'Play {{label}} more often', aria: 'Like {{label}}' },
+    },
+    drawer: {
+        title: 'Record',
+        openPage: 'Open the full record page',
+        request: {
+            action: 'Request',
+            waiting: '{{title}} is waiting for a decision under Programme, Requests.',
+            onItsWay: '{{title}} is on its way.',
+            refused: 'The station turned it down',
+            refusedPlain: 'It gave no reason.',
+            failed: 'That could not be requested',
+            failedFallback: 'The station did not take the request.',
+        },
     },
     track: {
         back: 'Back to tracks',

@@ -20,6 +20,8 @@ const ORDER = <T extends string>(sortBy: T) => ({ sortBy, sort: 'asc' as const, 
 const listTracks = vi.fn();
 const getTrackEnrichment = vi.fn();
 const rateTrack = vi.fn();
+const getTrack = vi.fn();
+const createRequest = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -28,6 +30,10 @@ vi.mock('../../../src/api/client', () => ({
             listTracks: (...args: unknown[]) => listTracks(...args),
             getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
             rateTrack: (...args: unknown[]) => rateTrack(...args),
+            getTrack: (...args: unknown[]) => getTrack(...args),
+        },
+        requests: {
+            createRequest: (...args: unknown[]) => createRequest(...args),
         },
     },
 }));
@@ -167,10 +173,10 @@ describe('CatalogTracksPage', () => {
         // The row renders at all, which is the point: an earlier contract required `albumId` and
         // this row took the whole page down with it.
         expect(await screen.findByText('Untitled')).toBeInTheDocument();
-        // The artist and the title itself — which links to what that record has accumulated. The
-        // album cell stays empty rather than becoming a third; there is no "back to catalog" link
+        // The artist alone. The title opens the record's drawer rather than linking away, and the
+        // album cell stays empty rather than becoming a second; there is no "back to catalog" link
         // any more since the tab strip is the navigation now.
-        expect(screen.getAllByRole('link')).toHaveLength(2);
+        expect(screen.getAllByRole('link')).toHaveLength(1);
     });
 
     // Three empty lists, three different facts, and only one of them is a problem. A benched filter
@@ -256,6 +262,61 @@ describe('CatalogTracksPage', () => {
             expect(getTrackEnrichment).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
         });
         expect(await screen.findByText('Fat Cat')).toBeInTheDocument();
+    });
+
+    // The list is where an operator goes through a library, so a record opens beside it rather
+    // than taking them away from the page and the filter they were working through.
+    it('opens a record in a drawer from its title, with its copies and the way to its full page', async () => {
+        listTracks.mockResolvedValue(page([track()]));
+        getTrack.mockResolvedValue({ ...track(), bindings: [], plays: [], playCount: 0 });
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
+            />,
+        );
+        await userEvent.click(await screen.findByRole('button', { name: 'Vaka' }));
+
+        expect(await screen.findByText('Where this record comes from')).toBeInTheDocument();
+        expect(getTrack).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
+        expect(screen.getByRole('link', { name: 'Open the full record page' })).toBeInTheDocument();
+    });
+
+    // A request from the drawer goes through the listener door, so a refusal is an answer like any
+    // other and is read out in the drawer rather than lost.
+    it('requests the record from its drawer and says when the station turns it down', async () => {
+        listTracks.mockResolvedValue(page([track()]));
+        getTrack.mockResolvedValue({ ...track(), bindings: [], plays: [], playCount: 0 });
+        createRequest.mockResolvedValue({ id: 'r1', title: 'Vaka', status: 'declined', reason: 'Played an hour ago.' });
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
+            />,
+        );
+        await userEvent.click(await screen.findByRole('button', { name: 'Vaka' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Request' }));
+
+        expect(createRequest).toHaveBeenCalledWith({ trackId: '33333333-3333-4333-8333-333333333333' });
+        expect(await screen.findByText('Played an hour ago.')).toBeInTheDocument();
     });
 
     // The flat list is where an operator forms most of these opinions, so it has to be ratable

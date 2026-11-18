@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -7,12 +7,13 @@ import { catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
-import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
+import { AlbumLink, ArtistLink } from '../shared/catalog.links';
 import { EmptyState } from '../shared/empty.state';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
+import { RowOpener } from '../shared/row.opener';
 import { SortableTh } from '../shared/sortable.th';
 import { usePhone } from '../shared/use.phone';
 import { CatalogPagination } from './catalog.pagination';
@@ -21,6 +22,7 @@ import type { TrackListOrder, TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
 import { TrackSortSelect } from './track.sort.select';
+import { TrackDrawer } from './track.drawer';
 import { TrackStateAction } from './track.state.action';
 import { TrackStateFilter } from './track.state.filter';
 import { TrackMeasurementFilter, type TrackMeasurement } from './track.measurement.filter';
@@ -124,6 +126,7 @@ export function CatalogTracksPage({
     const expansion = useTrackExpansion();
     const rate = useRateTrack();
     const phone = usePhone();
+    const [open, setOpen] = useState<string | undefined>();
 
     // Spread into every heading, so a column cannot be drawn active while sorting by another.
     const sorting = {
@@ -190,16 +193,18 @@ export function CatalogTracksPage({
                                 {rows.map(track => (
                                     <PhoneCard
                                         key={track.id}
+                                        onClick={() => setOpen(track.id)}
+                                        aria-label={t('tracks.open', { title: track.title })}
                                         leading={<Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />}
                                         title={
-                                            <TrackLink id={track.id} size="sm" truncate>
+                                            <Text size="sm" truncate>
                                                 {track.title}
-                                            </TrackLink>
+                                            </Text>
                                         }
                                         subtitle={
-                                            <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
+                                            <Text size="xs" c="dimmed" truncate>
                                                 {track.artistName}
-                                            </ArtistLink>
+                                            </Text>
                                         }
                                         figure={
                                             <Text size="xs" c="dimmed" className="da-num">
@@ -207,17 +212,21 @@ export function CatalogTracksPage({
                                             </Text>
                                         }
                                         action={
-                                            <TrackExpandButton
-                                                size={44}
-                                                open={expansion.isOpen(track.id)}
-                                                title={track.title}
-                                                onToggle={() => {
-                                                    expansion.toggle(track.id);
-                                                }}
-                                            />
+                                            <Group onClick={event => event.stopPropagation()}>
+                                                <TrackExpandButton
+                                                    size={44}
+                                                    open={expansion.isOpen(track.id)}
+                                                    title={track.title}
+                                                    onToggle={() => {
+                                                        expansion.toggle(track.id);
+                                                    }}
+                                                />
+                                            </Group>
                                         }
                                         below={
-                                            <Stack gap="xxs" pt="xxs">
+                                            // The rating and the expansion are their own controls, so a tap on
+                                            // them stays theirs rather than also opening the record.
+                                            <Stack gap="xxs" pt="xxs" onClick={event => event.stopPropagation()}>
                                                 {/* Below the title rather than beside it: three badges spelled out in
                                         words don't fit next to a truncating title on a 375px card the way
                                         three letters did. Only rendered when there is at least one to show,
@@ -286,13 +295,13 @@ export function CatalogTracksPage({
                                     <Table.Tbody>
                                         {rows.map(track => (
                                             <Fragment key={track.id}>
-                                                <Table.Tr>
+                                                <Table.Tr style={{ cursor: 'pointer' }} onClick={() => setOpen(track.id)}>
                                                     {/* The record's cover, since nothing hangs art off a recording. Blank for a
                                         single ingested outside any release, which has no record to borrow from. */}
                                                     <Table.Td>
                                                         <Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />
                                                     </Table.Td>
-                                                    <Table.Td>
+                                                    <Table.Td onClick={event => event.stopPropagation()}>
                                                         <TrackExpandButton
                                                             open={expansion.isOpen(track.id)}
                                                             title={track.title}
@@ -302,19 +311,20 @@ export function CatalogTracksPage({
                                                         />
                                                     </Table.Td>
                                                     <Table.Td>
-                                                        {/* Drawn like the artist and album links beside it rather
-                                                than as plain text: the title is now the way into
-                                                everything a record has accumulated, and a link
-                                                nobody can see is a page nobody finds. */}
-                                                        <TrackLink id={track.id}>{track.title}</TrackLink>
+                                                        {/* Plain text in a `RowOpener` rather than a link: the whole row
+                                                opens the record in a drawer, and the drawer carries the link to
+                                                its full page. The opener is how a keyboard reaches the same. */}
+                                                        <RowOpener>
+                                                            <Text size="sm">{track.title}</Text>
+                                                        </RowOpener>
                                                     </Table.Td>
-                                                    <Table.Td>
+                                                    <Table.Td onClick={event => event.stopPropagation()}>
                                                         <ArtistLink id={track.artistId}>{track.artistName}</ArtistLink>
                                                     </Table.Td>
                                                     {/* A track ingested outside any release has no album, which is a
                                         blank cell rather than a broken link — which is what an absent
                                         id already means to `AlbumLink`. */}
-                                                    <Table.Td>
+                                                    <Table.Td onClick={event => event.stopPropagation()}>
                                                         <AlbumLink id={track.albumId}>{track.albumName ?? ''}</AlbumLink>
                                                     </Table.Td>
                                                     <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
@@ -330,7 +340,7 @@ export function CatalogTracksPage({
                                                             <StateMark on={track.suspended === true} kind="suspended" />
                                                         </Group>
                                                     </Table.Td>
-                                                    <Table.Td>
+                                                    <Table.Td onClick={event => event.stopPropagation()}>
                                                         <RatingControl
                                                             size="xs"
                                                             rating={track.rating}
@@ -361,6 +371,8 @@ export function CatalogTracksPage({
                     )
                 }
             </QueryView>
+
+            <TrackDrawer id={open} onClose={() => setOpen(undefined)} />
         </Stack>
     );
 }

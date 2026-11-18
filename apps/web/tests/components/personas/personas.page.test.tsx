@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Persona } from '@deadair/sdk';
 
 import { PersonasPage } from '../../../src/components/personas/personas.page';
-import { render, screen, setupUser, within } from '../../utils/render';
+import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 import { stubPhoneMedia } from '../../utils/phone';
 
 // This page opens four queries on mount (personas, voices, script summary). Everything but the
@@ -17,7 +17,11 @@ const readScriptPerformance = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
-        personas: { listPersonas: () => listPersonas() },
+        personas: {
+            listPersonas: () => listPersonas(),
+            exportPersonas: () => exportPersonas(),
+            restorePersonas: () => restorePersonas(),
+        },
         render: {
             listVoices: () => Promise.resolve({ voices: [] }),
             readScriptPerformance: (...args: unknown[]) => readScriptPerformance(...args),
@@ -36,6 +40,20 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const listPersonas = vi.fn();
+const exportPersonas = vi.fn();
+const restorePersonas = vi.fn();
+
+// The roster export reports through notifications, which this suite renders no provider for: what
+// was shown is read off the spy instead.
+const shown = vi.fn((_: { message: string }) => 'n-1');
+vi.mock('@mantine/notifications', () => ({
+    notifications: { show: (options: { message: string }) => shown(options), hide: vi.fn() },
+}));
+
+vi.mock('../../../src/components/shared/download', async importOriginal => ({
+    ...(await importOriginal<object>()),
+    saveJsonDownload: vi.fn(),
+}));
 
 const persona = (overrides: Partial<Persona> = {}): Persona => ({
     id: 'p-1',
@@ -74,7 +92,7 @@ describe('PersonasPage', () => {
         });
         render(<PersonasPage />);
 
-        await user.click(await screen.findByRole('button', { name: /more/i }));
+        await user.click(await screen.findByRole('button', { name: 'More about Marlowe' }));
         await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
 
         const row = (await screen.findByRole('cell', { name: 'talkbreak' })).closest('tr')!;
@@ -95,7 +113,7 @@ describe('PersonasPage', () => {
         readScriptPerformance.mockResolvedValue({ days: 30, rows: [] });
         render(<PersonasPage />);
 
-        await user.click(await screen.findByRole('button', { name: /more/i }));
+        await user.click(await screen.findByRole('button', { name: 'More about Marlowe' }));
         await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
 
         expect(await screen.findByText('This character has written nothing in the last 30 days.')).toBeInTheDocument();
@@ -265,5 +283,45 @@ describe('PersonasPage', () => {
         } finally {
             restore();
         }
+    });
+
+    // Export all, Import and Restore built-ins were three buttons at the weight of New host. They are
+    // about the roster as a file, so they sit behind one menu, and the export says what it is doing
+    // in a notification because the item that asked has closed by then.
+    it('keeps the roster file actions behind one menu, and the export reports itself', async () => {
+        shown.mockClear();
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        exportPersonas.mockResolvedValue({ data: { format: 'deadair.personas', version: 1, personas: [] }, headers: {} });
+        const user = setupUser();
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe');
+        expect(screen.queryByRole('button', { name: 'Export all' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Import' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Restore built-ins' })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'More for the whole roster' }));
+        expect(screen.getByRole('menuitem', { name: 'Import' })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: 'Restore built-ins' })).toBeInTheDocument();
+        await user.click(screen.getByRole('menuitem', { name: 'Export all' }));
+
+        await waitFor(() => expect(shown).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'The roster was exported.' })));
+        expect(shown).toHaveBeenCalledWith(expect.objectContaining({ message: 'Exporting the roster…', loading: true }));
+        expect(exportPersonas).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves a failed roster export on the page rather than in a notification', async () => {
+        shown.mockClear();
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        exportPersonas.mockRejectedValue(new Error('disk full'));
+        const user = setupUser();
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe');
+        await user.click(screen.getByRole('button', { name: 'More for the whole roster' }));
+        await user.click(screen.getByRole('menuitem', { name: 'Export all' }));
+
+        expect(await screen.findByText('The personas could not be exported')).toBeInTheDocument();
+        expect(shown).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'The roster was exported.' }));
     });
 });

@@ -40,7 +40,7 @@ interface PersonaCardProps {
     setPerformance: Dispatch<SetStateAction<string | undefined>>;
     exporting: string | undefined;
     exportFailure: { of: string; error: unknown } | undefined;
-    save: (id?: string) => Promise<void>;
+    save: (id?: string) => Promise<boolean>;
     onEdit: (persona: Persona) => void;
     onDelete: (persona: Persona) => void;
 }

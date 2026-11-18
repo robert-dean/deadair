@@ -1,5 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Button, CloseButton, Menu, Stack, Text, TextInput } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { IconDots } from '@tabler/icons-react';
 import type { Persona, PersonaInput } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +20,7 @@ import { useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { EmptyState } from '../shared/empty.state';
 import { Eyebrow } from '../shared/eyebrow';
+import { notifyDone } from '../shared/notify';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
@@ -97,17 +100,29 @@ export function PersonasPage() {
     const [exporting, setExporting] = useState<string | undefined>(undefined);
     const [exportFailure, setExportFailure] = useState<{ of: string; error: unknown } | undefined>(undefined);
 
-    const save = async (id?: string) => {
+    const save = async (id?: string): Promise<boolean> => {
         const of = id ?? ROSTER;
         setExporting(of);
         setExportFailure(undefined);
         try {
             await exportPersonas(id);
+            return true;
         } catch (error) {
             setExportFailure({ of, error });
+            return false;
         } finally {
             setExporting(undefined);
         }
+    };
+
+    // The roster export's progress, as a notification: the item that asked for it has closed with its
+    // menu by the time the file is ready. Success replaces the spinner with a sentence; a failure
+    // takes it away and leaves the reason in the page-level alert, which is where failures stay.
+    const saveRoster = async () => {
+        const id = notifications.show({ message: t('page.exporting'), loading: true, autoClose: false, withCloseButton: false, withBorder: true });
+        const saved = await save();
+        notifications.hide(id);
+        if (saved) notifyDone(t('page.exported'));
     };
 
     const close = () => {
@@ -141,30 +156,50 @@ export function PersonasPage() {
                 }
                 actions={
                     <>
-                        {/* The whole roster as one file: a backup an operator can keep, and the shape
-                            somebody else's station can read. It carries no id and nothing about who
-                            is on air, so nothing about this station travels with it. */}
-                        <Button
-                            variant="default"
-                            loading={exporting === ROSTER}
-                            disabled={all.length === 0}
-                            onClick={() => {
-                                void save();
-                            }}
-                        >
-                            {t('page.exportAll')}
-                        </Button>
-                        {/* The other half of Export, and the reason either exists: a character in a
-                            file is the thing somebody would actually send somebody else. */}
-                        <Button variant="default" onClick={() => setImporting(true)}>
-                            {t('page.import')}
-                        </Button>
-                        {/* Safe to press twice: it writes only what is missing, overwrites nothing an
-                            operator has rewritten, and puts nothing on air. That is what keeps it a
-                            plain button rather than something behind a confirmation. */}
-                        <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
-                            {t('page.restore')}
-                        </Button>
+                        {/* Export all, Import and Restore built-ins behind one control: they are
+                            about the roster as a file, and an operator comes to this page for a
+                            character, so three equal buttons beside New host were weight in the wrong
+                            place. A menu item cannot spin, so the trigger carries the pending state
+                            (as a card's own menu does for Delete) and the export reports itself as a
+                            notification. */}
+                        <Menu position="bottom-end" withinPortal>
+                            <Menu.Target>
+                                <Button
+                                    variant="default"
+                                    leftSection={<IconDots size={16} />}
+                                    loading={exporting === ROSTER || restore.isPending}
+                                    aria-label={t('page.more.label')}
+                                >
+                                    {t('page.more.button')}
+                                </Button>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                {/* The whole roster as one file: a backup an operator can keep, and the
+                                    shape somebody else's station can read. It carries no id and nothing
+                                    about who is on air, so nothing about this station travels with it. */}
+                                <Menu.Item
+                                    disabled={all.length === 0 || exporting === ROSTER}
+                                    onClick={() => {
+                                        void saveRoster();
+                                    }}
+                                >
+                                    {t('page.exportAll')}
+                                </Menu.Item>
+                                {/* The other half of Export, and the reason either exists: a character in
+                                    a file is the thing somebody would actually send somebody else. */}
+                                <Menu.Item onClick={() => setImporting(true)}>{t('page.import')}</Menu.Item>
+                                {/* Safe to press twice: it writes only what is missing, overwrites
+                                    nothing an operator has rewritten, and puts nothing on air. That is
+                                    what keeps it a plain item rather than something behind a
+                                    confirmation. */}
+                                <Menu.Item
+                                    disabled={restore.isPending}
+                                    onClick={() => restore.mutate(undefined, { onSuccess: () => notifyDone(t('page.restored')) })}
+                                >
+                                    {t('page.restore')}
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
                         {/* What a character is FOR is chosen before the form rather than in it,
                             because it is not a property somebody edits afterwards: a host presents,
                             a caller rings in, a guest drops by and a newsreader reads the news. The

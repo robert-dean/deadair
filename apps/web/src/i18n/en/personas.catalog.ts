@@ -55,6 +55,13 @@ export const personas = {
         exportAll: 'Export all',
         import: 'Import',
         restore: 'Restore built-ins',
+        restored: 'Any built-in character this station was missing is back. Nothing you rewrote was touched.',
+        exporting: 'Exporting the roster…',
+        exported: 'The roster was exported.',
+        more: {
+            button: 'More',
+            label: 'More for the whole roster',
+        },
         newOther: 'New caller or guest…',
         newCaller: 'New caller',
         newGuest: 'New guest',

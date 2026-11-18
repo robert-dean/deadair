@@ -26,12 +26,12 @@ Open **Programme → Specials** and press **New special**.
 
 ## 2. Fill it in
 
-The editor is the weekly show's, with dates added. This one runs 20:00 to midnight on Halloween,
+The page is the weekly show's, with dates added. This one runs 20:00 to midnight on Halloween,
 which on the station this site is written from lands in the middle of The Boneyard, its weeknight
 metal show:
 
-![The New special editor: a name, hours, dates, and whether it repeats every year](/img/console/schedule.special.editor.webp)
-*Fig. 2. The **New special** editor, before anything is filled in.*
+![The New special page: a name, hours, dates, and whether it repeats every year, with how it will sound beside them](/img/console/schedule.special.editor.webp)
+*Fig. 2. The **New special** page, before anything is filled in.*
 
 | Field | For Halloween night |
 | --- | --- |

@@ -91,8 +91,8 @@ empty to use whichever Chatterbox model the server has loaded, or name one (`tur
 `multilingual`). Turbo performs laughs and sighs; the other two have dials for how theatrical a voice
 is, and no build does both.
 
-![The Rhapsode plugin: its server, default engine and variant, and the start of the Voices table](/img/console/plugins.rhapsode.webp)
-*Fig. 1. **Settings → Plugins → Rhapsode**. The **Voices** table starts at the bottom of the page.*
+![The Rhapsode plugin: its server, default engine, voice and variant, and the audio format](/img/console/plugins.rhapsode.webp)
+*Fig. 1. **Settings → Plugins → Rhapsode**. The **Voices** table is further down.*
 
 If the character's **Voice** is already `latenight`, that is all. Otherwise set it on the character.
 **Voice → Voices** plays a sample of every station voice through the same path a break airs on, so

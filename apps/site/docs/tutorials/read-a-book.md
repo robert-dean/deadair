@@ -27,7 +27,7 @@ says more.
 
 1. Download `deadair-plugin-vellichor-books-<version>.tgz` from the plugin's
    [releases page](https://github.com/VinewZ/deadair-vellichor-plugin/releases).
-2. In the console, open **Plugins**, press **Import**, and choose the file.
+2. In the console, open **Settings → Plugins**, press **Import**, and choose the file.
 3. Enable **Vellichor books**.
 
 ## 2. Give it a book

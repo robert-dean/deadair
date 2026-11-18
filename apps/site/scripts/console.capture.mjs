@@ -78,6 +78,9 @@ const targets = [
     { id: 'desk', path: '/' },
     { id: 'schedule.today', path: '/schedule?tab=today', ready: '#main svg' },
     { id: 'schedule.week', path: '/schedule?tab=week' },
+    { id: 'schedule.specials', path: '/schedule?tab=specials' },
+    // A new special's page, empty: opened by its address and never submitted, so nothing is created.
+    { id: 'schedule.special.editor', path: '/schedule/show/new?from=specials&special=true', ready: '#main h1' },
     { id: 'voice.characters', path: '/voice?tab=characters' },
     { id: 'voice.said', path: '/voice?tab=said' },
     { id: 'voice.productions', path: '/voice?tab=productions' },
@@ -90,7 +93,7 @@ const targets = [
     { id: 'settings.appearance', path: '/settings/appearance' },
     { id: 'news', path: '/news' },
     { id: 'charts', path: '/charts' },
-    { id: 'desk.cast', path: '/', click: ['Play on a speaker'] },
+    { id: 'desk.cast', path: '/', click: ['On a speaker'] },
     { id: 'plugins.cast', path: '/plugins/deadair.cast' },
     { id: 'podcasts', path: '/podcasts' },
     { id: 'settings.bulletins', path: '/settings/bulletins' },

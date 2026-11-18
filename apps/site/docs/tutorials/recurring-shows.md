@@ -11,7 +11,7 @@ record before it plays. **The Boneyard** is a heavy metal show six nights a week
 it should play, with two guest hosts who sit in now and then.
 
 Both are ordinary slots on the timetable, set up once and aired every week.
-[Make a show](./make-a-show.md) walks through the slot editor field by field; this page uses it twice,
+[Make a show](./make-a-show.md) walks through the show's page field by field; this page uses it twice,
 for two different shapes of show.
 
 **You need** a station on air with music. The countdown needs the **Last.fm** plugin with an API key,

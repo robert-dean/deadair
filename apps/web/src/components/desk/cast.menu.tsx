@@ -30,6 +30,19 @@ export interface CastMenuProps {
  * The mutations belong to the card, so a failure lands in the card's own stack of failures rather
  * than inside a menu that has closed by the time it arrives.
  */
+/**
+ * The cell is about 150px at 1440, and Neon sets a button's words in capitals tracked out by 0.08em,
+ * which made "On a speaker" 117px against the 95px the default padding left it: Mantine clips a
+ * label rather than ending it in an ellipsis, so it read "ON A SPEAK". Even padding buys the label
+ * 101px, which "Speakers" and "2 speakers" fit in every theme, and the ellipsis is for whatever does
+ * not (a longer word in another language, a count in double figures), whose full form the tooltip
+ * and the open menu both carry.
+ */
+const BLOCK_STYLES = {
+    root: { paddingInline: 12 },
+    label: { display: 'block', height: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+} as const;
+
 export function CastMenu({ onStart, onStop, busy, block = false }: CastMenuProps) {
     const { t } = useTranslation('desk');
     const [opened, setOpened] = useState(false);
@@ -51,6 +64,7 @@ export function CastMenu({ onStart, onStop, busy, block = false }: CastMenuProps
                         fullWidth={block}
                         loading={busy}
                         leftSection={<IconCast size={14} stroke={1.8} />}
+                        styles={block ? BLOCK_STYLES : undefined}
                     >
                         {/* Shorter in a grid cell, which is half a narrow column and cut the long form short. */}
                         {block

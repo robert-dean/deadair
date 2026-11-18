@@ -142,7 +142,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     const schedule = useSchedule();
     const current = useCurrentSlot();
     // For the host's name on the strip. Cached for half a minute and fetched once on mount, which is
-    // the same list the slot editor on this page already reads.
+    // the same list the show page reads.
     const personas = usePersonas();
     const update = useUpdateSlot();
     const navigate = useNavigate();

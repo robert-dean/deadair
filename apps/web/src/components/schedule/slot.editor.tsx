@@ -87,10 +87,11 @@ import { weekdayShort } from '../../i18n/format.locale';
  * station to change the show in place (`POST /schedule/{id}/apply`): the broadcast carries on, and
  * only what can change mid-show does. It is a button rather than a consequence of saving because a
  * label fixed or a change meant for next week must not throw away the rest of today's hour.
- */
-/**
- * The form itself. `ShowEditorPage` is the page it is drawn on, and owns the saving. The form reports
- * whether it holds unsaved edits through `onDirtyChange`, which is what the page's guard asks.
+ *
+ * ## The form, not the page
+ *
+ * `ShowEditorPage` is the page this is drawn on, and owns the saving. The form reports whether it
+ * holds unsaved edits through `onDirtyChange`, which is what the page's guard asks.
  */
 export function SlotEditorForm({
     target,
@@ -109,12 +110,12 @@ export function SlotEditorForm({
     const { t } = useTranslation(['schedule', 'common']);
     const slot = target?.kind === 'edit' ? target.slot : undefined;
     // Fixed for the life of the form: a weekly slot does not turn into a special by being edited, or
-    // the other way round. A special is started from the Specials tab, and the keyed mount means a
-    // different target is a different form.
+    // the other way round. A special is started from the Specials tab, and the route keys the page on
+    // what it is open on, so a different target is a different form.
     const special = isSpecialTarget(target);
 
     const form = useForm<FormValues>({
-        // Read ONCE per mount, which is why the page keys this component on what it is open on. A
+        // Read ONCE per mount, which is why the route keys `ShowEditorPage` on what it is open on. A
         // form that survived a close would open showing the last slot's values under the new one's
         // title, and a new slot would open showing the defaults it was first built with.
         initialValues: valuesOf(target),
@@ -581,7 +582,7 @@ function Word({ children }: { children: ReactNode }) {
 }
 
 /**
- * What the editor is open on: absent is closed, a slot is that slot, and a new one may arrive
+ * What the editor is open on: a slot is that slot, and a new one may arrive
  * knowing where on the grid it was asked for.
  *
  * A union rather than `slot | null | undefined` because the two states read differently at every use

@@ -278,7 +278,7 @@ export function ClockPanel() {
                 // MOUNT, so the key has to change on close as well: a constant `new` left the second
                 // new band showing the first one's answers, which is how the first band added through
                 // this panel came out at the position the panel had been built with rather than the
-                // one it was opened with. Same spelling as the slot editor's `keyOf` next door.
+                // one it was opened with. The show page's routes key it the same way.
                 key={editing === undefined ? 'closed' : editing.kind === 'edit' ? editing.band.id : `new:${editing.position}`}
                 {...(editing === undefined ? {} : { target: editing })}
                 kinds={clock.data?.producibleKinds ?? []}

@@ -149,8 +149,8 @@ export function SustainingPanel() {
                     {/* Keyed on what the server last said, so the form is BUILT from the answer
                         rather than from the empty map the first render has, and starts over after
                         every save. `useForm` reads `initialValues` once per mount, which is the same
-                        reason the slot editor and the band editor are keyed by the page that opens
-                        them — and why the hook lives in the child rather than here. */}
+                        reason the band editor is keyed by the panel that opens it and the show page by
+                        its route — and why the hook lives in the child rather than here. */}
                     <SustainingForm
                         key={JSON.stringify(stored)}
                         initial={stored}

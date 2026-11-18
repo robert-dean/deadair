@@ -102,6 +102,12 @@ export const schedule = {
         days_one: 'a day',
         days_other: '{{count}} days',
     },
+    dayStrip: {
+        label: 'Today, hour by hour',
+        span: '{{from}} to {{to}}',
+        sustaining: 'Nothing scheduled: the station sustains',
+        open: 'Open {{name}}, {{span}}',
+    },
     onNow: {
         upNext: 'Up next',
         afterThat: 'After that',

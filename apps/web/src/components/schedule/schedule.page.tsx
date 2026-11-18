@@ -15,6 +15,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
+import { DayStrip } from './day.strip';
 import { OnNowStrip } from './on.now.strip';
 import { FestivalsPanel } from './festivals.panel';
 import { OccasionsPanel } from './occasions.panel';
@@ -273,6 +274,11 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             {/* On Today, because "what is on" is the question somebody arrives with and reading it
                 off a week of columns is work. The takeover note lives inside it, on the block it is
                 about, rather than as a loose paragraph here. */}
+            {/* The whole day on one line, above what is on now, which carries the host lines this cannot. */}
+            {tab === 'today' && current.data ? (
+                <DayStrip now={current.data.now} slots={slots} airingSlotId={airingId} onEdit={editSlot} />
+            ) : undefined}
+
             {tab === 'today' && current.data ? (
                 <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} onEdit={editSlot} />
             ) : undefined}

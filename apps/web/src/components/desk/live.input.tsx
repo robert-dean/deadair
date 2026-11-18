@@ -25,22 +25,30 @@ const LIVE_AUTOMATION_KEY = 'playout.liveAutomation';
 export interface LiveInputProps {
     /** The live input as the station last reported it. */
     live: PlayoutLive;
+    /**
+     * Drawn inside the on-air card rather than as a card of its own, and laid out for its narrow
+     * column: the field and the button stack as they do on a phone.
+     */
+    bare?: boolean;
 }
 
 /**
  * Going live, and handing back, from the desk.
  *
- * A card of its own under On air now rather than more controls in it: that panel's control column is
- * a fixed width for Stop's sake (see `on.air.now.tsx`), and this card has to grow from one row when
- * nobody is live to a countdown somebody reads from across the room.
+ * On the desk it opens inside On air now (`bare`), behind that card's Go live button, and stays open
+ * whenever somebody is armed or on: it has to grow from one row when nobody is live to a countdown
+ * somebody reads from across the room, and that is the column the room is looking at. Drawn on its
+ * own, it is still a card.
  *
  * Go live is one press, because arming airs nothing: the presenter is on only once their encoder is
  * sending real sound, after a countdown. Hand back cuts a presenter off for everybody listening, so it
  * asks twice, as Stop does.
  */
-export function LiveInput({ live }: LiveInputProps) {
+export function LiveInput({ live, bare = false }: LiveInputProps) {
     const { t } = useTranslation('desk');
     const phone = usePhone();
+    // The column the on-air card sits in is phone-narrow at any window width.
+    const narrow = phone || bare;
     const [name, setName] = useState('');
     const [details, setDetails] = useState(false);
     const arm = useArmLive();
@@ -59,10 +67,13 @@ export function LiveInput({ live }: LiveInputProps) {
         <Stack gap="sm">
             <Card
                 // The tally rule again, and for the same reason as On air now's: red means a person is
-                // on the air, so it is drawn only then.
-                style={{ borderTop: `2px solid ${onAir ? 'var(--mantine-color-red-6)' : 'var(--da-border)'}` }}
+                // on the air, so it is drawn only then. Inside the on-air card it is that card's rule.
+                padding={bare ? 0 : undefined}
+                withBorder={!bare}
+                bg={bare ? 'transparent' : undefined}
+                style={bare ? undefined : { borderTop: `2px solid ${onAir ? 'var(--mantine-color-red-6)' : 'var(--da-border)'}` }}
             >
-                <Group justify="space-between" align="center" wrap={phone ? 'wrap' : 'nowrap'} gap="md">
+                <Group justify="space-between" align="center" wrap={narrow ? 'wrap' : 'nowrap'} gap="md">
                     <Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
                         <Group gap="sm" wrap="nowrap">
                             <Text size="xs" fw={600} tt="uppercase" ff="monospace" c="dimmed" style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}>
@@ -84,15 +95,15 @@ export function LiveInput({ live }: LiveInputProps) {
                     </Stack>
 
                     {live.state === 'off' ? (
-                        <Group gap="xs" wrap="nowrap" w={phone ? '100%' : undefined} align="flex-end">
+                        <Group gap="xs" wrap="nowrap" w={narrow ? '100%' : undefined} align="flex-end">
                             <TextInput
                                 label={t('live.off.nameLabel')}
-                                description={phone ? undefined : t('live.off.nameHint')}
+                                description={narrow ? undefined : t('live.off.nameHint')}
                                 value={name}
                                 onChange={event => setName(event.currentTarget.value)}
                                 maxLength={200}
                                 style={{ flex: 1 }}
-                                w={phone ? undefined : 240}
+                                w={narrow ? undefined : 240}
                             />
                             <Tooltip label={t('live.off.goLiveHint')} multiline maw={320}>
                                 <Button h={36} loading={arm.isPending} onClick={() => arm.mutate(name)}>
@@ -115,7 +126,7 @@ export function LiveInput({ live }: LiveInputProps) {
                                 color="red"
                                 variant={handBack.armed ? 'filled' : 'outline'}
                                 h={44}
-                                w={phone ? '100%' : 170}
+                                w={narrow ? '100%' : 170}
                                 loading={disarm.isPending}
                                 onClick={handBack.press}
                             >

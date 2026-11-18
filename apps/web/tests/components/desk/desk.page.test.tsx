@@ -261,7 +261,20 @@ describe('DeskPage', () => {
         render(<DeskPage />);
 
         expect(await screen.findByRole('button', { name: 'Skip' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Go live/ })).not.toBeInTheDocument();
+    });
+
+    it('opens the live controls inside the on-air card from Go live', async () => {
+        // The live input used to be a card of its own under On air now. It lives in the pinned
+        // column now, behind one button, so the column stays short until somebody wants it.
+        arrange();
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ live: { state: 'off' } }));
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'Go live…' }));
+
+        expect(await screen.findByRole('button', { name: 'Go live' })).toBeInTheDocument();
     });
 
     it('forgets an armed Stop on its own', async () => {
@@ -412,10 +425,16 @@ describe('DeskPage', () => {
         const user = setupUser();
         render(<DeskPage />);
 
-        await user.click(await screen.findByRole('button', { name: 'the next 3 records' }));
+        // Drawn as one control with the planned state selected, rather than three links after a
+        // sentence: it is the same choice either way, and a segment shows which is in force.
+        expect(await screen.findByRole('radio', { name: 'As planned' })).toBeChecked();
+        await user.click(screen.getByRole('radio', { name: 'Quiet 3' }));
 
         expect(keepTheStationQuiet).toHaveBeenCalledWith({ records: 3 });
         expect(await screen.findByText('Quiet for the next 3 records. The station talks again after them.')).toBeInTheDocument();
+        // While the spell runs it is the countdown that shows, not a segment claiming a selection
+        // the station is counting down from.
+        expect(screen.queryByRole('radio', { name: 'Quiet 3' })).not.toBeInTheDocument();
     });
 
     it('ends a quiet spell from the line that reports it', async () => {
@@ -437,6 +456,6 @@ describe('DeskPage', () => {
         render(<DeskPage />);
 
         expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'the next 3 records' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('radio', { name: 'Quiet 3' })).not.toBeInTheDocument();
     });
 });

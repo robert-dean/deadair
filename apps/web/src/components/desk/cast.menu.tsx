@@ -14,6 +14,8 @@ export interface CastMenuProps {
     onStop: (pluginId: string, deviceId: string) => void;
     /** A start or a stop is in flight. */
     busy: boolean;
+    /** Drawn as a full button filling its cell, beside the transport, rather than as a quiet link under it. */
+    block?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface CastMenuProps {
  * The mutations belong to the card, so a failure lands in the card's own stack of failures rather
  * than inside a menu that has closed by the time it arrives.
  */
-export function CastMenu({ onStart, onStop, busy }: CastMenuProps) {
+export function CastMenu({ onStart, onStop, busy, block = false }: CastMenuProps) {
     const { t } = useTranslation('desk');
     const [opened, setOpened] = useState(false);
     // Polled, so gated on the session as the desk's readers are.
@@ -41,8 +43,23 @@ export function CastMenu({ onStart, onStop, busy }: CastMenuProps) {
         <Menu opened={opened} onChange={setOpened} position="bottom-end" width={300} withinPortal>
             <Menu.Target>
                 <Tooltip label={t('onAir.cast.hint')} multiline maw={320} disabled={opened}>
-                    <Button variant="subtle" color="gray" size="compact-sm" loading={busy} leftSection={<IconCast size={14} stroke={1.8} />}>
-                        {active.length === 0 ? t('onAir.cast.button') : t('onAir.cast.buttonActive', { count: active.length })}
+                    <Button
+                        variant={block ? 'default' : 'subtle'}
+                        color={block ? undefined : 'gray'}
+                        size={block ? 'sm' : 'compact-sm'}
+                        h={block ? 36 : undefined}
+                        fullWidth={block}
+                        loading={busy}
+                        leftSection={<IconCast size={14} stroke={1.8} />}
+                    >
+                        {/* Shorter in a grid cell, which is half a narrow column and cut the long form short. */}
+                        {block
+                            ? active.length === 0
+                                ? t('onAir.cast.short')
+                                : t('onAir.cast.shortActive', { count: active.length })
+                            : active.length === 0
+                              ? t('onAir.cast.button')
+                              : t('onAir.cast.buttonActive', { count: active.length })}
                     </Button>
                 </Tooltip>
             </Menu.Target>

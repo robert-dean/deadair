@@ -34,8 +34,8 @@ import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone, notifyQueued, notifyUndoable } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { QueryView } from '../shared/query.view';
+import { usePhone } from '../shared/use.phone';
 import { OnAirNow } from './on.air.now';
-import { LiveInput } from './live.input';
 
 /**
  * The desk: what is going out, what needs a person, and what is coming.
@@ -84,6 +84,7 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
     const attention = useStationAttention(signedIn);
     const air = useStationAir(signedIn);
     const order = useStationOrder(signedIn);
+    const phone = usePhone();
 
     // Read here, ahead of the mutations below, because `onRemove`'s undo needs the position a
     // dropped row held AT THE MOMENT of the click — the table redraws under an operator's hand
@@ -186,59 +187,84 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
     ].filter((message): message is string => message !== undefined);
 
     return (
-        <Stack gap="xl">
-            {playout.data ? (
-                <OnAirNow
-                    status={playout.data}
-                    order={loaded}
-                    standingDown={standingDown}
-                    {...(air.data?.airMode === undefined ? {} : { airMode: air.data.airMode })}
-                    {...(air.data?.airSource === undefined ? {} : { airSource: air.data.airSource })}
-                    {...(air.data?.held === undefined ? {} : { held: air.data.held })}
-                    {...(air.data?.holdUntil === undefined ? {} : { holdUntil: air.data.holdUntil })}
-                    {...(air.data?.quietRecords === undefined ? {} : { quietRecords: air.data.quietRecords })}
-                />
-            ) : playout.error ? (
-                <ErrorAlert title={t('page.playoutFailed')} error={playout.error} fallback={t('page.playoutFailedFallback')} />
-            ) : (
-                <PageSkeleton variant="card" />
-            )}
+        // Two columns on a desk: what is going out and what needs a person, pinned on the left, and
+        // the running order beside them. Wrapped rather than switched at a breakpoint, so a narrow
+        // window falls back to one column of the same three zones in the same order.
+        <Group align="flex-start" gap="lg" wrap="wrap">
+            <Stack
+                gap="lg"
+                style={{
+                    flex: '1 1 340px',
+                    maxWidth: phone ? undefined : 380,
+                    minWidth: 0,
+                    // Pinned so Skip and Stop stay under the pointer while the order is read: the
+                    // order is the long thing on this page, and the transport is what an operator
+                    // reaches for while reading it.
+                    // Bounded by the window and scrolled on its own when it outgrows it, so a long
+                    // alert above Needs you can never push that list below a fold the page will not
+                    // scroll to while the column is pinned.
+                    ...(phone
+                        ? {}
+                        : {
+                              position: 'sticky',
+                              top: 'calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md))',
+                              maxHeight: 'calc(100vh - var(--app-shell-header-offset, 0px) - 2 * var(--mantine-spacing-md))',
+                              overflowY: 'auto',
+                          }),
+                }}
+            >
+                {playout.data ? (
+                    <OnAirNow
+                        status={playout.data}
+                        order={loaded}
+                        standingDown={standingDown}
+                        {...(air.data?.airMode === undefined ? {} : { airMode: air.data.airMode })}
+                        {...(air.data?.airSource === undefined ? {} : { airSource: air.data.airSource })}
+                        {...(air.data?.held === undefined ? {} : { held: air.data.held })}
+                        {...(air.data?.holdUntil === undefined ? {} : { holdUntil: air.data.holdUntil })}
+                        {...(air.data?.quietRecords === undefined ? {} : { quietRecords: air.data.quietRecords })}
+                    />
+                ) : playout.error ? (
+                    <ErrorAlert title={t('page.playoutFailed')} error={playout.error} fallback={t('page.playoutFailedFallback')} />
+                ) : (
+                    <PageSkeleton variant="card" />
+                )}
 
-            {/* Only when the station reports a live input at all: an audio chain too old to have one
-                says nothing, and offering to arm an input that is not there would be a button that
-                always fails. */}
-            {playout.data?.live ? <LiveInput live={playout.data.live} /> : undefined}
-
-            {/* Gone entirely when the list has loaded empty: an all-clear card on every visit is
-                noise the operator learns to skip, and the section returning is the signal. Still
-                drawn while pending or failed, because neither of those means nothing is wrong. */}
-            {attention.data?.items.length === 0 ? undefined : (
-                <Stack gap="sm">
-                    <Group gap="sm" align="baseline">
-                        <Title order={2}>{t('page.needsYou')}</Title>
-                        <Text size="sm" c="dimmed">
+                {/* Gone entirely when the list has loaded empty: an all-clear card on every visit is
+                    noise the operator learns to skip, and the section returning is the signal. Still
+                    drawn while pending or failed, because neither of those means nothing is wrong. */}
+                {attention.data?.items.length === 0 ? undefined : (
+                    <Stack gap={6}>
+                        <Title order={2} size="h4">
+                            {t('page.needsYou')}
+                        </Title>
+                        <Text size="xs" c="dimmed">
                             {needsYouBlurb(t, attention.data?.items.length)}
                         </Text>
-                    </Group>
 
-                    {/* The list failing is not the station failing, and saying which is the difference
-                    between a console an operator trusts and one they second-guess.
+                        {/* The list failing is not the station failing, and saying which is the
+                            difference between a console an operator trusts and one they second-guess.
 
-                    `here` because this page is what `/onair` resolves to: without it every row
-                    about the broadcast carried a `Desk →` button that navigated to the page it was
-                    already drawn on. Its evidence links still work — they point at records. */}
-                    <QueryView
-                        query={attention}
-                        skeleton={<PageSkeleton variant="card" />}
-                        errorTitle={t('page.attentionFailed')}
-                        errorFallback={t('page.attentionFailedFallback')}
-                    >
-                        {data => <AttentionList items={data.items} here="/" />}
-                    </QueryView>
-                </Stack>
-            )}
+                            `here` because this page is what `/onair` resolves to: without it every row
+                            about the broadcast carried a `Desk →` button that navigated to the page it
+                            was already drawn on. Its evidence links still work — they point at records.
 
-            <Stack gap="sm">
+                            Compact because the column is narrow: each row's button sits under its
+                            sentence. Still labelled with where it goes, never with a remedy the
+                            station did not send (see the note at the top of this file). */}
+                        <QueryView
+                            query={attention}
+                            skeleton={<PageSkeleton variant="card" />}
+                            errorTitle={t('page.attentionFailed')}
+                            errorFallback={t('page.attentionFailedFallback')}
+                        >
+                            {data => <AttentionList items={data.items} here="/" compact />}
+                        </QueryView>
+                    </Stack>
+                )}
+            </Stack>
+
+            <Stack gap="sm" style={{ flex: '999 1 560px', minWidth: 0 }}>
                 <Group justify="space-between" align="baseline" gap="md" wrap="wrap">
                     <Group gap="sm" align="baseline">
                         <Title order={2}>{t('page.runningOrder')}</Title>
@@ -350,7 +376,7 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
                     </Text>
                 ) : undefined}
             </Stack>
-        </Stack>
+        </Group>
     );
 }
 

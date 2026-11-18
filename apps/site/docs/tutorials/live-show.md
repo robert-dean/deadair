@@ -21,8 +21,8 @@ The live input is its own port. On Unraid, the template's **Live input** port is
 Compose it is `LIVE_PORT` in `.env`. If you installed before live shows existed, add the port
 to the container so it is published.
 
-Open the **Desk**. Under **On air now** there is a **Live** card. No card means the station's audio
-chain is older than live shows: update the station.
+Open the **Desk**. In the on-air card there is a **Go live…** button, which opens the **Live** card.
+No button means the station's audio chain is older than live shows: update the station.
 
 ## 2. Keep a recording
 
@@ -81,7 +81,7 @@ cut. Then you are on, and the card shows the red tally and how long you have bee
 Listeners hear you about two seconds after you speak, so listen on headphones to the encoder, not
 to the stream.
 
-**Not booked?** Type a show name on the Live card and press **Go live** at any time. Everything after
+**Not booked?** Press **Go live…** on the Desk, type a show name on the Live card and press **Go live** at any time. Everything after
 that is the same.
 
 ## 6. Hand back

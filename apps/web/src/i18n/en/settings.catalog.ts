@@ -1043,6 +1043,11 @@ export const settings = {
         removeTag: 'Remove {{tag}}',
         refresh: 'Refresh options',
         saved: 'Saved.',
+        unsaved: {
+            label: 'Unsaved changes',
+            message: 'You have unsaved changes.',
+            discard: 'Discard',
+        },
         rows: {
             empty: 'Nothing here yet.',
             row: 'Row {{number}}',

@@ -9,6 +9,7 @@ import { type GetInputPropsReturnType } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 import type { ConfigFieldDescriptor } from '@deadair/sdk';
 import { type FieldValue } from './config.fields.values';
+import type { FieldRowClassNames } from './config.field.row';
 
 /**
  * Whether a field asked for a slider AND declared the range one cannot be drawn without.
@@ -76,7 +77,7 @@ function sliderLabel(text: string, reading: string) {
 interface SliderFieldProps {
     field: ConfigFieldDescriptor;
     inputProps: GetInputPropsReturnType;
-    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean; classNames?: FieldRowClassNames };
 }
 
 /**
@@ -114,6 +115,7 @@ export function SliderField({ field, inputProps, common }: SliderFieldProps) {
             label={sliderLabel(common.label, sliderText(at, field))}
             description={common.description}
             withAsterisk={common.withAsterisk}
+            classNames={common.classNames}
             error={error}
         >
             <Slider
@@ -141,7 +143,7 @@ export function SliderField({ field, inputProps, common }: SliderFieldProps) {
 interface RangeFieldProps {
     /** The LOWER end, which is the one that declared the pairing and whose label the control wears. */
     field: ConfigFieldDescriptor;
-    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean; classNames?: FieldRowClassNames };
     lower: GetInputPropsReturnType;
     upper: GetInputPropsReturnType;
 }
@@ -187,6 +189,7 @@ export function RangeField({ field, common, lower, upper }: RangeFieldProps) {
             label={sliderLabel(common.label, `${sliderText(low, field)}–${sliderText(high, field)}`)}
             description={common.description}
             withAsterisk={common.withAsterisk}
+            classNames={common.classNames}
             // Either end may be the one the server refused, and there is one control to say so on.
             error={lower.error ?? upper.error}
         >
@@ -234,7 +237,7 @@ const BYTES_PER_GB = 1024 * 1024 * 1024;
 interface BytesFieldProps {
     field: ConfigFieldDescriptor;
     inputProps: GetInputPropsReturnType;
-    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean; classNames?: FieldRowClassNames };
 }
 
 /**
@@ -289,13 +292,17 @@ interface SecretFieldProps {
     cleared: boolean;
     disabled: boolean;
     onToggleCleared: () => void;
+    /** The settings row layout, from {@link fieldRowClassNames}. */
+    classNames?: FieldRowClassNames;
+    /** The class that puts the stored-value line under the control rather than under the row. */
+    underClassName?: string;
 }
 
 /**
  * A write-only field. Nothing about a stored secret is displayed, because nothing about it is ever
  * sent: the API reports one as a boolean and no more.
  */
-export function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCleared }: SecretFieldProps) {
+export function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCleared, classNames, underClassName }: SecretFieldProps) {
     const { t } = useTranslation('settings');
     return (
         <Stack gap="xxs">
@@ -303,6 +310,7 @@ export function SecretField({ field, inputProps, stored, cleared, disabled, onTo
                 label={field.label}
                 description={field.help}
                 withAsterisk={field.required}
+                classNames={classNames}
                 disabled={disabled || cleared}
                 placeholder={stored && !cleared ? '••••••••' : field.placeholder}
                 {...inputProps}
@@ -310,7 +318,7 @@ export function SecretField({ field, inputProps, stored, cleared, disabled, onTo
             {stored ? (
                 // The state of the stored value sits below the input rather than in its
                 // description, which the field's own help text already has a claim on.
-                <Group justify="space-between" gap="sm" wrap="nowrap">
+                <Group justify="space-between" gap="sm" wrap="nowrap" className={underClassName}>
                     <Text size="xs" c={cleared ? 'red' : 'dimmed'}>
                         {cleared ? t('form.secret.willBeRemoved') : t('form.secret.stored')}
                     </Text>

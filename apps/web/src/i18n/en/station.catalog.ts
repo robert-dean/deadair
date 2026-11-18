@@ -110,6 +110,40 @@ export const station = {
             failed: 'This could not be read. The rest of the page is unaffected.',
             reading: 'Reading…',
         },
+        tiles: {
+            label: 'Check-up at a glance',
+            reading: 'reading',
+            unreadable: 'unreadable',
+            needsYou: {
+                clear: 'all clear',
+                count_one: '{{count}} item',
+                count_other: '{{count}} items',
+            },
+            plugins: {
+                running: '{{active}} of {{total}} running',
+                unhappy_one: '{{count}} needs a look',
+                unhappy_other: '{{count}} need a look',
+            },
+            model: {
+                free: 'free',
+                busy: 'working',
+                stuck: 'stuck',
+            },
+            disk: {
+                loose_one: '{{files}} file to check',
+                loose_other: '{{files}} files to check',
+            },
+            loops: {
+                count_one: '{{count}} loop',
+                count_other: '{{count}} loops',
+            },
+            library: {
+                measured: '{{measured}} of {{total}} measured',
+            },
+            build: {
+                unstamped: 'dev build',
+            },
+        },
         onAir: {
             listeners: 'Listeners',
             stream: 'Stream',

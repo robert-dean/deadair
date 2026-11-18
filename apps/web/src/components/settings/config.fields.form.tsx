@@ -9,6 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { usePhone } from '../shared/use.phone';
 import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
 import classes from './config.fields.form.module.css';
+import { fieldRowClassNames, switchRowClassNames, underControlClass } from './config.field.row';
 import {
     type FieldRow,
     ROW_ID_KEY,
@@ -109,6 +110,18 @@ export interface ConfigFieldsFormProps {
      * form that is gone.
      */
     onDirtyChange?: (dirty: boolean) => void;
+
+    /**
+     * Save from a bar that appears only while something is unsaved, with a way to discard it,
+     * rather than from a button that is always there.
+     *
+     * The settings page's choice, where a section is only ever an edit to values already stored, so
+     * a Save with nothing to save is a control that does nothing. Off for the plugin and topic
+     * forms: a plugin is often saved with its defaults untouched to set it up at all, and a new
+     * topic's name is typed outside this form, so both need a Save that is there before anything
+     * in here has changed.
+     */
+    saveBar?: boolean;
 }
 
 /**
@@ -139,6 +152,7 @@ export function ConfigFieldsForm({
     onRefreshSuggestions,
     suggestionsPending = false,
     onDirtyChange,
+    saveBar = false,
 }: ConfigFieldsFormProps) {
     const { t } = useTranslation('settings');
     const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
@@ -269,6 +283,12 @@ export function ConfigFieldsForm({
         return () => onDirtyChange?.(false);
     }, [dirty, onDirtyChange]);
 
+    /** Back to what is stored: the typed values, and any stored secret marked for removal. */
+    function discard(): void {
+        form.reset();
+        setCleared(new Set());
+    }
+
     function toggleCleared(key: string, name: string): void {
         setCleared(current => {
             const next = new Set(current);
@@ -300,6 +320,9 @@ export function ConfigFieldsForm({
                     });
                 }
             });
+            // What was just saved is what the form now holds against, so a later Discard goes back to
+            // it rather than to whatever was stored when the form was first drawn.
+            form.setInitialValues(form.getValues());
             form.resetDirty();
         } catch (caught) {
             const details = apiErrorDetails(caught);
@@ -338,7 +361,7 @@ export function ConfigFieldsForm({
         if (typeof typed !== 'string' || typed.trim() !== '') return undefined;
 
         return (
-            <Text size="xs" c="dimmed">
+            <Text size="xs" c="dimmed" className={underControlClass}>
                 {t('form.derived', { value })}
             </Text>
         );
@@ -359,11 +382,14 @@ export function ConfigFieldsForm({
             return undefined;
         }
 
+        // A field wide by nature keeps its label above it and takes the whole row; everything else
+        // is laid out as a row, label and help on the left and the control on the right.
         const common = {
             label: field.label,
             description: field.help,
             withAsterisk: field.required,
             disabled: pending,
+            classNames: FULL_WIDTH_TYPES.has(field.type) ? undefined : fieldRowClassNames,
         };
 
         switch (field.type) {
@@ -379,10 +405,21 @@ export function ConfigFieldsForm({
                             toggleCleared(field.key, name);
                         }}
                         disabled={pending}
+                        classNames={fieldRowClassNames}
+                        underClassName={underControlClass}
                     />
                 );
             case 'boolean':
-                return <Switch key={field.key} {...common} description={undefined} {...form.getInputProps(name, { type: 'checkbox' })} />;
+                return (
+                    <Switch
+                        key={field.key}
+                        {...common}
+                        description={undefined}
+                        labelPosition="left"
+                        classNames={switchRowClassNames}
+                        {...form.getInputProps(name, { type: 'checkbox' })}
+                    />
+                );
             case 'number':
                 return <NumberField key={field.key} field={field} fields={fields} form={form} name={name} common={common} />;
             // Stored and submitted exactly like a `string`, so nothing outside this line knows it
@@ -458,13 +495,12 @@ export function ConfigFieldsForm({
             <Stack gap="md">
                 {failure ? <ErrorAlert title={failureTitle}>{failure}</ErrorAlert> : undefined}
 
-                {/* Two columns where there is room, which is what the wider settings layout bought.
-                    `auto-fit` rather than a fixed two, so this is one rule for a wide window, a
-                    narrow one, and a plugin form in a modal — all of which render this component.
-
-                    A field that is WIDE by nature spans the row: a list, a table of rows, a note and
-                    a multiselect are all things whose content is longer than a label, and halving
-                    them to keep a grid tidy is the layout winning an argument against the content. */}
+                {/* One field to a row, label on the left and control on the right where the form is
+                    wide enough, which the CSS module decides by the form's own width so a modal and
+                    a card both get the right answer. A field WIDE by nature keeps its label above
+                    it: a list, a table of rows, a note and a multiselect are all longer than a
+                    label, and squeezing them into the control column is the layout winning an
+                    argument against the content. */}
                 <Box className={classes.fields}>
                     {fields.map((field, index) => {
                         const rendered = renderField(field, index);
@@ -473,7 +509,7 @@ export function ConfigFieldsForm({
                         // derived lays out exactly as it did before any of this existed.
                         const note = derivedNote(field, index);
                         return (
-                            <Box key={field.key} className={FULL_WIDTH_TYPES.has(field.type) ? classes.wide : undefined}>
+                            <Box key={field.key}>
                                 {note === undefined ? (
                                     rendered
                                 ) : (
@@ -487,20 +523,36 @@ export function ConfigFieldsForm({
                     })}
                 </Box>
 
-                <Group justify="space-between" gap="md">
-                    {/* One control for the form rather than one per field, because the suggestions
-                        are one call. Only shown when asking would do something. */}
-                    {suggestionsSupported && onRefreshSuggestions ? (
-                        <Group gap="xs">
-                            <Button variant="subtle" size="compact-sm" onClick={onRefreshSuggestions} disabled={suggestionsPending}>
-                                {t('form.refresh')}
-                            </Button>
-                            {suggestionsPending ? <Loader size="xs" /> : undefined}
-                        </Group>
-                    ) : (
-                        <span />
-                    )}
+                {/* One control for the form rather than one per field, because the suggestions are
+                    one call. Only shown when asking would do something. */}
+                {suggestionsSupported && onRefreshSuggestions ? (
+                    <Group gap="xs">
+                        <Button variant="subtle" size="compact-sm" onClick={onRefreshSuggestions} disabled={suggestionsPending}>
+                            {t('form.refresh')}
+                        </Button>
+                        {suggestionsPending ? <Loader size="xs" /> : undefined}
+                    </Group>
+                ) : undefined}
 
+                {saveBar ? (
+                    dirty ? (
+                        <Group justify="space-between" gap="md" className={classes.saveBar} role="region" aria-label={t('form.unsaved.label')}>
+                            <Text size="sm">{t('form.unsaved.message')}</Text>
+                            <Group gap="xs">
+                                <Button variant="default" onClick={discard} disabled={pending}>
+                                    {t('form.unsaved.discard')}
+                                </Button>
+                                <Button type="submit" loading={pending}>
+                                    {submitLabel}
+                                </Button>
+                            </Group>
+                        </Group>
+                    ) : succeeded ? (
+                        <Text size="sm" c="dimmed" ta="right">
+                            {t('form.saved')}
+                        </Text>
+                    ) : undefined
+                ) : (
                     <Group justify="flex-end" gap="md">
                         {succeeded && !dirty ? (
                             <Text size="sm" c="dimmed">
@@ -511,17 +563,17 @@ export function ConfigFieldsForm({
                             {submitLabel}
                         </Button>
                     </Group>
-                </Group>
+                )}
             </Stack>
         </form>
     );
 }
 
 /**
- * The field types that take a whole row.
+ * The field types that keep their label above them and take the whole row.
  *
- * Everything else is a label and one control and sits happily in half a card. These are the ones
- * whose CONTENT is wider than that: a note is a paragraph, a list and a rows table grow downward
- * and sideways, and a multiselect holds an unbounded number of pills.
+ * Everything else is a label and one control and sits beside its label. These are the ones whose
+ * CONTENT is wider than the control column: a note is a paragraph, a list and a rows table grow
+ * downward and sideways, and a multiselect holds an unbounded number of pills.
  */
 const FULL_WIDTH_TYPES = new Set(['note', 'list', 'rows', 'multiselect']);

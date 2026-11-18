@@ -12,6 +12,18 @@ import { stubPhoneMedia } from '../../utils/phone';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { pluginSummary } from '../../utils/plugin.fixture';
 import { render, screen, within } from '../../utils/render';
+import type { AttentionItem } from '@deadair/sdk';
+
+function attentionItem(severity: AttentionItem['severity']): AttentionItem {
+    return { code: severity, severity, title: `A ${severity}`, detail: `A ${severity}, in a sentence.`, route: '/' };
+}
+
+/** Which palette a tile's lamp is drawn from, read off the dot Mantine styles with it. */
+function lampColor(tile: HTMLElement): string | undefined {
+    const dot = tile.querySelector<HTMLElement>('[style*="border-radius"]');
+    const background = dot?.getAttribute('style') ?? '';
+    return /--mantine-color-(\w+)-/.exec(background)?.[1];
+}
 
 const getPlayoutStatus = vi.fn();
 const readStationAttention = vi.fn();
@@ -74,6 +86,21 @@ function allWell() {
 afterEach(() => {
     vi.resetAllMocks();
 });
+
+/** The section a tile points at, by the anchor it carries. */
+function section(id: string): HTMLElement {
+    const found = document.getElementById(id);
+    if (found === null) throw new Error(`no section #${id}`);
+    return found;
+}
+
+/** The tile for one section, which is a link. */
+function tile(name: string): HTMLElement {
+    const nav = screen.getByRole('navigation', { name: 'Check-up at a glance' });
+    const found = nav.querySelector<HTMLElement>(`[data-tile="${name}"]`);
+    if (found === null) throw new Error(`no tile ${name}`);
+    return found;
+}
 
 // The desk's readers poll only while there is a session, as they do in the console.
 beforeEach(() => setSession('token-123', 3600));
@@ -230,8 +257,10 @@ describe('CheckupPage', () => {
 
         render(<CheckupPage />);
 
-        // Seven characters is what gets compared against `git log` by eye.
-        expect(await screen.findByText('a518ad8')).toBeInTheDocument();
+        // Seven characters is what gets compared against `git log` by eye. The tile carries the
+        // same short form, so the section is where this looks.
+        await screen.findAllByText('a518ad8');
+        expect(within(section('checkup-build')).getByText('a518ad8')).toBeInTheDocument();
         // And the whole of it is what gets pasted back into one, which is what the copy button
         // carries and the title attribute shows.
         expect(screen.getByTitle('a518ad85c82e33e7f535afb067bb6e6f22e9eb11')).toBeInTheDocument();
@@ -286,7 +315,8 @@ describe('CheckupPage', () => {
 
         render(<CheckupPage />);
 
-        expect(await screen.findByText('ready')).toBeInTheDocument();
+        await screen.findAllByText('ready');
+        expect(within(section('checkup-on-air')).getByText('ready')).toBeInTheDocument();
         expect(screen.queryByText('noAudience')).not.toBeInTheDocument();
     });
 
@@ -364,5 +394,107 @@ describe('CheckupPage', () => {
 
         expect(await screen.findByText('something going on air')).toBeInTheDocument();
         expect(screen.queryByText(/stopped part way/)).not.toBeInTheDocument();
+    });
+
+    describe('tiles', () => {
+        it('puts a tile for every section across the top, each linking to its section or its page', async () => {
+            allWell();
+
+            render(<CheckupPage />);
+            await screen.findByText('playout.reconcile');
+
+            expect(tile('onAir')).toHaveAttribute('href', '#checkup-on-air');
+            expect(tile('needsYou')).toHaveAttribute('href', '#checkup-needs-you');
+            expect(tile('plugins')).toHaveAttribute('href', '/plugins');
+            expect(tile('model')).toHaveAttribute('href', '#checkup-model');
+            expect(tile('disk')).toHaveAttribute('href', '#checkup-disk');
+            expect(tile('loops')).toHaveAttribute('href', '#checkup-loops');
+            expect(tile('library')).toHaveAttribute('href', '/catalog/tracks');
+            expect(tile('build')).toHaveAttribute('href', '#checkup-build');
+            // Every anchor is a section that exists.
+            for (const id of ['checkup-on-air', 'checkup-needs-you', 'checkup-model', 'checkup-disk', 'checkup-loops', 'checkup-build']) {
+                expect(section(id)).toBeInTheDocument();
+            }
+        });
+
+        it('reads all clear when nothing is wrong', async () => {
+            allWell();
+
+            render(<CheckupPage />);
+            await screen.findByText('playout.reconcile');
+
+            expect(within(tile('needsYou')).getByText('all clear')).toBeInTheDocument();
+            expect(within(tile('model')).getByText('free')).toBeInTheDocument();
+            expect(within(tile('loops')).getByText('2 loops')).toBeInTheDocument();
+            expect(within(tile('library')).getByText('13 of 581 measured')).toBeInTheDocument();
+            expect(within(tile('build')).getByText('dev build')).toBeInTheDocument();
+        });
+
+        /** A notice is somebody not having set a thing up yet, and drawing it as broken teaches skimming. */
+        it('draws a list of notices as standby and anything worse as a fault', async () => {
+            allWell();
+            readStationAttention.mockResolvedValue({ items: [attentionItem('notice')] });
+
+            const { unmount } = render(<CheckupPage />);
+            await screen.findByText('playout.reconcile');
+            expect(within(tile('needsYou')).getByText('1 item')).toBeInTheDocument();
+            expect(lampColor(tile('needsYou'))).toBe('blue');
+            unmount();
+
+            readStationAttention.mockResolvedValue({ items: [attentionItem('notice'), attentionItem('warning')] });
+            render(<CheckupPage />);
+            await screen.findByText('playout.reconcile');
+            expect(within(tile('needsYou')).getByText('2 items')).toBeInTheDocument();
+            expect(lampColor(tile('needsYou'))).toBe('yellow');
+        });
+
+        it('flags plugins when an enabled one is not active, and a failed one as a fault', async () => {
+            allWell();
+            listPlugins.mockResolvedValue([pluginSummary({ status: 'failed' })]);
+
+            render(<CheckupPage />);
+            await screen.findByText('Spotify');
+
+            expect(within(tile('plugins')).getByText('1 needs a look')).toBeInTheDocument();
+            expect(lampColor(tile('plugins'))).toBe('yellow');
+        });
+
+        it('calls the model stuck once it has been held past any answer', async () => {
+            allWell();
+            readStationCheckup.mockResolvedValue({
+                ...checkup(),
+                model: { waiting: 0, holder: { priority: 'background', heldSince: DateTime.fromISO('2026-08-25T11:45:00.000Z') } },
+            });
+
+            render(<CheckupPage />);
+            await screen.findByText('background work');
+
+            expect(within(tile('model')).getByText('stuck')).toBeInTheDocument();
+            expect(lampColor(tile('model'))).toBe('yellow');
+        });
+
+        it('warns about the disk when files are unclaimed or missing', async () => {
+            allWell();
+            readStorage.mockResolvedValue({
+                readAt: DateTime.fromISO('2026-08-25T12:00:00.000Z'),
+                stores: [{ id: 'tracks', label: 'Audio', path: '/data/tracks', bytes: 1024, files: 4, orphanFiles: 2, rowsWithNoFile: 1 }],
+            });
+
+            render(<CheckupPage />);
+            await screen.findByText('Audio');
+
+            expect(within(tile('disk')).getByText('3 files to check')).toBeInTheDocument();
+            expect(lampColor(tile('disk'))).toBe('yellow');
+        });
+
+        it('says a tile could not be read when its section could not', async () => {
+            allWell();
+            readStorage.mockRejectedValue(new Error('the disk could not be walked'));
+
+            render(<CheckupPage />);
+            await screen.findByText('This could not be read. The rest of the page is unaffected.');
+
+            expect(within(tile('disk')).getByText('unreadable')).toBeInTheDocument();
+        });
     });
 });

@@ -46,6 +46,8 @@ A record's page shows its title, artist, album, year and duration, and then:
 
 The tracks list filters by state: On this machine, Not fetched, Unmeasured, Failing and Benched. A zero under the last two is the answer you want.
 
+Each row in the tracks list carries one mark for whether the record could air now: **Ready** (its audio is here and measured), **Not measured** (its audio is here, not yet measured), **Suspended**, or a quiet **Not fetched**, which is how most of a library looks because the station fetches a record shortly before it airs. Click a row to open the record in a drawer beside the list (full width on a phone): its copies, measurement and airings, your rating, **Request**, which asks for it the way a listener would, and **Open the full record page** for everything else.
+
 Once anything has been measured, a second line filters by the measurement itself. **Measured by** lists each analyzer that has measured records here, or tried to, with how many. Choose one to see every record it touched, which is where to start when a detector has been wrong about a kind of record. Beside it, failed measurements are counted by kind: **could not fetch** and **stopped early** are tried again within the hour, and **would not decode** after a day, since retrying sooner reads the same file. A record's page says which kind its failure was. With either chosen, **Measure these again** throws away the measurement of every record on the page, so the walk measures them again on its next pass. It leaves their audio alone, and until then they play unmeasured.
 
 ## Measuring each record

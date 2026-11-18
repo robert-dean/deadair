@@ -18,6 +18,7 @@ export const catalog = {
     tracks: {
         title: 'Tracks',
         description: 'Every track the station has ingested.',
+        open: 'Open {{title}}',
         search: 'Search tracks',
         loadFailedTitle: 'The tracks could not be loaded',
         loadFailedFallback: 'The catalog is unavailable.',
@@ -46,11 +47,14 @@ export const catalog = {
             title: 'Nothing to show',
             body: 'This page of the catalog has no records on it.',
         },
-        stateMark: {
-            audio: { label: 'audio on this machine', text: 'audio', tooltip: 'Has audio on this machine' },
-            measured: { label: 'measured', text: 'measured', tooltip: 'Has measured' },
-            described: { label: 'described by a provider', text: 'described', tooltip: 'Has described by a provider' },
-            suspended: { label: 'suspended', text: 'suspended', tooltip: 'Kept off the station for now' },
+        readiness: {
+            ready: { label: 'Ready', tooltip: 'Its audio is on this machine and has been measured, so it can air with its own cue points.' },
+            unmeasured: { label: 'Not measured', tooltip: 'Its audio is on this machine, but it has not been measured yet.' },
+            notFetched: {
+                label: 'Not fetched',
+                tooltip: 'The station fetches a record a few records before it airs, so this is how most of a library looks.',
+            },
+            suspended: { label: 'Suspended', tooltip: 'Kept off the station for now.' },
         },
     },
     suspend: {
@@ -129,6 +133,19 @@ export const catalog = {
         disliked: { hint: 'Never play {{label}}', aria: 'Dislike {{label}}' },
         neutral: { hint: 'No opinion about {{label}}', aria: 'No opinion about {{label}}' },
         liked: { hint: 'Play {{label}} more often', aria: 'Like {{label}}' },
+    },
+    drawer: {
+        title: 'Record',
+        openPage: 'Open the full record page',
+        request: {
+            action: 'Request',
+            waiting: '{{title}} is waiting for a decision under Programme, Requests.',
+            onItsWay: '{{title}} is on its way.',
+            refused: 'The station turned it down',
+            refusedPlain: 'It gave no reason.',
+            failed: 'That could not be requested',
+            failedFallback: 'The station did not take the request.',
+        },
     },
     track: {
         back: 'Back to tracks',

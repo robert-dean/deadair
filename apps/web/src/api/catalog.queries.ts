@@ -388,8 +388,11 @@ export function useRateTrack() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateTrack(id, { rating }),
-        onSuccess: () => {
+        onSuccess: (_, { id }) => {
             invalidateCatalogLists(queryClient, 'tracks');
+            // The record itself too: its page and the tracks list's drawer both draw the rating from
+            // it, and the lists' predicate matches `tracks`, which its key does not carry.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.track(id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
         },
     });

@@ -5,7 +5,7 @@ import { SdkError } from '@deadair/sdk';
 
 import { CatalogTracksPage } from '../../../src/components/catalog/catalog.tracks.page';
 import { stubPhoneMedia } from '../../utils/phone';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, waitFor, within } from '../../utils/render';
 import { DEFAULT_PAGE_SIZE } from '../../../src/components/catalog/catalog.page.params';
 
 /**
@@ -20,6 +20,8 @@ const ORDER = <T extends string>(sortBy: T) => ({ sortBy, sort: 'asc' as const, 
 const listTracks = vi.fn();
 const getTrackEnrichment = vi.fn();
 const rateTrack = vi.fn();
+const getTrack = vi.fn();
+const createRequest = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -28,6 +30,10 @@ vi.mock('../../../src/api/client', () => ({
             listTracks: (...args: unknown[]) => listTracks(...args),
             getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
             rateTrack: (...args: unknown[]) => rateTrack(...args),
+            getTrack: (...args: unknown[]) => getTrack(...args),
+        },
+        requests: {
+            createRequest: (...args: unknown[]) => createRequest(...args),
         },
     },
 }));
@@ -167,10 +173,10 @@ describe('CatalogTracksPage', () => {
         // The row renders at all, which is the point: an earlier contract required `albumId` and
         // this row took the whole page down with it.
         expect(await screen.findByText('Untitled')).toBeInTheDocument();
-        // The artist and the title itself — which links to what that record has accumulated. The
-        // album cell stays empty rather than becoming a third; there is no "back to catalog" link
+        // The artist alone. The title opens the record's drawer rather than linking away, and the
+        // album cell stays empty rather than becoming a second; there is no "back to catalog" link
         // any more since the tab strip is the navigation now.
-        expect(screen.getAllByRole('link')).toHaveLength(2);
+        expect(screen.getAllByRole('link')).toHaveLength(1);
     });
 
     // Three empty lists, three different facts, and only one of them is a problem. A benched filter
@@ -256,6 +262,61 @@ describe('CatalogTracksPage', () => {
             expect(getTrackEnrichment).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
         });
         expect(await screen.findByText('Fat Cat')).toBeInTheDocument();
+    });
+
+    // The list is where an operator goes through a library, so a record opens beside it rather
+    // than taking them away from the page and the filter they were working through.
+    it('opens a record in a drawer from its title, with its copies and the way to its full page', async () => {
+        listTracks.mockResolvedValue(page([track()]));
+        getTrack.mockResolvedValue({ ...track(), bindings: [], plays: [], playCount: 0 });
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
+            />,
+        );
+        await userEvent.click(await screen.findByRole('button', { name: 'Vaka' }));
+
+        expect(await screen.findByText('Where this record comes from')).toBeInTheDocument();
+        expect(getTrack).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
+        expect(screen.getByRole('link', { name: 'Open the full record page' })).toBeInTheDocument();
+    });
+
+    // A request from the drawer goes through the listener door, so a refusal is an answer like any
+    // other and is read out in the drawer rather than lost.
+    it('requests the record from its drawer and says when the station turns it down', async () => {
+        listTracks.mockResolvedValue(page([track()]));
+        getTrack.mockResolvedValue({ ...track(), bindings: [], plays: [], playCount: 0 });
+        createRequest.mockResolvedValue({ id: 'r1', title: 'Vaka', status: 'declined', reason: 'Played an hour ago.' });
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+                measurement={NO_MEASUREMENT}
+                onMeasurementChange={noop}
+            />,
+        );
+        await userEvent.click(await screen.findByRole('button', { name: 'Vaka' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Request' }));
+
+        expect(createRequest).toHaveBeenCalledWith({ trackId: '33333333-3333-4333-8333-333333333333' });
+        expect(await screen.findByText('Played an hour ago.')).toBeInTheDocument();
     });
 
     // The flat list is where an operator forms most of these opinions, so it has to be ratable
@@ -405,7 +466,7 @@ describe('CatalogTracksPage', () => {
         );
 
         expect(await screen.findByRole('checkbox', { name: /1 Suspended/ })).toBeInTheDocument();
-        expect(screen.getByLabelText('suspended')).toBeInTheDocument();
+        expect(screen.getByLabelText('Status: Suspended')).toBeInTheDocument();
     });
 
     describe('the measurement filters', () => {
@@ -551,10 +612,16 @@ describe('CatalogTracksPage', () => {
         for (const width of widths) expect(width).toBeGreaterThan(1);
     });
 
-    // Only the facts that are true draw a badge at all — the absence of one already says "not yet",
-    // so the row for a fact that is false must have nothing findable by its label.
-    it('marks each row with what the station has of it, and only that', async () => {
-        listTracks.mockResolvedValue(page([track({ hasAudio: true, measured: false, enriched: true })]));
+    // One mark per row, answering whether the record could go on now. Not fetched is the ordinary
+    // state of most of a library, so it is drawn as quiet text and never as a lamp.
+    it('marks each row with how ready it is to air, and draws not fetched quietly', async () => {
+        listTracks.mockResolvedValue(
+            page([
+                track({ id: 'a', title: 'Ready one', hasAudio: true, measured: true }),
+                track({ id: 'b', title: 'Unmeasured one', hasAudio: true, measured: false }),
+                track({ id: 'c', title: 'Cold one', hasAudio: false, measured: false }),
+            ]),
+        );
 
         render(
             <CatalogTracksPage
@@ -571,9 +638,12 @@ describe('CatalogTracksPage', () => {
             />,
         );
 
-        expect(await screen.findByLabelText('audio on this machine')).toBeInTheDocument();
-        expect(screen.getByLabelText('described by a provider')).toBeInTheDocument();
-        expect(screen.queryByLabelText('measured')).not.toBeInTheDocument();
+        expect(await screen.findByLabelText('Status: Ready')).toBeInTheDocument();
+        expect(screen.getByLabelText('Status: Not measured')).toBeInTheDocument();
+        // The state filter has a chip by the same name, so the row is where this one is looked for.
+        const cold = screen.getByText('Cold one').closest('tr')!;
+        expect(within(cold).getByText('Not fetched')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Status: Not fetched')).not.toBeInTheDocument();
     });
 
     it('surfaces a failed read as an alert', async () => {

@@ -495,6 +495,7 @@ export function SlotEditorForm({
                                         onChange={flow => form.setFieldValue('mixFlow', flow)}
                                         showName={form.values.label}
                                         brief={form.values.brief}
+                                        period={periodOf(form.values.eraFrom, form.values.eraTo)}
                                         changed={form.isDirty('mixFlow')}
                                     />
                                 ) : undefined}
@@ -796,6 +797,12 @@ function valuesOf(target?: EditorTarget): FormValues {
         onEnd: slot?.onEnd ?? 'extend',
     };
 }
+
+/** The show's period as two years, either of them absent, for the canvas's Picks. */
+const periodOf = (from: number | string, to: number | string): { from?: number; to?: number } => ({
+    ...(typeof from === 'number' ? { from } : {}),
+    ...(typeof to === 'number' ? { to } : {}),
+});
 
 /** Where the two side columns stay while the form scrolls: under the header, with the page's own margin. */
 const STICKY = { position: 'sticky', top: 'calc(var(--app-shell-header-height, 52px) + var(--mantine-spacing-md))', flexShrink: 0 } as const;

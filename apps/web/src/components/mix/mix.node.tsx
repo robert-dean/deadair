@@ -20,6 +20,14 @@ export interface MixNodeData extends Record<string, unknown> {
     /** Take every wire into and out of this node off. */
     onUnwire: (id: string) => void;
     onRemove: (id: string) => void;
+    /** For Picks: what the show form says it proposes from, shown and never edited here. */
+    show?: { brief: string; period?: ShowPeriod };
+}
+
+/** A show's period as two years, either of which may be absent. */
+export interface ShowPeriod {
+    from?: number;
+    to?: number;
 }
 
 export type MixFlowNode = Node<MixNodeData, 'mix'>;
@@ -132,6 +140,7 @@ export function MixNodeView({ data, selected }: NodeProps<MixFlowNode>) {
                 </div>
             )}
             <div className={classes.body}>
+                {node.kind === 'picks' && data.show !== undefined ? <PicksShow show={data.show} /> : undefined}
                 {node.kind === 'picks' ? (
                     <>
                         {/* Drawn, never stored: what each limit has left reaches the model here. */}
@@ -164,6 +173,38 @@ export function MixNodeView({ data, selected }: NodeProps<MixFlowNode>) {
 
                 {node.kind === 'split' ? <Socket side="out" index={outs.length - 1} type="records" label={t('sockets.everythingElse')} /> : undefined}
             </div>
+        </div>
+    );
+}
+
+/**
+ * What Picks proposes from, as the show's own form has it: the brief and the period. Read-only here,
+ * because they are the show's and are edited on its page; the canvas only shows where records come from.
+ */
+function PicksShow({ show }: { show: { brief: string; period?: ShowPeriod } }) {
+    const { t } = useTranslation('mix');
+    const { from, to } = show.period ?? {};
+    const period =
+        from !== undefined && to !== undefined
+            ? t('picks.period', { from, to })
+            : from !== undefined
+              ? t('picks.periodFrom', { from })
+              : to !== undefined
+                ? t('picks.periodTo', { to })
+                : undefined;
+    return (
+        <div className={classes.picksShow}>
+            <Text size="xs" c="dimmed" lineClamp={3}>
+                {show.brief.trim() ? t('picks.brief', { brief: show.brief.trim() }) : t('picks.noBrief')}
+            </Text>
+            {period === undefined ? undefined : (
+                <Text size="xs" c="dimmed">
+                    {period}
+                </Text>
+            )}
+            <Text size="xs" c="dimmed" fs="italic">
+                {t('picks.fromShow')}
+            </Text>
         </div>
     );
 }

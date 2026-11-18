@@ -185,3 +185,13 @@
     border-radius: var(--mantine-radius-sm);
     padding: 2px;
 }
+
+/* What Picks proposes from, read off the show. */
+.picksShow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px dashed var(--da-border);
+}

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MixFlow } from '@deadair/sdk';
 
-import { flowProblems, freshNode, nextId, relinkSplit, songOf, starterFlow, unwire } from '../../../src/components/mix/mix.kinds';
+import { flowProblems, freshNode, kindsAt, nextId, relinkSplit, songOf, starterFlow, unwire } from '../../../src/components/mix/mix.kinds';
 import { mixFlowInput } from '../../../src/components/schedule/slot.editor';
 
 const split: MixFlow = {
@@ -79,6 +79,20 @@ describe('the checks the station makes too', () => {
 
     it('takes every wire into and out of a node off, and no others', () => {
         expect(unwire(chain().links, 'row')).toEqual([{ from: 'merge', out: 0, to: 'air', in: 0 }]);
+    });
+});
+
+describe('kindsAt', () => {
+    it('offers every rule on its own, and at a wire only the rules with a socket that takes it', () => {
+        expect(kindsAt(undefined)).toHaveLength(8);
+        // A number from a Time switch has one place to go: a Limit share's amount.
+        expect(kindsAt({ side: 'source', type: 'number' })).toEqual([{ kind: 'limitShare', socket: 1 }]);
+        // Dragged back from a limit's amount, only a Time switch can feed it.
+        expect(kindsAt({ side: 'target', type: 'number' })).toEqual([{ kind: 'timeSwitch', socket: 0 }]);
+        // Dragged back from a record input, a Require can feed it, and a Time switch cannot.
+        const feeding = kindsAt({ side: 'target', type: 'records' }).map(({ kind }) => kind);
+        expect(feeding).toContain('require');
+        expect(feeding).not.toContain('timeSwitch');
     });
 });
 

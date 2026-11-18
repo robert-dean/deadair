@@ -5,6 +5,7 @@ import type { MixFlow } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { Eyebrow } from '../shared/eyebrow';
+import type { ShowPeriod } from './mix.node';
 
 /** Loaded when first opened, so the canvas library is not in every page's first download. */
 const MixFlowEditor = lazy(async () => ({ default: (await import('./mix.flow.editor')).MixFlowEditor }));
@@ -16,7 +17,7 @@ const MixFlowEditor = lazy(async () => ({ default: (await import('./mix.flow.edi
  * without saving keeps nothing, as with every other field here. Removing it sends a flow with no nodes,
  * which is how the station is told to clear one: a save that says nothing keeps what the show had.
  */
-export function MixFlowField({ value, onChange, showName, brief, changed }: Props) {
+export function MixFlowField({ value, onChange, showName, brief, period, changed }: Props) {
     const { t } = useTranslation('mix');
     const [open, setOpen] = useState(false);
     // Opened by "Draft from the brief" rather than to draw, so the canvas starts a draft as it opens.
@@ -74,6 +75,7 @@ export function MixFlowField({ value, onChange, showName, brief, changed }: Prop
                         flow={nodes === 0 ? undefined : value}
                         {...(showName ? { title: showName } : {})}
                         {...(brief === undefined ? {} : { brief })}
+                        {...(period === undefined ? {} : { period })}
                         draftOnOpen={drafting}
                         onClose={() => setOpen(false)}
                         onDone={flow => {
@@ -94,6 +96,8 @@ interface Props {
     showName?: string;
     /** The show's brief as the form holds it, which a draft is made from. */
     brief?: string;
+    /** The show's period, which Picks shows beside the brief. */
+    period?: ShowPeriod;
     /** Whether it differs from what was saved, which the line under the summary says. */
     changed?: boolean;
 }

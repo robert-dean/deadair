@@ -53,4 +53,20 @@ describe('MixFlowEditor', () => {
         expect(await screen.findByText('Bypassed')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Use this flow' })).toBeEnabled();
     });
+
+    it('adds a rule found by typing, and shows on Picks what the show proposes from', async () => {
+        const onDone = vi.fn();
+        const user = setupUser();
+        render(<MixFlowEditor opened flow={runs} brief="Warm and unhurried" period={{ from: 1970 }} onDone={onDone} onClose={vi.fn()} />);
+
+        expect(await screen.findByText('Asked to play “Warm and unhurried”')).toBeInTheDocument();
+        expect(screen.getByText('Records from 1970 on')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Add a rule' }));
+        await user.type(await screen.findByRole('textbox', { name: 'Find a rule' }), 'percent{Enter}');
+
+        expect(await screen.findByText('Limit share')).toBeInTheDocument();
+        // A rule added on its own is not wired, so the flow is not ready until it is.
+        expect(screen.getByRole('button', { name: 'Use this flow' })).toBeDisabled();
+    });
 });

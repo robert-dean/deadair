@@ -48,6 +48,24 @@ export function socketsOf(node: Pick<MixNode, 'kind' | 'branches'>): { ins: Sock
     }
 }
 
+/**
+ * The rules that can be added at the loose end of a wire, and which of their sockets it meets.
+ *
+ * A wire dragged from an output into empty space wants a rule with an INPUT of the same type; one
+ * dragged back from an input wants a rule with an OUTPUT of it. A rule with no such socket is not
+ * offered, since adding it could not finish the wire.
+ */
+export function kindsAt(
+    end: { side: 'source' | 'target'; type: SocketType } | undefined,
+): { kind: (typeof PALETTE_KINDS)[number]; socket: number }[] {
+    return PALETTE_KINDS.flatMap(kind => {
+        if (end === undefined) return [{ kind, socket: 0 }];
+        const { ins, outs } = socketsOf(freshNode(kind, kind, { x: 0, y: 0 }));
+        const socket = (end.side === 'source' ? ins : outs).indexOf(end.type);
+        return socket < 0 ? [] : [{ kind, socket }];
+    });
+}
+
 /** What a node of a kind starts with when it is added, so a fresh node is one setting away from running. */
 export function freshNode(kind: MixKind, id: string, position: { x: number; y: number }): MixNode {
     const at = { x: Math.round(position.x), y: Math.round(position.y) };

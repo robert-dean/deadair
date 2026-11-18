@@ -228,7 +228,9 @@ function SettingsGroupCard({ label, header, fields, settings, onDirtyChange }: S
     return (
         // No anchor and no `scrollMarginTop`: the section list used to jump to this card, and it
         // navigates to this page instead.
-        <Card padding="lg">
+        // `overflow` visible, against the Card default, so the form's save bar can stick to the
+        // bottom of the page: a sticky element cannot escape an ancestor that clips.
+        <Card padding="lg" style={{ overflow: 'visible' }}>
             <Stack gap="md">
                 {header}
 
@@ -248,6 +250,7 @@ function SettingsGroupCard({ label, header, fields, settings, onDirtyChange }: S
                     failureTitle={t('page.save.failureTitle')}
                     failureMessage={t('page.save.failureMessage')}
                     onDirtyChange={onDirtyChange}
+                    saveBar
                 />
             </Stack>
         </Card>

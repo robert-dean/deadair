@@ -165,9 +165,10 @@ describe('SettingsSectionPage', () => {
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
         render(<SettingsSectionPage section="breaks" />);
-        await screen.findByLabelText('Minutes between breaks');
+        const user = setupUser();
+        await user.type(await screen.findByLabelText('Minutes between breaks'), '5');
 
-        await setupUser().click(screen.getByRole('button', { name: 'Save breaks' }));
+        await user.click(screen.getByRole('button', { name: 'Save breaks' }));
 
         await waitFor(() => {
             expect(updateSettings).toHaveBeenCalledTimes(1);
@@ -204,6 +205,60 @@ describe('SettingsSectionPage', () => {
         await waitFor(() => {
             expect(guarding()).toBe(false);
         });
+    });
+
+    // A section only ever edits values already stored, so a Save with nothing to save is a control
+    // that does nothing. The bar appears with the first edit and goes with the save or a discard.
+    it('offers saving only once something is unsaved', async () => {
+        getSettings.mockResolvedValue(settingsOf());
+        render(<SettingsSectionPage section="station" />);
+        const user = setupUser();
+        const input = await screen.findByLabelText('Station name');
+
+        expect(screen.queryByRole('button', { name: 'Save station' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+
+        await user.type(input, '!');
+
+        expect(screen.getByRole('region', { name: 'Unsaved changes' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Save station' })).toBeInTheDocument();
+    });
+
+    it('discards an edit back to what is stored, and stops guarding the page', async () => {
+        getSettings.mockResolvedValue(settingsOf());
+        render(<SettingsSectionPage section="station" />);
+        const user = setupUser();
+        const input = await screen.findByLabelText('Station name');
+        await user.type(input, '!');
+        await waitFor(() => {
+            expect(guarding()).toBe(true);
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Discard' }));
+
+        expect(input).toHaveValue('Old FM');
+        expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+        await waitFor(() => {
+            expect(guarding()).toBe(false);
+        });
+        expect(updateSettings).not.toHaveBeenCalled();
+    });
+
+    // Marking a stored secret for removal is an edit the form's own values cannot see, so a discard
+    // that only reset the values would leave the credential still marked to be erased.
+    it('discards a stored secret marked for removal along with the typed edits', async () => {
+        getSettings.mockResolvedValue(settingsOf());
+        render(<SettingsSectionPage section="mail" />);
+        const user = setupUser();
+        await screen.findByLabelText('Password');
+
+        await user.click(screen.getByRole('button', { name: 'Clear the stored value' }));
+        expect(screen.getByRole('region', { name: 'Unsaved changes' })).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Discard' }));
+
+        expect(screen.getByText('Stored — leave blank to keep it.')).toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
     });
 
     it('leaves an untouched secret out of the submission entirely', async () => {
@@ -284,9 +339,10 @@ describe('SettingsSectionPage', () => {
             ),
         );
         render(<SettingsSectionPage section="station" />);
-        await screen.findByLabelText('Station name');
+        const user = setupUser();
+        await user.type(await screen.findByLabelText('Station name'), '!');
 
-        await setupUser().click(screen.getByRole('button', { name: 'Save station' }));
+        await user.click(screen.getByRole('button', { name: 'Save station' }));
 
         expect(await screen.findByText('That name is taken')).toBeInTheDocument();
     });
@@ -327,11 +383,12 @@ describe('SettingsSectionPage', () => {
         // this test.
         updateSettings.mockResolvedValue(templates);
         render(<SettingsGroupPage group="phrasings" label="Phrasings" />);
-        await screen.findByLabelText('What the station says in a jingle');
+        const user = setupUser();
+        await user.type(await screen.findByLabelText('What the station says in a jingle'), '{Enter}Stay tuned.');
 
-        await setupUser().click(screen.getByRole('button', { name: 'Save phrasings' }));
+        await user.click(screen.getByRole('button', { name: 'Save phrasings' }));
 
-        expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.jingleTemplates': 'This is {{station.name}}.' } });
+        expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.jingleTemplates': 'This is {{station.name}}.\nStay tuned.' } });
     });
 
     it('draws sign-in as two halves, yours above the station’s', async () => {

@@ -26,6 +26,7 @@ import { suggestionsAsValues } from './config.suggestions';
 import { BytesField, rangeEndOf, RangeField, isSlider, SliderField } from './config.input.fields';
 import { type RowSecretState, RowsField } from './config.rows.field';
 import { isModelList, ModelListField } from './model.list.field';
+import type { FieldRowClassNames } from './config.field.row';
 
 type FieldOption = { value: string; label: string };
 
@@ -33,7 +34,7 @@ interface TypedFieldProps {
     field: ConfigFieldDescriptor;
     form: UseFormReturnType<FormValues>;
     name: string;
-    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean; classNames?: FieldRowClassNames };
 }
 
 interface NoteFieldProps {

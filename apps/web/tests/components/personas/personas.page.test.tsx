@@ -217,11 +217,12 @@ describe('PersonasPage', () => {
         render(<PersonasPage />);
 
         // The badges sit beside the name in one Group, so the name's own parent is the card's
-        // heading row and scopes each assertion to the right character.
-        const speaking = (await screen.findByText('Fran')).parentElement;
+        // heading row and scopes each assertion to the right character. By paragraph, since the
+        // Presenting now strip names whoever is speaking too.
+        const speaking = (await screen.findByText('Fran', { selector: 'p' })).parentElement;
         expect(within(speaking as HTMLElement).getByText('On air now')).toBeInTheDocument();
 
-        const stationsOwn = screen.getByText('Marlowe').parentElement;
+        const stationsOwn = screen.getByText('Marlowe', { selector: 'p' }).parentElement;
         expect(within(stationsOwn as HTMLElement).getByText('Station\u2019s own')).toBeInTheDocument();
         expect(within(stationsOwn as HTMLElement).queryByText('On air now')).not.toBeInTheDocument();
     });
@@ -237,9 +238,9 @@ describe('PersonasPage', () => {
         });
         render(<PersonasPage />);
 
-        const cohost = (await screen.findByText('Garth')).parentElement;
+        const cohost = (await screen.findByText('Garth', { selector: 'p' })).parentElement;
         expect(within(cohost as HTMLElement).getByText('On air now, co-host')).toBeInTheDocument();
-        expect(within(screen.getByText('Fran').parentElement as HTMLElement).getByText('On air now')).toBeInTheDocument();
+        expect(within(screen.getByText('Fran', { selector: 'p' }).parentElement as HTMLElement).getByText('On air now')).toBeInTheDocument();
     });
 
     it('says "On air now" once when the station\u2019s own host is the one presenting', async () => {
@@ -247,7 +248,7 @@ describe('PersonasPage', () => {
         listPersonas.mockResolvedValue({ personas: [persona({ defaultHost: true, presenting: true })] });
         render(<PersonasPage />);
 
-        await screen.findByText('Marlowe');
+        await screen.findByText('Marlowe', { selector: 'p' });
         expect(screen.getByText('On air now')).toBeInTheDocument();
         expect(screen.queryByText('Station\u2019s own')).not.toBeInTheDocument();
     });
@@ -324,4 +325,36 @@ describe('PersonasPage', () => {
         expect(await screen.findByText('The personas could not be exported')).toBeInTheDocument();
         expect(shown).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'The roster was exported.' }));
     });
+
+    // The strip used to draw only during a show with its own host, with the presenter name and the
+    // story wait as two full cards beneath it. Now it says who is speaking in every state, and the
+    // two settings open from it.
+    it('says who is presenting, and opens the presenter settings from the strip', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona({ defaultHost: true, presenting: true }), persona({ id: 'p-2', key: 'sidekick', label: 'Garth', coHosting: true })],
+        });
+        const user = setupUser();
+        render(<PresentingBannerHost />);
+
+        expect(await screen.findByText(/is presenting, as the station's own host/)).toBeInTheDocument();
+        expect(screen.getByText('With Garth beside them as co-host.')).toBeInTheDocument();
+        // The two settings are no longer cards on the page.
+        expect(screen.queryByText('Presenter name')).not.toBeInTheDocument();
+        expect(screen.queryByText('Returning to a story')).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Settings for presenters' }));
+        expect(await screen.findByRole('textbox', { name: 'Presenter name' })).toBeInTheDocument();
+        expect(screen.getByRole('textbox', { name: /Wait before returning to a story/ })).toBeInTheDocument();
+        expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(2);
+    });
+
+    it('says so when nobody is presenting', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        render(<PresentingBannerHost />);
+
+        expect(await screen.findByText(/Nobody is presenting/)).toBeInTheDocument();
+    });
 });
+
+/** The page itself, named for what these cases look at. */
+const PresentingBannerHost = PersonasPage;

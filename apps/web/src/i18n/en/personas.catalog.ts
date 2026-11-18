@@ -26,8 +26,6 @@ export const personas = {
         remove: 'Remove',
     },
     shared: {
-        done: 'Done',
-        change: 'Change',
         save: 'Save',
         edit: 'Edit',
         add: 'Add',
@@ -741,6 +739,13 @@ export const personas = {
         // `<strong/>` is filled with the host's name, as the component's own child.
         body: "The show on air is presented by <strong/>, which the broadcast named for itself. Putting a persona on air below changes the station's own host, which takes over when this show ends.",
         unknownHost: 'a character this station no longer has',
+        // `<strong/>` is filled with the host's name, as the component's own child.
+        speaking: '<strong/> is presenting.',
+        speakingOwn: "<strong/> is presenting, as the station's own host. Make another host the station's own and the next break is theirs.",
+        nobody: "Nobody is presenting, so breaks are written from the station's own phrasings and spoken in the default voice.",
+        coHosts_one: 'With {{names}} beside them as co-host.',
+        coHosts_other: 'With {{names}} beside them as co-hosts.',
+        settings: 'Settings for presenters',
         handBack: 'Hand it back',
         failure: 'The show kept the host it had.',
         note: "Handing it back re-writes the breaks already written for this show and not yet aired, in whoever's character it lands in.",

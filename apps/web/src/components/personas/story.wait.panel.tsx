@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Button, Card, Collapse, Group, NumberInput, Stack, Text } from '@mantine/core';
+import { NumberInput, Stack, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 
@@ -36,59 +35,49 @@ export const MAX_MINUTES = 1_440;
  * It shipped with the stories themselves, in the `personas` group, and for a while nothing drew it:
  * the settings page leaves that group to this page, and this page drew only the presenter name. So
  * the one control over how often a story comes round could be changed through the API and nowhere
- * else. It sits above the roster because it is about every character on it, and the stories it
- * paces are opened from the cards below.
+ * else. It hangs from the strip above the roster because it is about every character on it, and the
+ * stories it paces are opened from the cards below.
  *
- * ## Behind a fold, with the summary in view
+ * ## In the strip's popover, with the summary above the field
  *
- * The same shape as `PresenterNamePanel`: the sentence that stays on screen says what the wait is
- * now, which is most of what an operator wants from it.
+ * Beside `PresenterNamePanel`, under "Settings for presenters" on the Presenting now strip: the
+ * sentence above the field says what the wait is now, which is most of what an operator wants.
  */
 export function StoryWaitPanel() {
     const settings = useSettings();
     const save = useUpdateSettings();
     const { t } = useTranslation('personas');
-    const [opened, setOpened] = useState(false);
 
     const stored = storedMinutes(settings.data?.values ?? {});
 
     return (
-        <Card padding="lg">
-            <Stack gap="sm">
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Stack gap={2}>
-                        <Eyebrow>{t('storyWait.eyebrow')}</Eyebrow>
-                        {/* Nothing is claimed until the settings have answered, for the presenter
-                            name's reason: an unanswered read looks like a station that set nothing. */}
-                        <Text size="sm" c="dimmed" maw={620}>
-                            {settings.data === undefined ? ' ' : summaryOf(stored)}
-                        </Text>
-                    </Stack>
-                    <Button size="xs" variant="light" onClick={() => setOpened(open => !open)}>
-                        {opened ? t('shared.done') : t('shared.change')}
-                    </Button>
-                </Group>
-
-                {settings.error ? (
-                    <ErrorAlert title={t('storyWait.readError')} error={settings.error} fallback={t('shared.settingsUnavailable')} />
-                ) : undefined}
-
-                <Collapse expanded={opened}>
-                    {/* Keyed on what the server last said, so the form is built from the answer
-                        rather than from the empty map the first render has. */}
-                    <StoryWaitForm
-                        key={stored}
-                        initial={stored}
-                        // Only a real number is stored. Emptied, the row goes and the default
-                        // stands: an explicit null deletes it, as the presenter name's does.
-                        onSubmit={minutes => save.mutate({ [KEY]: typeof minutes === 'number' ? minutes : null })}
-                        saving={save.isPending}
-                        succeeded={save.isSuccess}
-                        failure={save.isError ? apiErrorMessage(save.error, t('storyWait.saveFallback')) : undefined}
-                    />
-                </Collapse>
+        <Stack gap="sm">
+            <Stack gap={2}>
+                <Eyebrow>{t('storyWait.eyebrow')}</Eyebrow>
+                {/* Nothing is claimed until the settings have answered, for the presenter
+                    name's reason: an unanswered read looks like a station that set nothing. */}
+                <Text size="sm" c="dimmed" maw={620}>
+                    {settings.data === undefined ? ' ' : summaryOf(stored)}
+                </Text>
             </Stack>
-        </Card>
+
+            {settings.error ? (
+                <ErrorAlert title={t('storyWait.readError')} error={settings.error} fallback={t('shared.settingsUnavailable')} />
+            ) : undefined}
+
+            {/* Keyed on what the server last said, so the form is built from the answer
+                rather than from the empty map the first render has. */}
+            <StoryWaitForm
+                key={stored}
+                initial={stored}
+                // Only a real number is stored. Emptied, the row goes and the default
+                // stands: an explicit null deletes it, as the presenter name's does.
+                onSubmit={minutes => save.mutate({ [KEY]: typeof minutes === 'number' ? minutes : null })}
+                saving={save.isPending}
+                succeeded={save.isSuccess}
+                failure={save.isError ? apiErrorMessage(save.error, t('storyWait.saveFallback')) : undefined}
+            />
+        </Stack>
     );
 }
 

@@ -28,10 +28,8 @@ import { usePhone } from '../shared/use.phone';
 import { PersonaCard } from './persona.card';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
-import { hasKind, kindOf, presents, type PersonaKind } from './persona.kind';
+import { hasKind, kindOf, type PersonaKind } from './persona.kind';
 import { PersonaImportModal } from './persona.import';
-import { PresenterNamePanel } from './presenter.name.panel';
-import { StoryWaitPanel } from './story.wait.panel';
 import { PresentingBanner } from './presenting.banner';
 
 /**
@@ -256,17 +254,10 @@ export function PersonasPage() {
                 <ErrorAlert title={t('page.loadError.title')} error={personas.error} fallback={t('page.loadError.fallback')} />
             ) : undefined}
 
-            {/* Draws itself only when the show on air named a host of its own, which is the one
-                state where the "On air" badge below is not who is speaking. */}
-            <PresentingBanner />
-
-            {/* What an unnamed host is called. Above the roster rather than on the station card,
-                because every host below with a name of its own overrides it. */}
-            <PresenterNamePanel hosts={all.filter(presents)} />
-
-            {/* How long a story in parts or a running joke rests between tellings. Beside the name
-                for the same reason: it is about every character below, not about one of them. */}
-            <StoryWaitPanel />
+            {/* Who is speaking now, in every state, and the two settings that reach every host
+                (the presenter name and the story wait), which open from it rather than taking
+                a card each above the roster. */}
+            {personas.data === undefined ? undefined : <PresentingBanner roster={all} />}
 
             {/* The one failure that stays page-level, because the button that asks for it is up
                 here and it is about the list rather than about any row in it. Putting one on air,

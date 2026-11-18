@@ -64,9 +64,14 @@ describe('the checks the station makes too', () => {
         expect(flowProblems(looped)).toContainEqual({ kind: 'circle' });
 
         const stray = chain();
-        stray.nodes.push({ id: 'orphan', kind: 'noRepeat' });
-        stray.links.push({ from: 'orphan', out: 0, to: 'merge', in: 1 });
-        expect(flowProblems(stray)).toContainEqual({ nodeId: 'orphan', kind: 'unreached' });
+        // Fed from a node that is itself fed by nothing: wired in, and still unreachable from Picks.
+        stray.nodes.push({ id: 'island', kind: 'merge' }, { id: 'orphan', kind: 'noRepeat' });
+        stray.links.push({ from: 'island', out: 0, to: 'orphan', in: 0 }, { from: 'orphan', out: 0, to: 'merge', in: 1 });
+        const problems = flowProblems(stray);
+        expect(problems).toContainEqual({ nodeId: 'orphan', kind: 'unreached' });
+        // A node with nothing wired in says that once, not that and unreached as well.
+        expect(problems).toContainEqual({ nodeId: 'island', kind: 'nothingWiredIn' });
+        expect(problems).not.toContainEqual({ nodeId: 'island', kind: 'unreached' });
     });
 
     it('lets a rule be bypassed and refuses it for a Merge, with the wires still checked', () => {

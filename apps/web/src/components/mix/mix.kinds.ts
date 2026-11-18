@@ -179,7 +179,9 @@ export function flowProblems(flow: MixFlow): FlowProblem[] {
     };
     const sources = flow.nodes.filter(node => node.kind === 'picks' || node.kind === 'require' || node.kind === 'timeSwitch');
     if (sources.map(node => visit(node.id)).some(Boolean)) problems.push({ kind: 'circle' });
-    for (const node of flow.nodes) if (!reached.has(node.id)) problems.push({ nodeId: node.id, kind: 'unreached' });
+    // A node with nothing wired in already says so; saying it is unreached as well is the same fault twice.
+    const unfed = new Set(problems.flatMap(problem => (problem.kind === 'nothingWiredIn' && problem.nodeId !== undefined ? [problem.nodeId] : [])));
+    for (const node of flow.nodes) if (!reached.has(node.id) && !unfed.has(node.id)) problems.push({ nodeId: node.id, kind: 'unreached' });
     return problems;
 }
 

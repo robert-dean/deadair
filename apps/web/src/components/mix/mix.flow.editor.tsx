@@ -191,10 +191,19 @@ function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }:
         [],
     );
 
+    // Which nodes are selected. Kept here because the nodes handed to React Flow are rebuilt from the
+    // flow on every render: without it a click never selected anything, so neither the toolbar nor
+    // the Delete key had a node to act on.
+    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    // And each node's measured size, for the same reason: the minimap draws only nodes it knows the size of.
+    const [sizes, setSizes] = useState<ReadonlyMap<string, { width: number; height: number }>>(new Map());
+
     const nodes: MixFlowNode[] = useMemo(
         () =>
             flow.nodes.map(node => ({
                 id: node.id,
+                selected: selected.has(node.id),
+                ...(sizes.has(node.id) ? { measured: sizes.get(node.id) } : {}),
                 type: 'mix' as const,
                 position: { x: node.x ?? 0, y: node.y ?? 0 },
                 // Picks and On air are what every flow is; removing either leaves nothing that can run.
@@ -210,7 +219,7 @@ function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }:
                     onRemove: removeNode,
                 },
             })),
-        [flow.nodes, problems, lit, changeNode, unwireNode, removeNode, t, brief, period],
+        [flow.nodes, problems, lit, changeNode, unwireNode, removeNode, t, brief, period, selected, sizes],
     );
 
     const edges: Edge[] = useMemo(() => {
@@ -254,6 +263,25 @@ function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }:
     const onNodesChange = useCallback(
         (changes: NodeChange<MixFlowNode>[]) => {
             if (changes.some(change => change.type === 'dimensions')) fitWhenMeasured();
+            const measured = changes.flatMap(change => (change.type === 'dimensions' && change.dimensions !== undefined ? [change] : []));
+            if (measured.length > 0) {
+                setSizes(current => {
+                    const next = new Map(current);
+                    for (const change of measured) if (change.dimensions !== undefined) next.set(change.id, change.dimensions);
+                    return next;
+                });
+            }
+            const picked = changes.flatMap(change => (change.type === 'select' ? [change] : []));
+            if (picked.length > 0) {
+                setSelected(current => {
+                    const next = new Set(current);
+                    for (const change of picked) {
+                        if (change.selected) next.add(change.id);
+                        else next.delete(change.id);
+                    }
+                    return next;
+                });
+            }
             setFlow(current => {
                 let next = current;
                 for (const change of changes) {
@@ -451,7 +479,15 @@ function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }:
                     >
                         <Background gap={24} />
                         <Controls showInteractive={false} />
-                        <MiniMap pannable zoomable ariaLabel={t('editor.minimap')} nodeStrokeWidth={3} />
+                        <MiniMap
+                            pannable
+                            zoomable
+                            ariaLabel={t('editor.minimap')}
+                            nodeColor={MINIMAP_NODE}
+                            nodeStrokeColor={MINIMAP_STROKE}
+                            maskColor={MINIMAP_MASK}
+                            nodeStrokeWidth={3}
+                        />
                     </ReactFlow>
                 </div>
                 {drafting.isPending || readings !== undefined ? (
@@ -502,6 +538,11 @@ function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }:
         </Stack>
     );
 }
+
+/** The minimap draws the nodes in the console's own surfaces, so they show on its panel in every theme. */
+const MINIMAP_NODE = 'var(--da-border-strong)';
+const MINIMAP_STROKE = 'var(--da-phosphor)';
+const MINIMAP_MASK = 'rgb(0 0 0 / 35%)';
 
 /** Where a rule is being added, in the canvas's own coordinates, and the loose wire end it is joining. */
 interface Adding {

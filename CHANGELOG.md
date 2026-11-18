@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.104.2] — 2026-11-18
+
+- The speaker button in the Desk's on-air card now reads **Speakers**, or **2 speakers** while the station is playing on some. In the Neon Transmitter theme its old wording was cut off mid-word as "ON A SPEAK". A label that still doesn't fit, such as a longer word in another language, now ends in an ellipsis instead of being cut off.
+
 ## [0.104.1] — 2026-11-18
 
 - The console's header fits on a 1440-pixel screen again. A long title on air used to push the clock and the menu off the right edge; now the on-air chip shortens the title instead. Below 1600 pixels **Jump to anything** is the search icon, so there is room for the title in the Neon theme as well.
@@ -2096,7 +2100,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.2...HEAD
+[0.104.2]: https://github.com/robert-dean/deadair/compare/v0.104.1...v0.104.2
 [0.104.1]: https://github.com/robert-dean/deadair/compare/v0.104.0...v0.104.1
 [0.104.0]: https://github.com/robert-dean/deadair/compare/v0.103.0...v0.104.0
 [0.103.0]: https://github.com/robert-dean/deadair/compare/v0.102.0...v0.103.0

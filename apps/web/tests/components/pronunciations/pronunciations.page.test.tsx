@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pronunciation } from '@deadair/sdk';
 
 import { PronunciationsPage } from '../../../src/components/pronunciations/pronunciations.page';
+import { stubPhoneMedia } from '../../utils/phone';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listPronunciations = vi.fn();
@@ -133,5 +134,48 @@ describe('PronunciationsPage proposals', () => {
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Say Röyksopp this way' })).toHaveAttribute('data-loading'));
         expect(screen.getByRole('button', { name: 'Say Sigur Rós this way' })).not.toHaveAttribute('data-loading');
+    });
+});
+
+// The tables were 600px wide, so on a 375px phone every row's buttons sat past the right edge. A
+// phone draws a card per entry instead, with the same buttons on it.
+describe('PronunciationsPage on a phone', () => {
+    let restore: (() => void) | undefined;
+    afterEach(() => {
+        restore?.();
+        restore = undefined;
+    });
+
+    it("draws every section as cards, with each entry's buttons on its card", async () => {
+        restore = stubPhoneMedia();
+        listPronunciations.mockResolvedValue({
+            pronunciations: [
+                entry(),
+                entry({ id: '33333333-3333-4333-8333-333333333333', state: 'suggested', origin: 'gloss', written: 'Unger', spoken: 'UN-guhr' }),
+                entry({ id: '44444444-4444-4444-8444-444444444444', state: 'rejected', origin: 'gloss', written: 'Sade', spoken: 'sayd' }),
+            ],
+        });
+
+        const { container } = render(<PronunciationsPage />);
+
+        expect(await screen.findByRole('button', { name: 'Edit Röyksopp' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Delete Röyksopp' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Say Unger this way' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Turn down Unger' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Say it' })).toBeInTheDocument();
+        expect(container.querySelector('table')).toBeNull();
+    });
+
+    it('edits an entry in place on its card', async () => {
+        restore = stubPhoneMedia();
+        listPronunciations.mockResolvedValue({ pronunciations: [entry()] });
+        const user = setupUser();
+
+        render(<PronunciationsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Edit Röyksopp' }));
+
+        // The add form below holds a "Written" field of its own, so the edit field is the one with the entry in it.
+        expect(screen.getByDisplayValue('Röyksopp')).toHaveAccessibleName('Written');
+        expect(screen.getByRole('textbox', { name: 'Spoken' })).toHaveValue('royk-sop');
     });
 });

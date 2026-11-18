@@ -21,7 +21,7 @@ The live input is its own port. On Unraid, the template's **Live input** port is
 Compose it is `LIVE_PORT` in `.env`. If you installed before live shows existed, add the port
 to the container so it is published.
 
-Open the **Desk**. In the on-air card there is a **Go live…** button, which opens the **Live** card.
+Open the **Desk**. In the on-air card there is a **Go live…** button, which opens the live controls inside the card.
 No button means the station's audio chain is older than live shows: update the station.
 
 ## 2. Keep a recording
@@ -34,15 +34,15 @@ the show rather than during one.
 
 ## 3. Connect the encoder
 
-On the Live card, open **Connection details for your encoder**. Copy each field into the encoder.
+Press **Go live…** on the Desk and open **Encoder settings**. Copy each field into the encoder.
 In BUTT, open **Settings**, and under **Main → Server** press **Add**:
 
 | BUTT asks for | Put in                                               |
 | ------------- | ---------------------------------------------------- |
 | Type          | **Icecast**                                          |
-| Address       | the **Server** from the card                         |
+| Address       | the **Server** from there                            |
 | Port          | `8006`, or the host port you mapped it to            |
-| Password      | the **Password** from the card                       |
+| Password      | the **Password** from there                          |
 | IceCast mountpoint | `live`                                          |
 | IceCast user  | `source`                                             |
 
@@ -63,7 +63,7 @@ Open **Programme → Specials** and press **New special**.
 4. Save.
 
 The show is on the timetable marked **(live)** and on the Specials list with a **Live** badge. On the
-day and the day before, the Desk's Live card names it and its time.
+day and the day before, pressing **Go live…** on the Desk shows it and its time.
 
 Before the show, check **Settings → Playout → While somebody is live, the station's own programme**.
 The default, **Stops, and picks up at the next record afterwards**, is the usual choice: nothing of
@@ -74,19 +74,19 @@ the station's plays underneath you, and it carries on afterwards as if you had n
 A few minutes before nine, connect BUTT again. At nine the station arms the input by itself, but
 the weekly show keeps playing until it hears you.
 
-Start talking, or play your opening record. As soon as the station hears real sound the Live card
+Start talking, or play your opening record. As soon as the station hears real sound the on-air card
 counts **3, 2, 1**. What you send during the count is not aired, so wait for it and start on the
 cut. Then you are on, and the card shows the red tally and how long you have been on air.
 
 Listeners hear you about two seconds after you speak, so listen on headphones to the encoder, not
 to the stream.
 
-**Not booked?** Press **Go live…** on the Desk, type a show name on the Live card and press **Go live** at any time. Everything after
+**Not booked?** Press **Go live…** on the Desk, type a show name and press **Go live** at any time. Everything after
 that is the same.
 
 ## 6. Hand back
 
-When you are done, press **Hand back** on the Live card, twice: it asks a second time, because it
+When you are done, press **Hand back** in the on-air card, twice: it asks a second time, because it
 cuts you off for everybody listening. Or simply stop sending: eight seconds of silence or a
 disconnect hands back too.
 
@@ -122,11 +122,11 @@ are recorded is a setting, which Claude can read but not change; it tells you wh
 - **The encoder cannot connect.** Check the address, the port and the mount (`live`, or `/live` for
   encoders that want the slash), and that port `8006` is published and reachable from your
   computer. A wrong password is refused.
-- **Nine o'clock came and the card never armed.** Check the special has **A live show** on and is on
+- **Nine o'clock came and the input never armed.** Check the special has **A live show** on and is on
   today's date. If the audio engine restarted after the station armed it, the booking does not arm
   again that night: press **Go live** yourself.
 - **Nobody came.** If the input is still waiting at the end time, the station disarms it and carries
-  on. **Cancel** on the card does the same earlier.
+  on. **Cancel** in the on-air card does the same earlier.
 - **No recording.** **Record what airs** was off while the show was on. Set it to **Live shows
   only** before the next one.
 

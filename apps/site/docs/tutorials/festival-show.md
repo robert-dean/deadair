@@ -106,7 +106,7 @@ With Claude connected and allowed to **Read and manage**
 > evening, hosted by the indie host and built around it.
 
 Claude has tools to list, add, look up, change and remove festivals, and names a festival on a show
-the same way the editor does.
+the same way the show's page does.
 
 ## If it goes wrong
 
@@ -117,7 +117,7 @@ the same way the editor does.
 - **The show plays nothing from the bill.** The bill is empty, the setting under Rotation is `0`, or no
   plugin can list an artist's top tracks. Add Deezer, which needs no key.
 - **The host never mentions it.** It is over, or the show is not built around it: check **Built around
-  a festival** in the show's editor.
+  a festival** under **Music** on the show's page.
 - **The host got a fact wrong.** It said what you entered. Edit the festival with the pencil beside it
   on the Festivals tab, and the next break uses the new facts.
 

@@ -39,7 +39,7 @@ and press **Scan the inbox** on the Segments page.
 
 ## 2. Give them to the show
 
-Open **Programme → Timetable**, click the show to open its editor, and find **Sound**:
+Open **Programme → Timetable**, click the show to open its page, and choose **Sound** in the list of its parts:
 
 | Field | What to do |
 | --- | --- |
@@ -49,7 +49,7 @@ Open **Programme → Timetable**, click the show to open its editor, and find **
 | **Music beds** | Choose the show's beds. |
 
 Choices save as you make them. A recording marked "(every show)" in a list becomes this show's alone
-when you choose it. A new show has to be saved once before its **Sound** section can be filled in.
+when you choose it. A new show has to be saved once, then opened again, before its **Sound** section can be filled in.
 
 The same choice can be made from the other side: on the Segments page, the pencil beside a recording's
 **For** column picks the **Shows** and **Presenters** it is for. A recording for a presenter follows

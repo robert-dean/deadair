@@ -26,7 +26,7 @@ Open **Programme → Specials** and press **New special**.
 
 ## 2. Fill it in
 
-The editor is the weekly show's, with dates added. This one runs 20:00 to midnight on Halloween,
+The page is the weekly show's, with dates added. This one runs 20:00 to midnight on Halloween,
 which on the station this site is written from lands in the middle of The Boneyard, its weeknight
 metal show:
 

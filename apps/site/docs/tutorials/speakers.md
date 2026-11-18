@@ -79,16 +79,16 @@ Save. Listeners keep the public address; only speakers are handed this one.
 
 ## 4. Play on a speaker
 
-On the **Desk**, press **Play on a speaker** under the transport. The menu says **Looking for speakers…**
+On the **Desk**, press **On a speaker** in the on-air card, under **Skip** and **Stop**. The menu says **Looking for speakers…**
 and then lists them under **Speakers**, each with its kind, such as **Chromecast** or **UPnP**, and its
 model. A speaker that can play more than one of the station's streams is listed once for each, with
 the format beside it (**MP3**, **AAC** and so on).
 
-![The Desk with the Play on a speaker menu open](/img/console/desk.cast.webp)
-*Fig. 2. The menu under **Play on a speaker**. Until the station finds a speaker, or you add one, it
+![The Desk with the On a speaker menu open](/img/console/desk.cast.webp)
+*Fig. 2. The menu under **On a speaker**. Until the station finds a speaker, or you add one, it
 says so here.*
 
-Choose one. **You should see** the button change to **Playing on 1 speaker**, and in the menu the speaker
+Choose one. **You should see** the button change to **On 1 speaker**, and in the menu the speaker
 moves under **Playing on**, going from **Starting** through **Buffering** to **Playing**. The speaker
 plays the station a few seconds later and shows the station's name and the programme.
 
@@ -97,7 +97,7 @@ the station restarts, the station starts it again by itself.
 
 ## 5. Stop it
 
-Open **Play on a speaker** again and press **Stop** beside the speaker. Stopping it at the speaker, or
+Open **On a speaker** again and press **Stop** beside the speaker. Stopping it at the speaker, or
 playing something else on it, also lets it go: the station never plays over what somebody chose there.
 
 ## If it goes wrong

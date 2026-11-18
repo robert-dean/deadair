@@ -93,7 +93,7 @@ const targets = [
     { id: 'settings.appearance', path: '/settings/appearance' },
     { id: 'news', path: '/news' },
     { id: 'charts', path: '/charts' },
-    { id: 'desk.cast', path: '/', click: ['On a speaker'] },
+    { id: 'desk.cast', path: '/', click: ['Speakers'] },
     { id: 'plugins.cast', path: '/plugins/deadair.cast' },
     { id: 'podcasts', path: '/podcasts' },
     { id: 'settings.bulletins', path: '/settings/bulletins' },

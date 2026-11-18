@@ -42,10 +42,10 @@ const cast = (overrides: Partial<OutputCast> = {}): OutputCast => ({
     ...overrides,
 });
 
-function renderMenu() {
+function renderMenu(block = false) {
     const onStart = vi.fn();
     const onStop = vi.fn();
-    render(<CastMenu onStart={onStart} onStop={onStop} busy={false} />);
+    render(<CastMenu onStart={onStart} onStop={onStop} busy={false} block={block} />);
     return { onStart, onStop };
 }
 
@@ -64,6 +64,19 @@ describe('CastMenu', () => {
 
         expect(await screen.findByRole('button', { name: 'Playing on 2 speakers' })).toBeInTheDocument();
         expect(listOutputDevices).not.toHaveBeenCalled();
+    });
+
+    // The desk's grid cell is about 150px, and Neon's tracked capitals cut "On a speaker" to "ON A SPEAK".
+    it('uses the short words in the desk’s grid cell, idle and playing', async () => {
+        listCasts.mockResolvedValue({ casts: [] });
+        renderMenu(true);
+        expect(await screen.findByRole('button', { name: 'Speakers' })).toBeInTheDocument();
+    });
+
+    it('counts the speakers playing in the short words', async () => {
+        listCasts.mockResolvedValue({ casts: [cast(), cast({ deviceId: 'b', deviceName: 'Hall' })] });
+        renderMenu(true);
+        expect(await screen.findByRole('button', { name: '2 speakers' })).toBeInTheDocument();
     });
 
     it('plays the station on a speaker that takes one mount', async () => {

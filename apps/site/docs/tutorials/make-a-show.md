@@ -58,8 +58,8 @@ station, so a band added here applies to every show.
 
 A band waits for the record playing at that time to finish, so nothing is cut off.
 
-![Programme, Today: what is on now, and the format clock](/img/console/schedule.today.webp)
-*Fig. 1. Programme → Today, with the format clock below what is on now.*
+![Programme, Today: the day hour by hour, what is on now, and this hour against the format clock](/img/console/schedule.today.webp)
+*Fig. 1. Programme → Today: the day hour by hour, what is on now, and this hour against the format clock.*
 
 ### 4. Check it
 

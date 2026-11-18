@@ -49,7 +49,7 @@ export const shots = {
     scheduleToday: {
         src: scheduleToday,
         light: scheduleTodayWhite,
-        alt: 'Programme, Today: the format clock, a dial with a weather band at five past and news at half past.',
+        alt: "Programme, Today: the day as a strip of blocks, what is on now, and this hour's records against a weather band at five past and news at half past.",
     },
     voiceSaid: {
         src: voiceSaid,

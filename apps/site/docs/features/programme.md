@@ -6,8 +6,8 @@ description: What the station plays across the day and says inside the hour, how
 
 The programme answers two questions: what the station plays across the day, and what it says inside the hour. The first is the timetable and the second the format clock. Underneath both sit rules about which records may air at all, and they hold however a record was chosen.
 
-![Programme, Today: what is on now, and the format clock](/img/console/schedule.today.webp)
-*Fig. 1. Today: the block on air, and the shape of the hour.*
+![Programme, Today: the day hour by hour, what is on now, and this hour against the format clock](/img/console/schedule.today.webp)
+*Fig. 1. Today: the day's blocks, the one on air, and this hour's records against the format clock.*
 
 ## The timetable
 
@@ -52,7 +52,7 @@ A block can be built around a festival. Add the festival on Programme's **Festiv
 ![Programme, Specials: shows on dates rather than every week](/img/console/schedule.specials.webp)
 *Fig. 2. Specials.*
 
-![A new special: a block with a first and last date, and whether it repeats every year](/img/console/schedule.special.editor.webp)
+![A new special on a page of its own: its sections down the left, When first, and how it will sound on the right](/img/console/schedule.special.editor.webp)
 *Fig. 3. A new special.*
 
 ## Modes

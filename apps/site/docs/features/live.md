@@ -8,7 +8,7 @@ You can take the air from the station whenever you like. Point an encoder on ano
 
 ## Going live
 
-The **Live** card sits on the Desk, under On air now.
+The **Live** controls are on the Desk, inside the on-air card: press **Go live…** to open them. They stay open while you are armed or on the air.
 
 1. Type a **show name** if you want one. Listeners see it as the title of what is on while you are live, and the station's own name if you leave it empty.
 2. Press **Go live**. Nothing changes yet: the input is armed and waiting for you.

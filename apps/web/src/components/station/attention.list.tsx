@@ -51,9 +51,17 @@ export interface AttentionListProps {
      * Tracks list is a legitimate destination from the Tracks list when the filter differs.
      */
     here?: LinkProps['to'];
+    /**
+     * Drawn for a narrow column: each row's buttons sit under its sentence rather than beside it.
+     *
+     * The desk pins this list under what is on air, in a column a third of the screen wide, where a
+     * button beside the sentence leaves the sentence a word per line. The buttons are the same ones,
+     * still labelled with their destination; only where they sit changes.
+     */
+    compact?: boolean;
 }
 
-export function AttentionList({ items, here }: AttentionListProps) {
+export function AttentionList({ items, here, compact = false }: AttentionListProps) {
     const { t } = useTranslation('station');
     if (items.length === 0) {
         return <EmptyState>{t('attention.empty')}</EmptyState>;
@@ -65,7 +73,7 @@ export function AttentionList({ items, here }: AttentionListProps) {
                 {items.map((item, index) => (
                     <Box key={`${item.code}:${item.route}`}>
                         {index === 0 ? undefined : <Divider />}
-                        <Row item={item} here={here} />
+                        <Row item={item} here={here} compact={compact} />
                     </Box>
                 ))}
             </Stack>
@@ -73,13 +81,13 @@ export function AttentionList({ items, here }: AttentionListProps) {
     );
 }
 
-function Row({ item, here }: { item: AttentionItem; here?: LinkProps['to'] }) {
+function Row({ item, here, compact }: { item: AttentionItem; here?: LinkProps['to']; compact: boolean }) {
     const destination = attentionDestinationOf(item.route);
     const elsewhere = destination !== undefined && destination.link.to !== here;
 
     return (
-        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md" p="md">
-            <Group align="flex-start" wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
+        <Group justify="space-between" align="flex-start" wrap={compact ? 'wrap' : 'nowrap'} gap={compact ? 'xs' : 'md'} p={compact ? 'sm' : 'md'}>
+            <Group align="flex-start" wrap="nowrap" gap="sm" style={compact ? { minWidth: 0, flexBasis: '100%' } : { minWidth: 0 }}>
                 {/* A severity, not a status: this dot says how bad, and `StatusLamp` says what state
                     a thing is in. `status.ts` keeps the two vocabularies apart on purpose, because
                     they disagree about red — red on a lamp means ON AIR. */}
@@ -104,7 +112,7 @@ function Row({ item, here }: { item: AttentionItem; here?: LinkProps['to'] }) {
                 station sends a route and no verb, so a button reading "Reconnect Spotify" would be
                 this console inventing a claim about what the click does; "Plugin →" is exactly what
                 it does. See the note in `desk.page.tsx`. */}
-            <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+            <Group gap="xs" wrap="nowrap" style={compact ? { paddingInlineStart: 20 } : { flexShrink: 0 }}>
                 {item.dismissible === true ? <Dismiss code={item.code} /> : undefined}
                 {elsewhere ? (
                     <Button

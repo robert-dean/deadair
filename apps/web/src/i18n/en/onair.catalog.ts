@@ -133,6 +133,11 @@ export const onair = {
             album: 'Album',
             duration: 'Duration',
             rating: 'Rating',
+            airs: 'Airs',
+        },
+        rail: {
+            atLeast: '{{time}}+',
+            atLeastHint: 'No earlier than this. Something before it has no length the station could count, so it may air later.',
         },
         backToAir: 'Back to what is on air',
         segment: 'segment',

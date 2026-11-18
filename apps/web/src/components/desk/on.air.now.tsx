@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Anchor, Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
+import { Anchor, Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,7 @@ import { HostOnAir } from '../onair/host.on.air';
 import { BreakSources, RENDER_PLUGIN_ID } from '../scripts/break.sources';
 import { useArmedPress } from './armed.press';
 import { CastMenu } from './cast.menu';
+import { LiveInput } from './live.input';
 import { formatClock } from '../../i18n/format.locale';
 
 export interface OnAirNowProps {
@@ -75,7 +76,11 @@ const recordsToCome = (order: StationOrder | undefined): number =>
  * Check-up. They did not disagree often, but they COULD, and on the console's landing screen the
  * question is always the same one — is it out, and what is it.
  *
- * The two controls are Skip and Stop, and they are here because the footer that used to carry them
+ * It is the desk's pinned column, drawn top to bottom: the record, how far in, then the controls.
+ * Going live and casting to a speaker sit in the same grid as the transport, and the live input's
+ * own controls open inside the card rather than in a card under it.
+ *
+ * The two transport controls are Skip and Stop, and they are here because the footer that used to carry them
  * is gone. That is the trade the footer was not worth: a strip under every page, reserving height on
  * Settings and the catalog, to carry two buttons that only mean anything while looking at what is on
  * air. Here they sit beside the thing they act on.
@@ -93,6 +98,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     const quiet = useKeepQuiet();
     const rest = recordsToCome(order);
     const [why, setWhy] = useState(false);
+    const [liveOpen, setLiveOpen] = useState(false);
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
     const start = useStartPlayout();
@@ -101,7 +107,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     const stopCast = useStopCast();
     const stopping = useArmedPress(() => stop.mutate());
 
-    const { nowPlaying, upNext, queuedCount, silence } = status;
+    const { nowPlaying, upNext, queuedCount, silence, live } = status;
     const reading = readSilence(silence);
     const playhead = usePlayhead(nowPlaying);
     const phone = usePhone();
@@ -123,37 +129,37 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     return (
         <Stack gap="sm">
             <Card
-                padding="lg"
+                padding="md"
                 // The tally rule along the top edge, in the one colour that means ON AIR on a desk.
                 // Dimmed to the border's own weight when it is not: a red rule over a stood-down
                 // station is the single most misleading mark this console could make.
-                style={{ borderTop: `2px solid ${reading.live ? 'var(--mantine-color-red-6)' : 'var(--da-border)'}` }}
+                style={{ borderTop: `3px solid ${reading.live ? 'var(--mantine-color-red-6)' : 'var(--da-border)'}` }}
             >
-                {/* On a phone the row is allowed to wrap, and the transport goes full-width below —
-                    88px of art plus 214px of controls is more than a 375px viewport holds, and of
-                    the three things here the transport is the one that works at any width. */}
-                <Group align="flex-start" wrap={phone ? 'wrap' : 'nowrap'} gap="lg">
-                    {/* Only while there is something on air. An empty square beside "waiting for a
-                        listener" reads as a second thing being wrong rather than as art the station
-                        does not have — and the station is most often idle at exactly the moment an
-                        operator opens the console to check nothing is broken. */}
-                    {nowPlaying ? <Artwork src={nowPlaying.item.artworkUrl} alt={nowPlaying.item.title} size={88} /> : undefined}
+                {/* One column, top to bottom, because the desk pins this card in a column of its own
+                    beside the running order: what it is, how far in, then the controls. The same
+                    shape on a phone, where the column is the whole screen. */}
+                <Stack gap="sm">
+                    <Group align="flex-start" wrap="nowrap" gap="md">
+                        {/* Only while there is something on air. An empty square beside "waiting for a
+                            listener" reads as a second thing being wrong rather than as art the
+                            station does not have — and the station is most often idle at exactly the
+                            moment an operator opens the console to check nothing is broken. */}
+                        {nowPlaying ? <Artwork src={nowPlaying.item.artworkUrl} alt={nowPlaying.item.title} size={phone ? 72 : 96} /> : undefined}
 
-                    <Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
-                        <Group gap="sm" wrap="nowrap">
+                        <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
                             <Text
                                 size="xs"
                                 fw={600}
                                 tt="uppercase"
                                 ff="monospace"
                                 c={reading.live ? 'red.3' : 'dimmed'}
-                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap' }}
+                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}
                                 className={reading.live ? 'da-lamp-pulse' : undefined}
                             >
                                 {reading.live ? t('onAir.onAirNow') : reading.label}
                             </Text>
                             {order ? (
-                                <Group gap="xxs" wrap="nowrap" style={{ minWidth: 0 }}>
+                                <Group gap="xxs" wrap="wrap" style={{ minWidth: 0 }}>
                                     <Text size="sm" c="dimmed" truncate>
                                         {order.name}
                                     </Text>
@@ -165,272 +171,273 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                     />
                                 </Group>
                             ) : undefined}
-                        </Group>
 
-                        {/* Shown rather than only accepted, because it is still WORKING: every
-                            refill for the rest of this broadcast is programmed against it, so an
-                            operator wondering why the station keeps choosing what it chooses is
-                            looking at the answer. It had a badge on the old On-air page and this
-                            panel replaced that page without it, which made a live instruction
-                            invisible. */}
-                        {/* Who chose this. The console has always been able to say WHAT is on and
-                            never who put it there, and with a schedule running those are different
-                            questions: an operator's own choice holds until the next block begins,
-                            so "the clock is driving" and "you are" can each be true for an hour at
-                            a time with nothing on the screen distinguishing them. */}
-                        {airSource && airSource !== 'off' ? (
-                            <Tooltip multiline maw={360} label={drivingLabel(t, airSource)}>
-                                <Badge
-                                    size="sm"
-                                    variant="light"
-                                    color={airSource === 'operator' ? 'orange' : 'gray'}
-                                    tt="none"
-                                    style={{ alignSelf: 'flex-start' }}
-                                >
-                                    {drivingWord(t, airSource)}
-                                </Badge>
-                            </Tooltip>
-                        ) : undefined}
+                            {/* Who chose this. The console has always been able to say WHAT is on and
+                                never who put it there, and with a schedule running those are different
+                                questions: an operator's own choice holds until the next block begins,
+                                so "the clock is driving" and "you are" can each be true for an hour at
+                                a time with nothing on the screen distinguishing them. */}
+                            {airSource && airSource !== 'off' ? (
+                                <Tooltip multiline maw={360} label={drivingLabel(t, airSource)}>
+                                    <Badge
+                                        size="sm"
+                                        variant="light"
+                                        color={airSource === 'operator' ? 'orange' : 'gray'}
+                                        tt="none"
+                                        style={{ alignSelf: 'flex-start' }}
+                                    >
+                                        {drivingWord(t, airSource)}
+                                    </Badge>
+                                </Tooltip>
+                            ) : undefined}
+                        </Stack>
+                    </Group>
 
-                        {/* Offered only while a person is driving, because holding the schedule off
-                            a broadcast the schedule itself put on is not a thing to want. A hold
-                            that cannot be SEEN is worse than no hold, so the state and the way out
-                            of it are the same control. */}
-                        {airSource === 'operator' ? (
-                            <Group gap="xs" align="baseline" wrap="wrap">
-                                {!held ? (
-                                    <>
-                                        <Text size="xs" c="dimmed">
-                                            {t('onAir.takesBack')}
-                                        </Text>
-                                        {/* Each says what it does to the sentence above it rather
-                                            than naming the mechanism. "Hold it" and "Hold two hours"
-                                            are the station's word for this, and beside a line about
-                                            the schedule taking the broadcast back they read as
-                                            holding something else entirely — the record, the stream,
-                                            the whole desk. */}
-                                        <Anchor component="button" type="button" size="xs" disabled={hold.isPending} onClick={() => hold.mutate({})}>
-                                            {t('onAir.keepPastBlock')}
-                                        </Anchor>
-                                        <Anchor
-                                            component="button"
-                                            type="button"
-                                            size="xs"
-                                            disabled={hold.isPending}
-                                            onClick={() => hold.mutate({ minutes: 120 })}
-                                        >
-                                            {t('onAir.keepTwoHours')}
-                                        </Anchor>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Text size="xs" c="dimmed">
-                                            {holdUntil === undefined
-                                                ? t('onAir.heldUntilRelease')
-                                                : t('onAir.heldUntil', { time: formatClock(new Date(holdUntil)) })}
-                                        </Text>
-                                        <Anchor
-                                            component="button"
-                                            type="button"
-                                            size="xs"
-                                            disabled={hold.isPending}
-                                            onClick={() => hold.mutate(undefined)}
-                                        >
-                                            {t('onAir.release')}
-                                        </Anchor>
-                                    </>
-                                )}
-                            </Group>
-                        ) : undefined}
-
-                        {/* The same shape as the hold above and for its reason: a station that has
-                            gone quiet on purpose and one that has silently stopped talking look the
-                            same from the speaker, so the state and the way out of it are one control.
-                            Offered only while the station is on, since there is nothing to keep
-                            quiet on a station stood down. */}
-                        {!standingDown && order ? (
-                            <Group gap="xs" align="baseline" wrap="wrap">
-                                {quietRecords === undefined ? (
-                                    <>
-                                        <Tooltip multiline maw={320} label={t('onAir.quietHint')}>
-                                            <Text size="xs" c="dimmed">
-                                                {t('onAir.quietOffer')}
-                                            </Text>
-                                        </Tooltip>
-                                        <Anchor
-                                            component="button"
-                                            type="button"
-                                            size="xs"
-                                            disabled={quiet.isPending}
-                                            onClick={() => quiet.mutate(QUIET_SHORT)}
-                                        >
-                                            {t('onAir.quietThree')}
-                                        </Anchor>
-                                        <Anchor
-                                            component="button"
-                                            type="button"
-                                            size="xs"
-                                            disabled={quiet.isPending}
-                                            onClick={() => quiet.mutate(QUIET_LONG)}
-                                        >
-                                            {t('onAir.quietTen')}
-                                        </Anchor>
-                                        {/* Only when the order holds more than the longer of the two,
-                                            or it would offer the same thing twice. */}
-                                        {rest > QUIET_LONG ? (
-                                            <Anchor
-                                                component="button"
-                                                type="button"
-                                                size="xs"
-                                                disabled={quiet.isPending}
-                                                onClick={() => quiet.mutate(rest)}
-                                            >
-                                                {t('onAir.quietRest')}
-                                            </Anchor>
-                                        ) : undefined}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Text size="xs" c="orange.4">
-                                            {t('onAir.quietFor', { count: quietRecords })}
-                                        </Text>
-                                        <Anchor
-                                            component="button"
-                                            type="button"
-                                            size="xs"
-                                            disabled={quiet.isPending}
-                                            onClick={() => quiet.mutate(undefined)}
-                                        >
-                                            {t('onAir.talkAgain')}
-                                        </Anchor>
-                                    </>
-                                )}
-                            </Group>
-                        ) : undefined}
-
-                        {order?.brief ? (
-                            <Tooltip multiline maw={360} label={t('onAir.briefHint')}>
-                                <AuthoredBadge size="sm" tt="none" style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
-                                    {t('onAir.brief', { brief: order.brief })}
-                                </AuthoredBadge>
-                            </Tooltip>
-                        ) : undefined}
-
-                        {nowPlaying ? (
-                            <Group gap="sm" align="baseline" wrap="nowrap" style={{ minWidth: 0 }}>
-                                {/* Only the title is linked: the player is handed a copy and knows
-                                    its canonical track, not which artist the catalog files it under. */}
-                                <TrackLink id={nowPlaying.item.trackId} fz={24} ff="heading" fw={600} truncate>
-                                    {nowPlaying.item.title}
-                                </TrackLink>
-                                <Text c="dimmed" truncate>
-                                    {nowPlaying.item.artists.join(', ')}
-                                </Text>
-                            </Group>
-                        ) : (
-                            // A presenter on the live input is on the air with no record to name, which
-                            // would otherwise read as the station starting up. The Live card below has
-                            // the rest.
-                            <Text c="dimmed">
-                                {status.live?.state === 'onair' ? t('onAir.presenterLive') : silence.audible ? t('onAir.starting') : silence.detail}
+                    {nowPlaying ? (
+                        <Stack gap={2} style={{ minWidth: 0 }}>
+                            {/* Only the title is linked: the player is handed a copy and knows its
+                                canonical track, not which artist the catalog files it under. Two
+                                lines rather than one, because the column is narrow and a title cut to
+                                its first three words is not the record's name. */}
+                            <TrackLink id={nowPlaying.item.trackId} fz={22} ff="heading" fw={600} lineClamp={2}>
+                                {nowPlaying.item.title}
+                            </TrackLink>
+                            <Text c="dimmed" truncate>
+                                {nowPlaying.item.artists.join(', ')}
                             </Text>
-                        )}
+                        </Stack>
+                    ) : (
+                        // A presenter on the live input is on the air with no record to name, which
+                        // would otherwise read as the station starting up. The live controls below
+                        // have the rest.
+                        <Text c="dimmed">
+                            {status.live?.state === 'onair' ? t('onAir.presenterLive') : silence.audible ? t('onAir.starting') : silence.detail}
+                        </Text>
+                    )}
 
-                        {/* While a break airs, where what it is saying came from. Only what it said. */}
-                        {nowPlaying?.item.pluginId === RENDER_PLUGIN_ID ? (
-                            <BreakSources segmentId={nowPlaying.item.externalId} saidOnly />
-                        ) : undefined}
+                    {/* While a break airs, where what it is saying came from. Only what it said. */}
+                    {nowPlaying?.item.pluginId === RENDER_PLUGIN_ID ? <BreakSources segmentId={nowPlaying.item.externalId} saidOnly /> : undefined}
 
-                        {playhead ? (
-                            <Group gap="xs" wrap="nowrap">
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    {formatDuration(playhead.elapsedMs)}
-                                </Text>
-                                <Progress value={playhead.percent} size={6} radius="xl" style={{ flex: 1 }} aria-label={t('onAir.progress')} />
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    -{formatDuration(playhead.remainingMs)}
-                                </Text>
-                            </Group>
-                        ) : undefined}
-
-                        {upNext.length > 0 ? (
-                            <Group gap="xs" wrap="wrap">
-                                <Text size="sm" c="dimmed">
-                                    {t('onAir.upNext')}
-                                </Text>
-                                {upNext.slice(0, 3).map((item, index) => (
-                                    <Group key={item.id} gap="xs" wrap="nowrap">
-                                        {index === 0 ? undefined : <Box w={4} h={4} bg="dark.4" style={{ borderRadius: '50%' }} />}
-                                        <Text size="sm" c="dimmed.2">
-                                            {item.title}
-                                        </Text>
-                                    </Group>
-                                ))}
-                                {queuedCount > 3 ? (
-                                    <Text size="sm" c="dimmed">
-                                        {t('onAir.toCome', { count: queuedCount - 3 })}
-                                    </Text>
-                                ) : undefined}
-                            </Group>
-                        ) : undefined}
-                    </Stack>
-
-                    {/* Wide enough for the longest thing the right-hand button ever says, which is
-                        "Confirm stop", and the same width whatever it is saying. Both halves of
-                        that matter: `grow` split the row evenly and clipped the armed label to
-                        "Confirr", and sizing to the content instead would move Skip out from under
-                        the pointer between the press that arms Stop and the press that fires it —
-                        which is the one moment on this page when nothing may move. */}
-                    <Stack gap="xs" w={phone ? '100%' : 214} style={{ flexShrink: 0 }}>
+                    {playhead ? (
                         <Group gap="xs" wrap="nowrap">
-                            <Tooltip label={t('onAir.skipHint')}>
-                                <Button
-                                    variant="default"
-                                    h={44}
-                                    style={{ flex: 1 }}
-                                    loading={skip.isPending}
-                                    // Nothing on air is nothing to cut, and a skip needs a stream to take it.
-                                    disabled={!status.streamUp || !nowPlaying}
-                                    onClick={() => skip.mutate(nowPlaying?.item.id)}
-                                >
-                                    {t('onAir.skip')}
+                            <Text size="xs" c="dimmed" className="da-num">
+                                {formatDuration(playhead.elapsedMs)}
+                            </Text>
+                            <Progress value={playhead.percent} size={4} radius="xl" style={{ flex: 1 }} aria-label={t('onAir.progress')} />
+                            <Text size="xs" c="dimmed" className="da-num">
+                                -{formatDuration(playhead.remainingMs)}
+                            </Text>
+                        </Group>
+                    ) : undefined}
+
+                    {/* On a phone only. On a desk the running order is beside this card and already
+                        says what comes next, with the time it comes; here it is a screen away. */}
+                    {phone && upNext.length > 0 ? (
+                        <Group gap="xs" wrap="wrap">
+                            <Text size="sm" c="dimmed">
+                                {t('onAir.upNext')}
+                            </Text>
+                            {upNext.slice(0, 3).map((item, index) => (
+                                <Group key={item.id} gap="xs" wrap="nowrap">
+                                    {index === 0 ? undefined : <Box w={4} h={4} bg="dark.4" style={{ borderRadius: '50%' }} />}
+                                    <Text size="sm" c="dimmed.2">
+                                        {item.title}
+                                    </Text>
+                                </Group>
+                            ))}
+                            {queuedCount > 3 ? (
+                                <Text size="sm" c="dimmed">
+                                    {t('onAir.toCome', { count: queuedCount - 3 })}
+                                </Text>
+                            ) : undefined}
+                        </Group>
+                    ) : undefined}
+
+                    {/* Two even columns, so every button is the same width whatever it is saying.
+                        Both halves of that matter for Stop: sizing it to its content would clip or
+                        move between "Stop" and "Confirm stop", and Skip with it — which is the one
+                        moment on this page when nothing may move. */}
+                    <SimpleGrid cols={2} spacing="xs">
+                        <Tooltip label={t('onAir.skipHint')}>
+                            <Button
+                                variant="default"
+                                h={40}
+                                w="100%"
+                                loading={skip.isPending}
+                                // Nothing on air is nothing to cut, and a skip needs a stream to take it.
+                                disabled={!status.streamUp || !nowPlaying}
+                                onClick={() => skip.mutate(nowPlaying?.item.id)}
+                            >
+                                {t('onAir.skip')}
+                            </Button>
+                        </Tooltip>
+                        {standingDown ? (
+                            <Tooltip label={t('onAir.startHint')} multiline maw={320}>
+                                <Button h={40} w="100%" loading={start.isPending} onClick={() => start.mutate()}>
+                                    {t('onAir.start')}
                                 </Button>
                             </Tooltip>
-                            {standingDown ? (
-                                <Tooltip label={t('onAir.startHint')} multiline maw={320}>
-                                    <Button
-                                        h={44}
-                                        w={phone ? undefined : 124}
-                                        style={phone ? { flex: 1 } : undefined}
-                                        loading={start.isPending}
-                                        onClick={() => start.mutate()}
+                        ) : (
+                            <Tooltip label={stopping.armed ? t('onAir.stopArmedHint') : t('onAir.stopHint')} multiline maw={320}>
+                                {/* Filled once armed rather than outlined, so the state is legible
+                                    across the room and not only in the word. */}
+                                <Button
+                                    color="red"
+                                    variant={stopping.armed ? 'filled' : 'outline'}
+                                    h={40}
+                                    w="100%"
+                                    loading={stop.isPending}
+                                    onClick={stopping.press}
+                                >
+                                    {stopping.armed ? t('onAir.confirmStop') : t('onAir.stop')}
+                                </Button>
+                            </Tooltip>
+                        )}
+                        {/* Only when the station reports a live input at all: an audio chain too old
+                            to have one says nothing, and offering to arm an input that is not there
+                            would be a button that always fails. Once somebody is armed or on, the live
+                            controls are open whatever this says, because they are the presenter's cue. */}
+                        {live?.state === 'off' ? (
+                            <Button
+                                variant="light"
+                                h={36}
+                                w="100%"
+                                rightSection={liveOpen ? <IconChevronUp size={14} stroke={1.8} /> : <IconChevronDown size={14} stroke={1.8} />}
+                                onClick={() => setLiveOpen(open => !open)}
+                                aria-expanded={liveOpen}
+                            >
+                                {t('onAir.goLive')}
+                            </Button>
+                        ) : undefined}
+                        <CastMenu
+                            block
+                            onStart={request => startCast.mutate(request)}
+                            onStop={(pluginId, deviceId) => stopCast.mutate({ pluginId, deviceId })}
+                            busy={startCast.isPending || stopCast.isPending}
+                        />
+                    </SimpleGrid>
+
+                    {live && (live.state !== 'off' || liveOpen) ? <LiveInput live={live} bare /> : undefined}
+
+                    {/* Offered only while a person is driving, because holding the schedule off a
+                        broadcast the schedule itself put on is not a thing to want. A hold that cannot
+                        be SEEN is worse than no hold, so the state and the way out of it are the same
+                        control. */}
+                    {airSource === 'operator' ? (
+                        <Group gap="xs" align="baseline" wrap="wrap">
+                            {!held ? (
+                                <>
+                                    <Text size="xs" c="dimmed">
+                                        {t('onAir.takesBack')}
+                                    </Text>
+                                    {/* Each says what it does to the sentence above it rather than
+                                        naming the mechanism. "Hold it" and "Hold two hours" are the
+                                        station's word for this, and beside a line about the schedule
+                                        taking the broadcast back they read as holding something else
+                                        entirely — the record, the stream, the whole desk. */}
+                                    <Anchor component="button" type="button" size="xs" disabled={hold.isPending} onClick={() => hold.mutate({})}>
+                                        {t('onAir.keepPastBlock')}
+                                    </Anchor>
+                                    <Anchor
+                                        component="button"
+                                        type="button"
+                                        size="xs"
+                                        disabled={hold.isPending}
+                                        onClick={() => hold.mutate({ minutes: 120 })}
                                     >
-                                        {t('onAir.start')}
-                                    </Button>
-                                </Tooltip>
+                                        {t('onAir.keepTwoHours')}
+                                    </Anchor>
+                                </>
                             ) : (
-                                <Tooltip label={stopping.armed ? t('onAir.stopArmedHint') : t('onAir.stopHint')} multiline maw={320}>
-                                    {/* Filled once armed rather than outlined, so the state is
-                                        legible across the room and not only in the word. */}
-                                    {/* On a phone both halves are `flex: 1`, which keeps the two
-                                        invariants the fixed 124 keeps on a desk: fifty-fifty is the
-                                        same width whatever the label says, so "Confirm stop" cannot
-                                        clip and Skip does not move between the press that arms Stop
-                                        and the press that fires it. */}
-                                    <Button
-                                        color="red"
-                                        variant={stopping.armed ? 'filled' : 'outline'}
-                                        h={44}
-                                        w={phone ? undefined : 124}
-                                        style={phone ? { flex: 1 } : undefined}
-                                        loading={stop.isPending}
-                                        onClick={stopping.press}
+                                <>
+                                    <Text size="xs" c="dimmed">
+                                        {holdUntil === undefined
+                                            ? t('onAir.heldUntilRelease')
+                                            : t('onAir.heldUntil', { time: formatClock(new Date(holdUntil)) })}
+                                    </Text>
+                                    <Anchor
+                                        component="button"
+                                        type="button"
+                                        size="xs"
+                                        disabled={hold.isPending}
+                                        onClick={() => hold.mutate(undefined)}
                                     >
-                                        {stopping.armed ? t('onAir.confirmStop') : t('onAir.stop')}
-                                    </Button>
-                                </Tooltip>
+                                        {t('onAir.release')}
+                                    </Anchor>
+                                </>
                             )}
                         </Group>
+                    ) : undefined}
+
+                    {/* The same shape as the hold above and for its reason: a station that has gone
+                        quiet on purpose and one that has silently stopped talking sound the same, so
+                        while a spell runs the control IS the countdown and its way out, rather than a
+                        segment claiming a selection the station is counting down from. Offered only
+                        while the station is on, since there is nothing to keep quiet on a station
+                        stood down. */}
+                    {!standingDown && order ? (
+                        <Stack gap={6}>
+                            <Tooltip multiline maw={320} label={t('onAir.quietHint')}>
+                                <Text
+                                    size="xs"
+                                    fw={600}
+                                    tt="uppercase"
+                                    ff="monospace"
+                                    c="dimmed"
+                                    style={{ letterSpacing: 'var(--da-tracking-eyebrow)', alignSelf: 'flex-start' }}
+                                >
+                                    {t('onAir.talk')}
+                                </Text>
+                            </Tooltip>
+                            {quietRecords === undefined ? (
+                                <SegmentedControl
+                                    size="xs"
+                                    fullWidth
+                                    value="planned"
+                                    disabled={quiet.isPending}
+                                    onChange={value => {
+                                        if (value !== 'planned') quiet.mutate(Number(value));
+                                    }}
+                                    aria-label={t('onAir.quietAria')}
+                                    data={[
+                                        { value: 'planned', label: t('onAir.quietPlanned') },
+                                        { value: String(QUIET_SHORT), label: t('onAir.quietThree') },
+                                        { value: String(QUIET_LONG), label: t('onAir.quietTen') },
+                                        // Only when the order holds more than the longer of the two, or
+                                        // it would offer the same thing twice.
+                                        ...(rest > QUIET_LONG ? [{ value: String(rest), label: t('onAir.quietRest') }] : []),
+                                    ]}
+                                />
+                            ) : (
+                                <Group gap="xs" align="baseline" wrap="wrap">
+                                    <Text size="xs" c="orange.4">
+                                        {t('onAir.quietFor', { count: quietRecords })}
+                                    </Text>
+                                    <Anchor
+                                        component="button"
+                                        type="button"
+                                        size="xs"
+                                        disabled={quiet.isPending}
+                                        onClick={() => quiet.mutate(undefined)}
+                                    >
+                                        {t('onAir.talkAgain')}
+                                    </Anchor>
+                                </Group>
+                            )}
+                        </Stack>
+                    ) : undefined}
+
+                    {order?.brief ? (
+                        <Tooltip multiline maw={360} label={t('onAir.briefHint')}>
+                            <AuthoredBadge size="sm" tt="none" style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+                                {t('onAir.brief', { brief: order.brief })}
+                            </AuthoredBadge>
+                        </Tooltip>
+                    ) : undefined}
+
+                    {/* In a Group because a Card's Stack stretches what it holds, which drew this as a
+                        bar the width of the card. */}
+                    <Group>
                         <Button
                             variant="subtle"
                             color="gray"
@@ -441,17 +448,11 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                         >
                             {/* Worded from the state it explains. Off air, the panel this opens is
                                 headed "Waiting for a listener" and the eyebrow above it says READY,
-                                so a button asking why it is ON air contradicted both of them and the
-                                two words either side of itself. */}
+                                so a button asking why it is ON air contradicted both of them. */}
                             {reading.live ? t('onAir.whyOnAir') : t('onAir.whyNotOnAir')}
                         </Button>
-                        <CastMenu
-                            onStart={request => startCast.mutate(request)}
-                            onStop={(pluginId, deviceId) => stopCast.mutate({ pluginId, deviceId })}
-                            busy={startCast.isPending || stopCast.isPending}
-                        />
-                    </Stack>
-                </Group>
+                    </Group>
+                </Stack>
             </Card>
 
             {/* Outside the card and always drawn, unlike the gates: a container running replaced

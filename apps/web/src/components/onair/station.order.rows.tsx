@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, type KeyboardEvent, type Ref } from 'react';
+import { memo, useCallback, useRef, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from '@mantine/core';
 import { IconChevronsUp, IconPencil, IconPlayerTrackNext, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { ScriptRatingControl } from '../scripts/script.rating.control';
 import { Artwork } from '../shared/artwork';
 import { AuthoredBadge } from '../shared/authored.badge';
 import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
+import { formatClock } from '../../i18n/format.locale';
 import { formatDuration } from '../shared/format.duration';
 import { PhoneCard } from '../shared/phone.card';
 import { canRewrite, canSkipTo, isSpent, opacityFor, skipReading, stateReading, writerHint } from './station.order.rules';
@@ -55,6 +56,12 @@ interface OrderRowProps {
     writingRating: boolean;
     onRateScript?: (scriptId: string, rating: ScriptRating) => void;
     writingScriptRating: boolean;
+    /** Whether the order is drawn as a clock rail, with the air-time and rail columns. */
+    rail?: boolean;
+    /** When this row airs, to the minute. Absent on history, and on everything while nothing is going out. */
+    airAtMs?: number;
+    /** Whether that is only the earliest it can air: see `AirTime.atLeast`. */
+    airAtLeast?: boolean;
     /** How the virtualizer's measurement finds the item this element belongs to. */
     'data-index': number;
     ref?: Ref<HTMLTableRowElement>;
@@ -137,6 +144,9 @@ export const OrderRow = memo(function OrderRow({
     writingRating,
     onRateScript,
     writingScriptRating,
+    rail = false,
+    airAtMs,
+    airAtLeast = false,
     'data-index': dataIndex,
     ref,
 }: OrderRowProps) {
@@ -209,6 +219,18 @@ export const OrderRow = memo(function OrderRow({
                     {position + 1}
                 </Text>
             </Table.Td>
+            {rail ? (
+                <>
+                    <Table.Td>
+                        <AirTime atMs={airAtMs} atLeast={airAtLeast} airing={item.state === 'airing'} />
+                    </Table.Td>
+                    {/* A record is a dot on the rail and a break a smaller one, so the shape of the
+                        hour reads down the rail before a single title has been read. */}
+                    <Table.Td className={classes.rail} aria-hidden>
+                        <span className={item.state === 'airing' ? classes.dotAiring : item.kind === 'segment' ? classes.dotSmall : classes.dot} />
+                    </Table.Td>
+                </>
+            ) : undefined}
             <Table.Td>
                 {/* `minWidth: 0` in both places, and both are load-bearing: a flex
                                         child defaults to `min-width: auto`, so a truncating title
@@ -232,8 +254,9 @@ export const OrderRow = memo(function OrderRow({
                         <Title item={item} id={item.kind === 'segment' ? item.segmentId : trackId} />
                     </span>
                     {/* A segment is not a record and should not have to be worked
-                                            out from an empty artist column. */}
-                    {item.kind === 'segment' ? (
+                                            out from an empty artist column. On the rail its smaller
+                                            dot already says so, and the badge cost a break its title. */}
+                    {item.kind === 'segment' && !rail ? (
                         <AuthoredBadge size="xs" style={{ flexShrink: 0 }}>
                             {t('order.segment')}
                         </AuthoredBadge>
@@ -570,5 +593,98 @@ export const PhoneRow = memo(function PhoneRow({
             accent={airing ? 'var(--mantine-color-red-6)' : undefined}
             opacity={opacityFor(item)}
         />
+    );
+});
+
+/**
+ * When a row airs, in the rail's first column.
+ *
+ * 24-hour, through `formatClock`, because it is read against the studio clock in the corner of the
+ * same screen. A time that is only the earliest it can be says so, rather than drawing a guess with
+ * the same confidence as a sum.
+ */
+function AirTime({ atMs, atLeast, airing }: { atMs?: number; atLeast: boolean; airing: boolean }) {
+    const { t } = useTranslation('onair');
+    if (atMs === undefined) return undefined;
+    const time = formatClock(new Date(atMs));
+    const text = (
+        <Text size="xs" c={airing ? 'red.3' : atLeast ? 'dimmed' : undefined} fw={airing ? 600 : undefined} className="da-num">
+            {atLeast ? t('order.rail.atLeast', { time }) : time}
+        </Text>
+    );
+
+    return atLeast ? (
+        <Tooltip label={t('order.rail.atLeastHint')} multiline maw={320}>
+            {text}
+        </Tooltip>
+    ) : (
+        text
+    );
+}
+
+/**
+ * The top of an hour on the rail, drawn where the hour changes between rows.
+ *
+ * A row of the table rather than a label inside one, so the virtualizer measures it like any other
+ * and the offsets the pin hangs off stay true.
+ */
+export const HourRow = memo(function HourRow({
+    atMs,
+    span,
+    'data-index': dataIndex,
+    ref,
+}: {
+    atMs: number;
+    /** How many columns follow the rail, for the heading's trailing cell. */
+    span: number;
+    'data-index': number;
+    ref?: Ref<HTMLTableRowElement>;
+}) {
+    return (
+        <Table.Tr ref={ref} data-index={dataIndex} className={classes.hour}>
+            <Table.Td />
+            <Table.Td>
+                <Text fw={600} ff="heading" size="md" className="da-num">
+                    {formatClock(new Date(atMs))}
+                </Text>
+            </Table.Td>
+            <Table.Td className={classes.rail} aria-hidden />
+            <Table.Td colSpan={span} />
+        </Table.Tr>
+    );
+});
+
+/**
+ * Where the order runs out, as the rail's last stop.
+ *
+ * The sentence and its Extend are the caller's: the table is presentational and does not know
+ * what the station does when it gets there, or how to ask for more.
+ */
+export const DryRow = memo(function DryRow({
+    atMs,
+    atLeast,
+    span,
+    children,
+    'data-index': dataIndex,
+    ref,
+}: {
+    atMs: number;
+    atLeast: boolean;
+    span: number;
+    children: ReactNode;
+    'data-index': number;
+    ref?: Ref<HTMLTableRowElement>;
+}) {
+    return (
+        <Table.Tr ref={ref} data-index={dataIndex}>
+            <Table.Td />
+            <Table.Td>
+                <AirTime atMs={atMs} atLeast={atLeast} airing={false} />
+            </Table.Td>
+            <Table.Td className={classes.railEnd} aria-hidden>
+                <span className={classes.dotDry} />
+            </Table.Td>
+            <Table.Td colSpan={span}>{children}</Table.Td>
+        </Table.Tr>
     );
 });

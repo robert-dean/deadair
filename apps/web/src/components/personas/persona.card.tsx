@@ -135,18 +135,14 @@ export function PersonaCard({
                                     {t('card.stationsOwn')}
                                 </Badge>
                             ) : undefined}
-                            {persona.djName ? (
-                                <Badge variant="outline" color="gray">
-                                    {persona.djName}
-                                </Badge>
-                            ) : undefined}
+                            {persona.djName ? <Badge variant="default">{persona.djName}</Badge> : undefined}
                             {/* Listed once, under the first kind it has, and badged with the rest:
                                 a host who also drops by somebody else's show is one character, not a
                                 host card and a guest card. */}
                             {kindsOf(persona)
                                 .slice(1)
                                 .map(kind => (
-                                    <Badge key={kind} variant="outline" color="gray">
+                                    <Badge key={kind} variant="default">
                                         {t(`card.alsoKind.${kind}`)}
                                     </Badge>
                                 ))}

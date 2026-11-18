@@ -12,6 +12,7 @@ import { StationClock } from './station.clock';
 import { StationMark } from './station.mark';
 import { StationTally } from './station.tally';
 import { UpdateNotice } from './update.notice';
+import classes from './shell.header.module.css';
 
 interface Props {
     signedIn: boolean;
@@ -47,38 +48,46 @@ export function ShellHeader({ signedIn, status, attention, loggingOut, onLogout 
                 {/* What is on air, then Check-up and Settings, the way to anywhere, the clock and
                 the menu. The right edge is where an operator looks for the state of the station
                 and the way to move around it. */}
+                {/* This group may shrink and the chip in it is the one thing that does, by cutting its
+                title short: a long title held at full width pushed the clock and the menu off the
+                right edge at 1440px. Everything after the chip keeps its size. */}
                 {signedIn ? (
-                    <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+                    <Group gap="sm" wrap="nowrap" style={{ flexShrink: 1, minWidth: 0 }}>
                         <OnAirChip status={status} />
-                        <HeaderPinned attention={attention} />
-                        {/* Only when a newer release is out. See the component for why it is
+                        <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+                            <HeaderPinned attention={attention} />
+                            {/* Only when a newer release is out. See the component for why it is
                         here rather than in the attention list. */}
-                        <UpdateNotice enabled={signedIn} />
-                        <Button
-                            variant="default"
-                            size="compact-sm"
-                            fw={400}
-                            c="dimmed"
-                            onClick={spotlight.open}
-                            rightSection={<Kbd size="xs">⌘K</Kbd>}
-                            visibleFrom="xl"
-                        >
-                            {t('root.jumpTo')}
-                        </Button>
-                        {/* The same door with no words on it, below the widest screens: the four
+                            <UpdateNotice enabled={signedIn} />
+                            <Box className={classes.jumpWide}>
+                                <Button
+                                    variant="default"
+                                    size="compact-sm"
+                                    fw={400}
+                                    c="dimmed"
+                                    onClick={spotlight.open}
+                                    rightSection={<Kbd size="xs">⌘K</Kbd>}
+                                >
+                                    {t('root.jumpTo')}
+                                </Button>
+                            </Box>
+                            {/* The same door with no words on it, below the widest screens: the four
                         tabs and the chip take the room the label had. */}
-                        <ActionIcon variant="default" size="lg" aria-label={t('root.jumpTo')} onClick={spotlight.open} hiddenFrom="xl">
-                            <IconSearch size={18} stroke={1.8} />
-                        </ActionIcon>
-                        {/* Not on a phone: the phone's own status bar is already a clock an
+                            <Box className={classes.jumpNarrow}>
+                                <ActionIcon variant="default" size="lg" aria-label={t('root.jumpTo')} onClick={spotlight.open}>
+                                    <IconSearch size={18} stroke={1.8} />
+                                </ActionIcon>
+                            </Box>
+                            {/* Not on a phone: the phone's own status bar is already a clock an
                         inch away, and the 70px this frees is what keeps the corner's two
                         controls on the right side of the bezel. */}
-                        <Box visibleFrom="sm">
-                            <StationClock />
-                        </Box>
-                        {/* Logout, and on a phone Check-up and Settings too, which the header
+                            <Box visibleFrom="sm">
+                                <StationClock />
+                            </Box>
+                            {/* Logout, and on a phone Check-up and Settings too, which the header
                         has no room to pin there. */}
-                        <PhoneMenu loggingOut={loggingOut} onLogout={onLogout} />
+                            <PhoneMenu loggingOut={loggingOut} onLogout={onLogout} />
+                        </Group>
                     </Group>
                 ) : undefined}
             </Group>

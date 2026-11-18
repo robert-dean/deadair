@@ -13,6 +13,7 @@ import { useStationAttention, useStationCheckup, useStationReleases } from '../.
 import { useStorage } from '../../api/storage.queries';
 import { useSignedIn } from '../../auth/session.store';
 import { AttentionList } from './attention.list';
+import { CHECKUP_ANCHORS, CheckupTiles, STUCK_AFTER_MS, checkupTiles, type Reading } from './checkup.tiles';
 import { CopyButton } from '../shared/copy.button';
 import { EmptyState } from '../shared/empty.state';
 import { Eyebrow } from '../shared/eyebrow';
@@ -60,6 +61,14 @@ export function CheckupPage() {
     // is the hook's documented, accepted cost.
     const phone = usePhone();
 
+    const tiles = checkupTiles({
+        onAir: readingOf(playout, () => reading),
+        attention: readingOf(attention, data => data.items),
+        plugins: readingOf(plugins, data => data),
+        checkup: readingOf(checkup, data => data),
+        storage: readingOf(storage, data => data),
+    });
+
     return (
         <Stack gap="lg">
             <PageHeader
@@ -71,7 +80,9 @@ export function CheckupPage() {
                 }
             />
 
-            <Section title={t('checkup.section.onAir')} failed={playout.isError} pending={playout.isPending}>
+            <CheckupTiles tiles={tiles} />
+
+            <Section id={CHECKUP_ANCHORS.onAir} title={t('checkup.section.onAir')} failed={playout.isError} pending={playout.isPending}>
                 {playout.data === undefined || reading === undefined ? undefined : (
                     <Stack gap="xs">
                         <Group gap="sm" wrap="wrap">
@@ -112,7 +123,7 @@ export function CheckupPage() {
                 )}
             </Section>
 
-            <Section title={t('checkup.section.needsYou')} failed={attention.isError} pending={attention.isPending}>
+            <Section id={CHECKUP_ANCHORS.needsYou} title={t('checkup.section.needsYou')} failed={attention.isError} pending={attention.isPending}>
                 {attention.data === undefined ? undefined : attention.data.items.length === 0 ? (
                     <Text size="sm" c="dimmed">
                         {t('checkup.needsYou.nothing')}
@@ -122,7 +133,7 @@ export function CheckupPage() {
                 )}
             </Section>
 
-            <Section title={t('checkup.section.loops')} failed={checkup.isError} pending={checkup.isPending}>
+            <Section id={CHECKUP_ANCHORS.loops} title={t('checkup.section.loops')} failed={checkup.isError} pending={checkup.isPending}>
                 {/* Absent rather than empty means the reader failed, which the service distinguishes
                     on purpose: a station with no loops running is not the same as a station that
                     could not be asked. */}
@@ -135,7 +146,7 @@ export function CheckupPage() {
                 )}
             </Section>
 
-            <Section title={t('checkup.section.model')} failed={checkup.isError} pending={checkup.isPending}>
+            <Section id={CHECKUP_ANCHORS.model} title={t('checkup.section.model')} failed={checkup.isError} pending={checkup.isPending}>
                 {checkup.data?.model === undefined ? (
                     <Text size="sm" c="dimmed">
                         {t('checkup.model.unreadable')}
@@ -145,11 +156,11 @@ export function CheckupPage() {
                 )}
             </Section>
 
-            <Section title={t('checkup.section.plugins')} failed={plugins.isError} pending={plugins.isPending}>
+            <Section id={CHECKUP_ANCHORS.plugins} title={t('checkup.section.plugins')} failed={plugins.isError} pending={plugins.isPending}>
                 {plugins.data === undefined ? undefined : <Plugins plugins={plugins.data} />}
             </Section>
 
-            <Section title={t('checkup.section.library')} failed={checkup.isError} pending={checkup.isPending}>
+            <Section id={CHECKUP_ANCHORS.library} title={t('checkup.section.library')} failed={checkup.isError} pending={checkup.isPending}>
                 {checkup.data?.backlog === undefined ? (
                     <Text size="sm" c="dimmed">
                         {t('checkup.library.uncounted')}
@@ -172,7 +183,7 @@ export function CheckupPage() {
                 )}
             </Section>
 
-            <Section title={t('checkup.section.disk')} failed={storage.isError} pending={storage.isPending}>
+            <Section id={CHECKUP_ANCHORS.disk} title={t('checkup.section.disk')} failed={storage.isError} pending={storage.isPending}>
                 {storage.data === undefined ? undefined : (
                     <Stack gap="xs">
                         {storage.data.stores.map(store => (
@@ -210,7 +221,7 @@ export function CheckupPage() {
                 )}
             </Section>
 
-            <Section title={t('checkup.section.build')} failed={checkup.isError} pending={checkup.isPending}>
+            <Section id={CHECKUP_ANCHORS.build} title={t('checkup.section.build')} failed={checkup.isError} pending={checkup.isPending}>
                 <Stack gap="xs">
                     <Build revision={checkup.data?.revision} version={checkup.data?.version} />
                     <ReleaseLine />
@@ -297,10 +308,22 @@ function ReleaseLine() {
  * the thing that is broken. A section that cannot be read says so where its content would have been,
  * so the page still answers everything else.
  */
-function Section({ title, failed, pending, children }: { title: string; failed: boolean; pending: boolean; children?: React.ReactNode }) {
+function Section({
+    id,
+    title,
+    failed,
+    pending,
+    children,
+}: {
+    id: string;
+    title: string;
+    failed: boolean;
+    pending: boolean;
+    children?: React.ReactNode;
+}) {
     const { t } = useTranslation('station');
     return (
-        <Stack gap="xs">
+        <Stack gap="xs" id={id} style={{ scrollMarginTop: 'var(--mantine-spacing-xl)' }}>
             <Eyebrow>{title}</Eyebrow>
             <Card>
                 {failed ? (
@@ -403,12 +426,6 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
     );
 }
 
-/**
- * Every generation is bounded at ten minutes (`GENERATION_BUDGET_MS` in the API), so a slot held past
- * this is a stream that stopped arriving rather than a long answer.
- */
-const STUCK_AFTER_MS = 10 * 60_000;
-
 /** Who has the model and how many are queued behind it. */
 function Model({ model, readAt }: { model: StationModel; readAt: DateTime }) {
     const { t } = useTranslation('station');
@@ -485,7 +502,14 @@ function Plugins({ plugins }: { plugins: PluginSummary[] }) {
     );
 }
 
-/** One figure, labelled. */
+/** A query's state as a tile reads it, so a section that is still loading or broken says so on its tile too. */
+function readingOf<T, R>(query: { isError: boolean; data: T | undefined }, pick: (data: T) => R | undefined): Reading<R> {
+    if (query.isError) return { state: 'failed' };
+    if (query.data === undefined) return { state: 'pending' };
+    const data = pick(query.data);
+    return data === undefined ? { state: 'pending' } : { state: 'read', data };
+}
+
 /**
  * Where the station can be listened to, one line per mount.
  *
@@ -557,6 +581,7 @@ function AppLink() {
     );
 }
 
+/** One figure, labelled. */
 function Fact({ label, value }: { label: string; value: string }) {
     return (
         <Stack gap={0}>

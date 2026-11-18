@@ -1,4 +1,4 @@
-import type { StationOnEnd, StationOrderItem } from '@deadair/sdk';
+import type { PlayoutNowPlaying, StationOnEnd, StationOrderItem } from '@deadair/sdk';
 import { formatClock } from '../../i18n/format.locale';
 import { i18n } from '../../i18n/i18n.setup';
 
@@ -71,4 +71,78 @@ export function whatHappensThen(onEnd: StationOnEnd): string {
     if (onEnd === 'repeat') return i18n.t('onair:runsDry.repeat');
     if (onEnd === 'stop') return i18n.t('onair:runsDry.stop');
     return i18n.t('onair:runsDry.extend');
+}
+
+/** When one row of the order is projected to be heard. */
+export interface AirTime {
+    /** Unix epoch millis. */
+    atMs: number;
+    /**
+     * Something in front of this row has no length, so the time is the EARLIEST it can air rather
+     * than when it will. Counted as zero rather than guessed at, which keeps the figure a true
+     * lower bound, and flagged so the rail can say so rather than drawing a confident time.
+     */
+    atLeast: boolean;
+}
+
+/** Every row's projected air time, and the point the order runs out at. */
+export interface AirTimes {
+    /** By item id. Rows the station is done with have none: they are history, not projection. */
+    byId: ReadonlyMap<string, AirTime>;
+    /** When the order runs dry, on the same terms. Absent when nothing is ahead or nothing is going out. */
+    dry?: AirTime;
+}
+
+const NO_TIMES: AirTimes = { byId: new Map() };
+
+/**
+ * When each row of the running order will be heard, projected from now.
+ *
+ * The same sum {@link msUntilDry} makes, item by item: the item on air's remainder, then each item
+ * still ahead in turn. So the rail's last point and the "runs dry" sentence cannot disagree.
+ *
+ * - The item on air is placed at the moment the player reported starting it.
+ * - A talk-over adds nothing to the sum. It is placed where it is heard instead: `overAtMs` into
+ *   the record after it, or into the record before it when it is `overEndOf`.
+ * - A missing length is not guessed. It counts as nothing and every row after it is flagged
+ *   {@link AirTime.atLeast}, as is everything when the decoder cannot say how much is left.
+ *
+ * Nothing at all while nothing is going out: off air the order is not running down, and a time
+ * projected from a broadcast that is not happening would be a confident lie.
+ *
+ * `now` is a parameter so this stays a pure function of its inputs.
+ */
+export function airTimesOf(items: StationOrderItem[], nowPlaying: PlayoutNowPlaying | undefined, now: number = Date.now()): AirTimes {
+    if (nowPlaying === undefined) return NO_TIMES;
+
+    const byId = new Map<string, AirTime>();
+    let cursor = now + (nowPlaying.remainingMs ?? 0);
+    let atLeast = nowPlaying.remainingMs === undefined;
+
+    // The sum, over everything heard in its own right.
+    for (const item of items) {
+        if (item.overAtMs !== undefined) continue;
+        if (item.state === 'airing') {
+            byId.set(item.id, { atMs: nowPlaying.startedAt, atLeast: false });
+            continue;
+        }
+        if (!ahead(item)) continue;
+        byId.set(item.id, { atMs: cursor, atLeast });
+        if (item.durationMs === undefined) atLeast = true;
+        else cursor += item.durationMs;
+    }
+
+    // Then the talk-overs, each hung off the record it is heard over.
+    items.forEach((item, index) => {
+        if (item.overAtMs === undefined || !(ahead(item) || item.state === 'airing')) return;
+        const step = item.overEndOf ? -1 : 1;
+        let hostAt = index + step;
+        while (hostAt >= 0 && hostAt < items.length && items[hostAt]!.overAtMs !== undefined) hostAt += step;
+        const host = items[hostAt] === undefined ? undefined : byId.get(items[hostAt]!.id);
+        if (host === undefined) return;
+        byId.set(item.id, { atMs: host.atMs + item.overAtMs, atLeast: host.atLeast });
+    });
+
+    // Ahead by the same test `msUntilDry` makes, so the two answer for exactly the same orders.
+    return items.some(ahead) ? { byId, dry: { atMs: cursor, atLeast } } : { byId };
 }

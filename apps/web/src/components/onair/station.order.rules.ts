@@ -1,6 +1,7 @@
 import type { StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { i18n } from '../../i18n/i18n.setup';
+import type { AirTimes } from './order.runs.dry';
 
 /** Whether an item is beyond editing: the player has it, or it is behind us. */
 export const isSpent = (state: StationItemState): boolean => state !== 'planned';
@@ -174,4 +175,70 @@ export function historyLabel(played: number, passed: number): string {
         return i18n.t('onair:order.history.both', { played: playedClause, skipped: passedClause });
     }
     return playedClause ?? passedClause ?? i18n.t('onair:order.history.earlier');
+}
+
+/** One entry on the desk's clock rail: a row of the order, the top of an hour, or where it runs out. */
+export type RailEntry =
+    | {
+          kind: 'item';
+          item: StationOrderItem;
+          /** Where the item sits in the slice being drawn. */
+          index: number;
+          /** When it airs, to the minute. Absent for a row with no projection: history, or off air. */
+          atMs?: number;
+          atLeast?: boolean;
+      }
+    | { kind: 'hour'; key: string; atMs: number }
+    | { kind: 'dry'; atMs: number; atLeast: boolean };
+
+/** Down to the minute, which is all the rail says, so a row's time does not move on every poll. */
+const toMinute = (ms: number): number => Math.floor(ms / 60_000) * 60_000;
+
+/** The local top of the hour a time falls in: the studio clock is the browser's, as the times are. */
+function hourOf(ms: number): number {
+    const at = new Date(ms);
+    at.setMinutes(0, 0, 0);
+    return at.getTime();
+}
+
+/**
+ * The running order laid out on a clock: each row with its projected time, a heading at the top of
+ * every hour a row falls in, and the point it runs dry as the rail's last stop.
+ *
+ * A heading goes in wherever the hour CHANGES between timed rows, including before the first, so
+ * the item on air sits under the hour it began in. History has no time and takes no heading: it is
+ * read for what happened, not when it will.
+ *
+ * There are no format-clock bands here, and that is not an omission this function could fix: the
+ * station does not send where its bands land, so drawing them would be the console guessing.
+ */
+export function railOf(items: StationOrderItem[], times: AirTimes): RailEntry[] {
+    const entries: RailEntry[] = [];
+    let lastHour: number | undefined;
+    const heading = (atMs: number) => {
+        const hour = hourOf(atMs);
+        if (hour === lastHour) return;
+        lastHour = hour;
+        entries.push({ kind: 'hour', key: `hour:${hour}`, atMs: hour });
+    };
+
+    items.forEach((item, index) => {
+        const time = times.byId.get(item.id);
+        if (time === undefined) {
+            entries.push({ kind: 'item', item, index });
+            return;
+        }
+        const atMs = toMinute(time.atMs);
+        // A talk-over is placed where it is heard, which can be later than the record after it in
+        // the order. It takes no heading of its own, or the rail would draw an hour out of order.
+        if (item.overAtMs === undefined) heading(atMs);
+        entries.push({ kind: 'item', item, index, atMs, atLeast: time.atLeast });
+    });
+
+    if (times.dry) {
+        const atMs = toMinute(times.dry.atMs);
+        heading(atMs);
+        entries.push({ kind: 'dry', atMs, atLeast: times.dry.atLeast });
+    }
+    return entries;
 }

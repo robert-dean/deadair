@@ -329,3 +329,80 @@ describe('StationOrderTable: which record a talk-over rides', () => {
         expect(screen.getByText('over the next record')).toBeInTheDocument();
     });
 });
+
+describe('StationOrderTable: the clock rail', () => {
+    // Built in LOCAL terms, as the rail renders in the browser's own zone on purpose.
+    const at = (hour: number, minute: number) => new Date(2026, 10, 18, hour, minute).getTime();
+    const times = (entries: Array<[string, number, boolean?]>, dry?: number) => ({
+        byId: new Map(entries.map(([id, atMs, atLeast]) => [id, { atMs, atLeast: atLeast ?? false }])),
+        ...(dry === undefined ? {} : { dry: { atMs: dry, atLeast: false } }),
+    });
+
+    it('says when each row airs, and heads each hour where it changes', () => {
+        const items = [orderItem(0, { state: 'airing' }), orderItem(1), orderItem(2)];
+        render(
+            <StationOrderTable
+                items={items}
+                airTimes={times([
+                    ['item-0', at(14, 51)],
+                    ['item-1', at(14, 57)],
+                    ['item-2', at(15, 3)],
+                ])}
+            />,
+        );
+
+        expect(screen.getByRole('columnheader', { name: 'Airs' })).toBeInTheDocument();
+        expect(screen.getByText('14:51')).toBeInTheDocument();
+        expect(screen.getByText('14:57')).toBeInTheDocument();
+        expect(screen.getByText('15:03')).toBeInTheDocument();
+        // One heading for the hour the item on air began in, one where the next hour starts.
+        expect(screen.getByText('14:00')).toBeInTheDocument();
+        expect(screen.getByText('15:00')).toBeInTheDocument();
+    });
+
+    it('marks a time that is only the earliest it can be, rather than drawing a guess', () => {
+        render(
+            <StationOrderTable
+                items={[orderItem(0, { state: 'airing' }), orderItem(1)]}
+                airTimes={times([
+                    ['item-0', at(14, 51)],
+                    ['item-1', at(14, 57), true],
+                ])}
+            />,
+        );
+
+        expect(screen.getByText('14:57+')).toBeInTheDocument();
+    });
+
+    it('ends the rail where the order runs dry, with whatever the caller says there', () => {
+        render(
+            <StationOrderTable
+                items={[orderItem(0, { state: 'airing' }), orderItem(1)]}
+                airTimes={times(
+                    [
+                        ['item-0', at(14, 51)],
+                        ['item-1', at(14, 57)],
+                    ],
+                    at(15, 3),
+                )}
+                runsDry={<span>It tops itself up.</span>}
+            />,
+        );
+
+        const last = screen.getByText('It tops itself up.').closest('tr')!;
+        expect(within(last).getByText('15:03')).toBeInTheDocument();
+        // The last stop is the last row: nothing of the order is drawn after it.
+        expect(mountedRows().at(-1)).toBe(last);
+    });
+
+    it('draws no time and no heading on history, which is read for what happened', () => {
+        render(
+            <StationOrderTable
+                items={[orderItem(0, { state: 'played' }), orderItem(1, { state: 'airing' })]}
+                airTimes={times([['item-1', at(9, 5)]])}
+            />,
+        );
+
+        expect(screen.getAllByText(/^\d\d:\d\d$/)).toHaveLength(2); // 09:00 and 09:05, nothing for Record 0
+    });
+});

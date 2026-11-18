@@ -23,7 +23,8 @@ import { usePlayoutStatus } from '../../api/playout.queries';
 import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useSignedIn } from '../../auth/session.store';
-import { runsDryAt, whatHappensThen } from '../onair/order.runs.dry';
+import { formatClock } from '../../i18n/format.locale';
+import { airTimesOf, whatHappensThen } from '../onair/order.runs.dry';
 import { PlanTheStation } from '../onair/plan.the.station';
 import { BringInAGuest, TakeACall } from '../onair/take.a.call';
 import { StationOrderTable } from '../onair/station.order.table';
@@ -164,10 +165,42 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
     // Only while something is actually going out. Off air the order is not running down at all, so
     // a clock time would be a projection from a broadcast that is not happening — and the panel
     // above is already saying the station is stood down, which is the more useful fact.
-    const dryAt = playout.data?.nowPlaying ? runsDryAt(items, playout.data.nowPlaying.remainingMs) : undefined;
+    //
+    // Projected row by row from the same sum, so the rail's times and its last stop agree with each
+    // other and with this sentence by construction.
+    const nowPlaying = playout.data?.nowPlaying;
+    const airTimes = useMemo(() => airTimesOf(items, nowPlaying), [items, nowPlaying]);
+    const dryAt = airTimes.dry ? formatClock(new Date(airTimes.dry.atMs)) : undefined;
     // `false` rather than `!active` because the air reading may not have loaded, and an unknown
     // station should read the way it did rather than flickering a Start on.
     const standingDown = air.data?.active === false;
+
+    // How long the order has left, which is the question the count never answered. "21 still to
+    // come" is forty minutes of a talk-heavy hour or two hours of long records, and an operator
+    // deciding whether to go to bed needs the second number. Hedged with "about" because it is: a
+    // skip, a drop or a refill moves it. On a desk it is the rail's last stop.
+    const runsDry =
+        dryAt && loaded ? (
+            <Text size="sm" c="dimmed">
+                <Trans t={t} i18nKey="page.runsDry" values={{ time: dryAt }} components={{ num: <span className="da-num" /> }} />{' '}
+                {whatHappensThen(loaded.onEnd)}{' '}
+                {/* Extend lives HERE rather than in the row of buttons above, because this sentence
+                    is what makes anybody want it. On a default station it is also mostly redundant
+                    — the order tops itself up once it drops below eight — so as a peer of Shuffle
+                    and Plan it read as a routine step rather than as the occasional nudge it is:
+                    more records now, without waiting for the threshold, after dropping a stretch
+                    of the hour. */}
+                <Anchor
+                    component="button"
+                    type="button"
+                    size="sm"
+                    disabled={extend.isPending}
+                    onClick={() => extend.mutate({}, { onSuccess: () => notifyQueued(t('page.refillQueued')) })}
+                >
+                    {t('page.extend')}
+                </Anchor>
+            </Text>
+        ) : undefined;
 
     const failures = [
         shuffle.isError ? apiErrorMessage(shuffle.error, t('page.shuffleFailed')) : undefined,
@@ -347,34 +380,14 @@ export function DeskPage({ requestOnArrival = false, onRequestArrived }: DeskPag
                         onRate={onRate}
                         ratingScriptId={rateScript.isPending ? rateScript.variables?.id : undefined}
                         onRateScript={onRateScript}
+                        airTimes={airTimes}
+                        runsDry={runsDry}
                     />
                 ) : undefined}
 
-                {/* How long the order has left, which is the question the count never answered.
-                    "21 still to come" is forty minutes of a talk-heavy hour or two hours of long
-                    records, and an operator deciding whether to go to bed needs the second number.
-                    Hedged with "about" because it is: a skip, a drop or a refill moves it. */}
-                {dryAt && loaded ? (
-                    <Text size="sm" c="dimmed">
-                        <Trans t={t} i18nKey="page.runsDry" values={{ time: dryAt }} components={{ num: <span className="da-num" /> }} />{' '}
-                        {whatHappensThen(loaded.onEnd)}{' '}
-                        {/* Extend lives HERE rather than in the row of buttons above, because this
-                            sentence is what makes anybody want it. On a default station it is also
-                            mostly redundant — the order tops itself up once it drops below eight —
-                            so as a peer of Shuffle and Plan it read as a routine step rather than
-                            as the occasional nudge it is: more records now, without waiting for
-                            the threshold, after dropping a stretch of the hour. */}
-                        <Anchor
-                            component="button"
-                            type="button"
-                            size="sm"
-                            disabled={extend.isPending}
-                            onClick={() => extend.mutate({}, { onSuccess: () => notifyQueued(t('page.refillQueued')) })}
-                        >
-                            {t('page.extend')}
-                        </Anchor>
-                    </Text>
-                ) : undefined}
+                {/* On a phone only: on a desk the same sentence is the rail's last stop, where the
+                    order actually runs out. */}
+                {phone ? runsDry : undefined}
             </Stack>
         </Group>
     );

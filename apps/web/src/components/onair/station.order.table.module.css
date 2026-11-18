@@ -54,3 +54,78 @@
 .airing > td:first-of-type {
     box-shadow: inset 3px 0 0 var(--mantine-color-red-6);
 }
+
+/**
+ * The clock rail: one line down the second column, through every row, with a dot on each.
+ *
+ * The line is each cell's own pseudo-element rather than one element behind the table, because
+ * only a window of rows is mounted and a line drawn once would have to be told where the window
+ * is. A cell drawing its own segment is right wherever it lands.
+ */
+.rail,
+.railEnd {
+    position: relative;
+    text-align: center;
+}
+
+.rail::before,
+.railEnd::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--da-border);
+}
+
+/* The rail stops at the point the order runs dry, rather than running on past it. */
+.railEnd::before {
+    bottom: 50%;
+}
+
+.dot,
+.dotSmall,
+.dotAiring,
+.dotDry {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+    border-radius: 50%;
+    /* Cut out of the line by the panel's own colour, so the dot sits on the rail, not over it. */
+    border: 2px solid var(--da-panel);
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    background: var(--da-border-strong);
+}
+
+/* A break: smaller, and in the colour the palette keeps for what the station authored. */
+.dotSmall {
+    width: 8px;
+    height: 8px;
+    background: var(--mantine-color-grape-5);
+}
+
+.dotAiring {
+    width: 12px;
+    height: 12px;
+    background: var(--mantine-color-red-6);
+    box-shadow: 0 0 0 3px var(--da-tally-glow);
+}
+
+/* Not a row of the order but a projection, so drawn open and dashed rather than as a filled stop. */
+.dotDry {
+    width: 12px;
+    height: 12px;
+    background: var(--da-panel);
+    border: 2px dashed var(--mantine-color-blue-5);
+}
+
+/** The top of an hour: set off from the rows around it as a band across the table. */
+.hour {
+    background-color: var(--da-bg);
+}

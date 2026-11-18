@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Box, Button, Stack, Table } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown } from '@tabler/icons-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -6,8 +6,9 @@ import { useTranslation } from 'react-i18next';
 import type { Rating, ScriptRating, StationOrderItem } from '@deadair/sdk';
 
 import { usePhone } from '../shared/use.phone';
-import { OrderRow, PhoneRow } from './station.order.rows';
-import { anchorOf, canRewrite, canSkipTo, firstPlannedIndex, historyLabel, isSpent } from './station.order.rules';
+import type { AirTimes } from './order.runs.dry';
+import { DryRow, HourRow, OrderRow, PhoneRow } from './station.order.rows';
+import { anchorOf, canRewrite, canSkipTo, firstPlannedIndex, historyLabel, isSpent, railOf, type RailEntry } from './station.order.rules';
 import classes from './station.order.table.module.css';
 import { usePinnedToAir } from './use.pinned.to.air';
 
@@ -71,6 +72,20 @@ export interface StationOrderTableProps {
      * operator opens this to find.
      */
     collapseHistory?: boolean;
+    /**
+     * Each row's projected air time, from `airTimesOf`. Present draws the order as a clock rail:
+     * an air-time column, a rail with a dot per row, a heading at the top of each hour, and the
+     * point the order runs dry as the rail's last stop. Absent draws the plain table.
+     *
+     * The phone's rows take no rail: at 375px the air time is a column the title cannot spare.
+     */
+    airTimes?: AirTimes;
+    /**
+     * What the rail's last stop says: when the order runs out, what happens then, and the way to
+     * extend it. The caller's words and the caller's action, since this table decides nothing.
+     * Absent draws no last stop.
+     */
+    runsDry?: ReactNode;
 }
 
 /**
@@ -117,6 +132,8 @@ export function StationOrderTable({
     onRateScript,
     ratingScriptId,
     collapseHistory = false,
+    airTimes,
+    runsDry,
 }: StationOrderTableProps) {
     const { t } = useTranslation('onair');
     const editable = onRemove !== undefined || onMove !== undefined || onSkipTo !== undefined || onRewrite !== undefined;
@@ -141,6 +158,17 @@ export function StationOrderTable({
     const played = history.filter(item => item.state === 'played').length;
     const passed = history.filter(item => item.state === 'skipped' || item.state === 'unavailable').length;
 
+    // What the port draws, row by row. On the rail that is the order with its hour headings and
+    // its last stop woven in; otherwise it is the order alone.
+    const rail = airTimes !== undefined;
+    const entries: RailEntry[] = rail
+        ? railOf(shown, airTimes).filter(entry => entry.kind !== 'dry' || runsDry !== undefined)
+        : shown.map((item, index) => ({ kind: 'item', item, index }));
+    // The pin lands on the anchor's hour heading when one sits directly above it, so the item on air
+    // is read under the hour it began in rather than with that hour scrolled just out of sight.
+    const anchorEntry = anchor ? entries.findIndex(entry => entry.kind === 'item' && entry.item.id === anchor.id) : -1;
+    const pinAt = anchorEntry > 0 && entries[anchorEntry - 1]!.kind === 'hour' ? anchorEntry - 1 : anchorEntry;
+
     const portRef = useRef<HTMLDivElement>(null);
     // Only a window of rows is mounted: a rotation order is forty-odd rows, but a setlist replays a
     // whole playlist and never trims its past, and an operator opening the desk on one should not
@@ -150,7 +178,7 @@ export function StationOrderTable({
     // the rows are memoised by hand instead.
     // eslint-disable-next-line react-hooks/incompatible-library
     const virtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
-        count: shown.length,
+        count: entries.length,
         getScrollElement: () => portRef.current,
         estimateSize: () => ROW_ESTIMATE,
         overscan: OVERSCAN,
@@ -163,7 +191,7 @@ export function StationOrderTable({
         initialRect: { width: 780, height: 320 },
         // The item's id rather than its index, so a measured height survives the splices that move
         // every index at once: the fold opening, and a refill landing behind the anchor.
-        getItemKey: index => shown[index]!.id,
+        getItemKey: index => keyOf(entries[index]!),
         // The fallback is production-real rather than a test crutch: on a phone the port is
         // `display: none` and every mounted row measures zero, and a zero once cached would still
         // be the row's height when the window widens back to the desk.
@@ -172,14 +200,16 @@ export function StationOrderTable({
             return height > 0 ? height : ROW_ESTIMATE;
         },
     });
-    const { pinnable, pin, handlers } = usePinnedToAir(anchor?.id, anchor ? (folding ? 0 : anchorAt) : undefined, items.length, virtualizer, portRef);
+    const { pinnable, pin, handlers } = usePinnedToAir(anchor?.id, pinAt < 0 ? undefined : pinAt, entries.length, virtualizer, portRef);
 
     const virtualItems = virtualizer.getVirtualItems();
     // What the unmounted rows would have occupied, held by a spacer row at each end so the
     // scrollbar and every offset read as if the whole order were mounted.
     const padTop = virtualItems.length > 0 ? virtualItems[0]!.start : 0;
     const padBottom = virtualItems.length > 0 ? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end : 0;
-    const columns = 5 + (onRate ? 1 : 0) + (editable ? 1 : 0);
+    const columns = 5 + (rail ? 2 : 0) + (onRate ? 1 : 0) + (editable ? 1 : 0);
+    // What a heading or the last stop spans after the number, the time and the rail.
+    const span = columns - 3;
 
     return (
         // Scrolled inside its own box rather than by the page, on both axes. The row is genuinely
@@ -258,6 +288,12 @@ export function StationOrderTable({
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={40}>#</Table.Th>
+                            {rail ? (
+                                <>
+                                    <Table.Th w={64}>{t('order.column.airs')}</Table.Th>
+                                    <Table.Th w={28} aria-hidden />
+                                </>
+                            ) : undefined}
                             <Table.Th w="36%">{t('order.column.title')}</Table.Th>
                             <Table.Th w="24%">{t('order.column.artists')}</Table.Th>
                             <Table.Th visibleFrom="xl">{t('order.column.album')}</Table.Th>
@@ -273,7 +309,27 @@ export function StationOrderTable({
                             </Table.Tr>
                         ) : undefined}
                         {virtualItems.map(row => {
-                            const item = shown[row.index]!;
+                            const entry = entries[row.index]!;
+                            if (entry.kind === 'hour') {
+                                return (
+                                    <HourRow key={row.key} data-index={row.index} ref={virtualizer.measureElement} atMs={entry.atMs} span={span} />
+                                );
+                            }
+                            if (entry.kind === 'dry') {
+                                return (
+                                    <DryRow
+                                        key={row.key}
+                                        data-index={row.index}
+                                        ref={virtualizer.measureElement}
+                                        atMs={entry.atMs}
+                                        atLeast={entry.atLeast}
+                                        span={span}
+                                    >
+                                        {runsDry}
+                                    </DryRow>
+                                );
+                            }
+                            const item = entry.item;
                             return (
                                 <OrderRow
                                     key={row.key}
@@ -285,7 +341,7 @@ export function StationOrderTable({
                                     // Where this row sits in the WHOLE order rather than in the
                                     // visible slice, which is the number both the row's own count
                                     // and the move it offers are stated against.
-                                    position={row.index + (folding ? anchorAt : 0)}
+                                    position={entry.index + (folding ? anchorAt : 0)}
                                     nextUp={nextUp}
                                     editable={editable}
                                     onRemove={onRemove}
@@ -300,6 +356,11 @@ export function StationOrderTable({
                                     writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
                                     onRateScript={onRateScript}
                                     writingScriptRating={item.kind === 'segment' && ratingScriptId !== undefined && ratingScriptId === item.scriptId}
+                                    rail={rail}
+                                    // Primitives rather than the projection object, which is new on
+                                    // every poll: a row whose minute has not moved survives the memo.
+                                    airAtMs={entry.atMs}
+                                    airAtLeast={entry.atLeast}
                                 />
                             );
                         })}
@@ -336,4 +397,11 @@ export function StationOrderTable({
             ) : undefined}
         </Box>
     );
+}
+
+/** What the virtualizer keys an entry on, so a measured height survives every splice. */
+function keyOf(entry: RailEntry): string {
+    if (entry.kind === 'item') return entry.item.id;
+    if (entry.kind === 'hour') return entry.key;
+    return 'dry';
 }

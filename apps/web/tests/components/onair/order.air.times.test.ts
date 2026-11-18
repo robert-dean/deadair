@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { PlayoutNowPlaying, StationOrderItem } from '@deadair/sdk';
 
 import { airTimesOf, msUntilDry } from '../../../src/components/onair/order.runs.dry';
+import { railOf } from '../../../src/components/onair/station.order.rules';
 
 const NOW = 1_000_000;
 
@@ -104,5 +105,48 @@ describe('airTimesOf', () => {
 
     it('has no dry point when nothing is ahead', () => {
         expect(airTimesOf([item({ id: 'b', state: 'airing' })], playing(), NOW).dry).toBeUndefined();
+    });
+});
+
+describe('railOf', () => {
+    const local = (hour: number, minute: number, second = 0) => new Date(2026, 10, 18, hour, minute, second).getTime();
+
+    it('weaves hour headings in where the hour changes, and the dry point last', () => {
+        const items = [item({ id: 'a', state: 'played' }), item({ id: 'b', state: 'airing' }), item({ id: 'c' }), item({ id: 'd' })];
+        const entries = railOf(items, {
+            byId: new Map([
+                ['b', { atMs: local(13, 58, 40), atLeast: false }],
+                ['c', { atMs: local(14, 2, 10), atLeast: false }],
+                ['d', { atMs: local(14, 6), atLeast: true }],
+            ]),
+            dry: { atMs: local(15, 1), atLeast: true },
+        });
+
+        expect(entries.map(entry => (entry.kind === 'item' ? entry.item.id : entry.kind))).toEqual([
+            'a',
+            'hour',
+            'b',
+            'hour',
+            'c',
+            'd',
+            'hour',
+            'dry',
+        ]);
+        // Down to the minute, so a row's time does not move on every poll.
+        expect(entries[2]).toMatchObject({ kind: 'item', atMs: local(13, 58), atLeast: false });
+        expect(entries[5]).toMatchObject({ atLeast: true });
+        expect(entries[3]).toMatchObject({ kind: 'hour', atMs: local(14, 0) });
+    });
+
+    it('gives a talk-over no heading of its own, since it is placed where it is heard', () => {
+        const entries = railOf([item({ id: 'b', state: 'airing' }), item({ id: 'c', kind: 'segment', overAtMs: 5_000 }), item({ id: 'd' })], {
+            byId: new Map([
+                ['b', { atMs: local(13, 55), atLeast: false }],
+                ['c', { atMs: local(14, 0, 5), atLeast: false }],
+                ['d', { atMs: local(14, 0), atLeast: false }],
+            ]),
+        });
+
+        expect(entries.map(entry => entry.kind)).toEqual(['hour', 'item', 'item', 'hour', 'item']);
     });
 });

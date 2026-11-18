@@ -1,8 +1,8 @@
-import { Fragment, useState } from 'react';
-import { Button, CloseButton, Menu, Stack, Text, TextInput } from '@mantine/core';
+import { useState } from 'react';
+import { Button, Chip, CloseButton, Group, Menu, SimpleGrid, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconDots } from '@tabler/icons-react';
-import type { Persona, PersonaInput } from '@deadair/sdk';
+import type { Persona, PersonaInput, ScheduleNow, ScheduleSlot, ScriptHistorySummaryRow } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -15,7 +15,9 @@ import {
     useRestorePersonas,
     useUpdatePersona,
 } from '../../api/personas.queries';
-import { useScriptSummary } from '../../api/scripts.queries';
+import { usePersonaPortraits } from '../../api/persona.portrait.queries';
+import { useCurrentSlot, useSchedule } from '../../api/schedule.queries';
+import { SUMMARY_HOURS, useScriptSummary } from '../../api/scripts.queries';
 import { useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { EmptyState } from '../shared/empty.state';
@@ -24,7 +26,6 @@ import { notifyDone } from '../shared/notify';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import { usePhone } from '../shared/use.phone';
 import { PersonaCard } from './persona.card';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
@@ -45,7 +46,6 @@ import { PresentingBanner } from './presenting.banner';
  * was written in; nothing here can reach into audio that already exists.
  */
 export function PersonasPage() {
-    const phone = usePhone();
     const { t } = useTranslation('personas');
     const personas = usePersonas();
     const create = useCreatePersona();
@@ -60,6 +60,12 @@ export function PersonasPage() {
     // How each of them is doing on air. One call for the whole roster, since the question is asked
     // about a list and a card each would open this page with nineteen requests.
     const summary = useScriptSummary();
+    // One listing for every card's avatar, rather than a request per card.
+    const portraits = usePersonaPortraits();
+    // Who the schedule hands the air to next: the current-slot read says which block follows, and
+    // only the slot list knows who hosts it.
+    const now = useCurrentSlot();
+    const schedule = useSchedule();
 
     // `undefined` is closed; a persona is editing that one; `null` is a new one. The one place in
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
@@ -88,6 +94,8 @@ export function PersonasPage() {
     // nothing to debounce: no request rides it, and a URL naming a filter over a client-side list
     // would be a link to somebody else's half-typed word.
     const [filter, setFilter] = useState('');
+    // Which part of the roster is in view. The same reasoning as the box: a sieve over a list in hand.
+    const [only, setOnly] = useState<Only>('all');
     // A download is not state this app holds, so there is no query and no mutation behind it — only
     // whether one is in flight, and what went wrong if it did. Keyed by persona id, with the roster
     // export under `ROSTER`, so a failure lands on the card that asked for it rather than at the top
@@ -141,7 +149,11 @@ export function PersonasPage() {
     };
 
     const all = personas.data?.personas ?? [];
-    const shown = matching(ordered(all), filter);
+    const rows = summary.data?.rows;
+    const shown = matching(ordered(all), filter).filter(persona => inView(persona, only, rows));
+    const nextHost = nextHostId(now.data, schedule.data?.slots);
+    // In roster order, one group per heading, so each heading sits over a grid of its own.
+    const groups = grouped(shown);
 
     return (
         <Stack gap="lg">
@@ -281,59 +293,84 @@ export function PersonasPage() {
 
             {personas.data?.personas.length === 0 ? <EmptyState>{t('page.empty')}</EmptyState> : undefined}
 
-            {/* Only once the roster is long enough to be worth sieving. A search box over six cards
-                is a control that costs more attention than it saves. */}
-            {all.length > FILTER_FROM ? (
-                <TextInput
-                    value={filter}
-                    onChange={event => setFilter(event.currentTarget.value)}
-                    placeholder={t('page.filter.placeholder')}
-                    aria-label={t('page.filter.placeholder')}
-                    maw={360}
-                    rightSection={
-                        filter.length > 0 ? <CloseButton size="sm" onClick={() => setFilter('')} aria-label={t('page.filter.clear')} /> : undefined
-                    }
-                />
+            {all.length > 0 ? (
+                <Group gap="sm" justify="space-between" align="center">
+                    {/* Which part of the roster to look at. Hosts and callers-and-guests by what a
+                        character may be cast as, so a host who also drops by is in both; and the
+                        ones that spoke in the last day, which is the question during a show. */}
+                    <Chip.Group value={only} onChange={value => setOnly(value as Only)}>
+                        <Group gap="xs">
+                            {ONLY.map(value => (
+                                <Chip key={value} value={value} size="sm" variant="light">
+                                    {value === 'spoke' ? t('page.only.spoke', { count: SUMMARY_HOURS }) : t(`page.only.${value}`)}
+                                </Chip>
+                            ))}
+                        </Group>
+                    </Chip.Group>
+                    {/* Only once the roster is long enough to be worth sieving. A search box over six
+                        cards is a control that costs more attention than it saves. */}
+                    {all.length > FILTER_FROM ? (
+                        <TextInput
+                            value={filter}
+                            onChange={event => setFilter(event.currentTarget.value)}
+                            placeholder={t('page.filter.placeholder')}
+                            aria-label={t('page.filter.placeholder')}
+                            w={280}
+                            maw="100%"
+                            rightSection={
+                                filter.length > 0 ? (
+                                    <CloseButton size="sm" onClick={() => setFilter('')} aria-label={t('page.filter.clear')} />
+                                ) : undefined
+                            }
+                        />
+                    ) : undefined}
+                </Group>
             ) : undefined}
 
             {all.length > 0 && shown.length === 0 ? <EmptyState>{t('page.noMatch')}</EmptyState> : undefined}
 
-            <Stack gap="sm">
-                {shown.map((persona, index) => (
-                    <Fragment key={persona.id}>
-                        {/* A heading at each changeover rather than two separate lists, which would
-                            mean either duplicating this card or lifting ten pieces of state into a
-                            component to share it. The roster is already ordered hosts-then-callers,
-                            so one comparison with the card above is the whole of it — and a filter
-                            that matches only callers correctly draws only that heading. */}
-                        {index === 0 || kindOf(shown[index - 1]!) !== kindOf(persona) ? <Eyebrow>{t(HEADINGS[kindOf(persona)])}</Eyebrow> : undefined}
-                        <PersonaCard
-                            persona={persona}
-                            all={all}
-                            phone={phone}
-                            voices={voices}
-                            preview={preview}
-                            summary={summary}
-                            setStationHost={setStationHost}
-                            rehearse={rehearse}
-                            remove={remove}
-                            notebook={notebook}
-                            setNotebook={setNotebook}
-                            shelf={shelf}
-                            setShelf={setShelf}
-                            memory={memory}
-                            setMemory={setMemory}
-                            performance={performance}
-                            setPerformance={setPerformance}
-                            exporting={exporting}
-                            exportFailure={exportFailure}
-                            save={save}
-                            onEdit={setEditing}
-                            onDelete={setDeleting}
-                        />
-                    </Fragment>
-                ))}
-            </Stack>
+            {groups.map(([kind, members]) => (
+                <Stack key={kind} gap="xs">
+                    {/* A heading over each kind rather than one undivided grid: who the station IS
+                        and who it might put on the phone are different questions. The roster is
+                        already ordered hosts-then-callers, so a filter that matches only callers
+                        correctly draws only that heading. */}
+                    <Eyebrow>{t(HEADINGS[kind])}</Eyebrow>
+                    <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="sm" verticalSpacing="sm">
+                        {members.map(persona => {
+                            const portrait = portraits.data?.portraits.find(row => row.personaId === persona.id)?.url;
+                            return (
+                                <PersonaCard
+                                    key={persona.id}
+                                    persona={persona}
+                                    all={all}
+                                    voices={voices}
+                                    preview={preview}
+                                    summary={summary}
+                                    setStationHost={setStationHost}
+                                    rehearse={rehearse}
+                                    remove={remove}
+                                    notebook={notebook}
+                                    setNotebook={setNotebook}
+                                    shelf={shelf}
+                                    setShelf={setShelf}
+                                    memory={memory}
+                                    setMemory={setMemory}
+                                    performance={performance}
+                                    setPerformance={setPerformance}
+                                    exporting={exporting}
+                                    exportFailure={exportFailure}
+                                    save={save}
+                                    onEdit={setEditing}
+                                    onDelete={setDeleting}
+                                    next={persona.id === nextHost}
+                                    {...(portrait === undefined ? {} : { portraitUrl: portrait })}
+                                />
+                            );
+                        })}
+                    </SimpleGrid>
+                </Stack>
+            ))}
 
             <PersonaEditor
                 // Keyed, so opening a different persona builds a fresh form rather than showing the
@@ -407,6 +444,54 @@ const HEADINGS = {
     caller: 'page.heading.callers',
     guest: 'page.heading.guests',
 } as const;
+
+/** The parts of the roster the chips choose between. */
+const ONLY = ['all', 'hosts', 'others', 'spoke'] as const;
+type Only = (typeof ONLY)[number];
+
+/**
+ * Whether a character is in the part of the roster the chips chose. "Spoke" is anything written in
+ * the summary's window, which is the same day the card's own record counts.
+ */
+function inView(persona: Persona, only: Only, rows: ScriptHistorySummaryRow[] | undefined): boolean {
+    switch (only) {
+        case 'all':
+            return true;
+        case 'hosts':
+            return hasKind(persona, 'host');
+        case 'others':
+            return hasKind(persona, 'caller') || hasKind(persona, 'guest');
+        case 'spoke':
+            return (rows?.find(row => row.personaKey === persona.key)?.written ?? 0) > 0;
+    }
+}
+
+/** The shown roster cut at each change of heading, in order. */
+function grouped(personas: Persona[]): [PersonaKind, Persona[]][] {
+    const groups: [PersonaKind, Persona[]][] = [];
+    for (const persona of personas) {
+        const kind = kindOf(persona);
+        const last = groups.at(-1);
+        if (last?.[0] === kind) last[1].push(persona);
+        else groups.push([kind, [persona]]);
+    }
+    return groups;
+}
+
+/**
+ * Who hosts the next block on the schedule, or nothing when it names nobody of its own.
+ *
+ * `upcoming` starts with the block on now when there is one, so "next" is the first block that has
+ * not started yet. Both readings are the station's own zone-naive `YYYY-MM-DD HH:mm:ss`, so comparing
+ * them as strings is comparing them as times. A block without a host of its own is the station's own
+ * host, which the roster already badges, so it earns no "Next".
+ */
+export function nextHostId(now: ScheduleNow | undefined, slots: ScheduleSlot[] | undefined): string | undefined {
+    if (now === undefined || slots === undefined) return undefined;
+    const following = now.upcoming.find(block => block.start > now.now);
+    if (following === undefined) return undefined;
+    return slots.find(slot => slot.id === following.slotId)?.personaId;
+}
 
 /** Everything a character can be looked up by: what it is called, what it is, and who it says it is. */
 function matching(personas: Persona[], filter: string): Persona[] {

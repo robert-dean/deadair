@@ -82,7 +82,14 @@ export const personas = {
             placeholder: 'Find a character',
             clear: 'Clear the filter',
         },
-        noMatch: 'No character here matches that. Clear the box to see the whole roster again.',
+        noMatch: 'No character here matches that. Clear the box, or choose All, to see the whole roster again.',
+        only: {
+            all: 'All',
+            hosts: 'Hosts',
+            others: 'Callers and guests',
+            spoke_one: 'Spoke in {{count}} h',
+            spoke_other: 'Spoke in {{count}} h',
+        },
         heading: {
             hosts: 'Hosts',
             newsreader: 'Newsreader',
@@ -91,6 +98,7 @@ export const personas = {
         },
     },
     card: {
+        next: 'Next',
         alsoKind: {
             host: 'Also hosts',
             caller: 'Also rings in',

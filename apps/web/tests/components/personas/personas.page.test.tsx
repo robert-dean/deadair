@@ -14,6 +14,9 @@ import { stubPhoneMedia } from '../../utils/phone';
 // This page opens four queries on mount (personas, voices, script summary). Everything but the
 // persona list itself is covered by its own suite; here it only has to not throw.
 const readScriptPerformance = vi.fn();
+const readScriptSummary = vi.fn(() => Promise.resolve({ hours: 24, rows: [] as object[] }));
+const readCurrentSlot = vi.fn(() => Promise.resolve({ now: '2026-11-18 21:30:00', upcoming: [] as object[] }));
+const listSchedule = vi.fn(() => Promise.resolve({ slots: [] as object[] }));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -25,8 +28,10 @@ vi.mock('../../../src/api/client', () => ({
         render: {
             listVoices: () => Promise.resolve({ voices: [] }),
             readScriptPerformance: (...args: unknown[]) => readScriptPerformance(...args),
-            readScriptSummary: () => Promise.resolve({ rows: [] }),
+            readScriptSummary: () => readScriptSummary(),
         },
+        schedule: { readCurrentSlot: () => readCurrentSlot(), listSchedule: () => listSchedule() },
+        art: { listPersonaPortraits: () => Promise.resolve({ portraits: [] }) },
         settings: { getSettings: () => Promise.resolve({ descriptors: [], values: {}, configured: {} }) },
     },
 }));
@@ -334,7 +339,7 @@ describe('PersonasPage', () => {
             personas: [persona({ defaultHost: true, presenting: true }), persona({ id: 'p-2', key: 'sidekick', label: 'Garth', coHosting: true })],
         });
         const user = setupUser();
-        render(<PresentingBannerHost />);
+        render(<PersonasPage />);
 
         expect(await screen.findByText(/is presenting, as the station's own host/)).toBeInTheDocument();
         expect(screen.getByText('With Garth beside them as co-host.')).toBeInTheDocument();
@@ -350,11 +355,90 @@ describe('PersonasPage', () => {
 
     it('says so when nobody is presenting', async () => {
         listPersonas.mockResolvedValue({ personas: [persona()] });
-        render(<PresentingBannerHost />);
+        render(<PersonasPage />);
 
         expect(await screen.findByText(/Nobody is presenting/)).toBeInTheDocument();
     });
-});
 
-/** The page itself, named for what these cases look at. */
-const PresentingBannerHost = PersonasPage;
+    it('narrows the roster by kind, and to the ones that spoke in the last day', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [
+                persona(),
+                persona({ id: 'p-2', key: 'trucker', kind: 'caller', label: 'Trucker' }),
+                persona({ id: 'p-3', key: 'expert', kind: 'guest', label: 'Expert' }),
+            ],
+        });
+        readScriptSummary.mockResolvedValueOnce({ hours: 24, rows: [{ personaKey: 'trucker', written: 3, declined: 0, failed: 0 }] });
+        const user = setupUser();
+        render(<PersonasPage />);
+        await screen.findByText('Marlowe', { selector: 'p' });
+
+        await user.click(screen.getByRole('radio', { name: 'Callers and guests' }));
+        expect(screen.queryByText('Marlowe', { selector: 'p' })).not.toBeInTheDocument();
+        expect(screen.getByText('Trucker', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.getByText('Expert', { selector: 'p' })).toBeInTheDocument();
+
+        await user.click(screen.getByRole('radio', { name: 'Hosts' }));
+        expect(screen.getByText('Marlowe', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.queryByText('Trucker', { selector: 'p' })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('radio', { name: 'Spoke in 24 h' }));
+        expect(screen.getByText('Trucker', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.queryByText('Marlowe', { selector: 'p' })).not.toBeInTheDocument();
+        expect(screen.queryByText('Expert', { selector: 'p' })).not.toBeInTheDocument();
+    });
+
+    // The first block in `upcoming` is the one on now when there is one, so Next goes to the first
+    // block that has not started, and only when its slot names a host of its own.
+    it('badges the host of the next block on the schedule as Next', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona({ defaultHost: true, presenting: true }), persona({ id: 'p-2', key: 'owl', label: 'Night owl' })],
+        });
+        readCurrentSlot.mockResolvedValueOnce({
+            now: '2026-11-18 21:30:00',
+            upcoming: [
+                { slotId: 's-on', label: 'Evening', start: '2026-11-18 18:00:00', end: '2026-11-18 22:00:00' },
+                { slotId: 's-late', label: 'Late', start: '2026-11-18 22:00:00', end: '2026-11-18 23:59:59' },
+            ],
+        });
+        listSchedule.mockResolvedValueOnce({
+            slots: [
+                { id: 's-on', label: 'Evening', startsAtMinutes: 1080, endsAtMinutes: 1320, personaId: 'p-1' },
+                { id: 's-late', label: 'Late', startsAtMinutes: 1320, endsAtMinutes: 0, personaId: 'p-2' },
+            ],
+        });
+        render(<PersonasPage />);
+
+        const owl = (await screen.findByText('Night owl', { selector: 'p' })).parentElement as HTMLElement;
+        expect(await within(owl).findByText('Next')).toBeInTheDocument();
+        expect(screen.getAllByText('Next')).toHaveLength(1);
+    });
+
+    it('gives no one Next when the next block is the station’s own host', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        readCurrentSlot.mockResolvedValueOnce({
+            now: '2026-11-18 21:30:00',
+            upcoming: [{ slotId: 's-late', label: 'Late', start: '2026-11-18 22:00:00', end: '2026-11-18 23:59:59' }],
+        });
+        listSchedule.mockResolvedValueOnce({ slots: [{ id: 's-late', label: 'Late', startsAtMinutes: 1320, endsAtMinutes: 0 }] });
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe', { selector: 'p' });
+        await waitFor(() => expect(listSchedule).toHaveBeenCalled());
+        expect(screen.queryByText('Next')).not.toBeInTheDocument();
+    });
+
+    it('widens a card to the whole row while one of its panels is open', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        readScriptPerformance.mockResolvedValue({ days: 30, rows: [] });
+        const user = setupUser();
+        const { container } = render(<PersonasPage />);
+        await screen.findByText('Marlowe', { selector: 'p' });
+        expect(container.querySelector('[data-wide]')).toBeNull();
+
+        await user.click(screen.getByRole('button', { name: 'More about Marlowe' }));
+        await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
+
+        expect(container.querySelector('[data-wide]')).not.toBeNull();
+    });
+});

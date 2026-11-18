@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { ActionIcon, Anchor, Badge, Button, Card, Group, Menu, Stack, Text } from '@mantine/core';
+import { ActionIcon, Anchor, Avatar, Badge, Button, Card, Group, Menu, Stack, Text } from '@mantine/core';
 import { IconDots, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { Persona, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
@@ -7,6 +7,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import type { useDeletePersona, useRehearsePersona, useSetStationHost } from '../../api/personas.queries';
+import { artSrc } from '../../api/art';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { SUMMARY_HOURS, type useScriptSummary } from '../../api/scripts.queries';
 import { fetchVoiceSample, type useVoices } from '../../api/voices.queries';
@@ -23,7 +24,6 @@ import { PersonaRehearsalPanel } from './persona.rehearsal';
 interface PersonaCardProps {
     persona: Persona;
     all: readonly Persona[];
-    phone: boolean;
     voices: ReturnType<typeof useVoices>;
     preview: ReturnType<typeof useVoicePreview>;
     summary: ReturnType<typeof useScriptSummary>;
@@ -43,13 +43,22 @@ interface PersonaCardProps {
     save: (id?: string) => Promise<boolean>;
     onEdit: (persona: Persona) => void;
     onDelete: (persona: Persona) => void;
+    /** Where its portrait is served, when it has one. */
+    portraitUrl?: string;
+    /** Whether the next block on the schedule names this character as its host. */
+    next: boolean;
 }
 
-/** One character on the roster. Split out of `personas.page.tsx` unchanged; every piece of state stays on the page. */
+/**
+ * One character on the roster, as a cell of the page's grid. Every piece of state stays on the page.
+ *
+ * Name and badges, two lines of who it is, its voice, and how it has done on air in the last day,
+ * with Edit and Rehearse in hand and everything else behind the menu. A panel opened from that menu
+ * draws under the card, which then spans the whole row.
+ */
 export function PersonaCard({
     persona,
     all,
-    phone,
     voices,
     preview,
     summary,
@@ -69,133 +78,150 @@ export function PersonaCard({
     save,
     onEdit,
     onDelete,
+    portraitUrl,
+    next,
 }: PersonaCardProps) {
     const { t } = useTranslation('personas');
+    // A card whose panel is open, or whose rehearsal came back, takes the whole row of the grid: the
+    // notebook, the stories and the rest are tables and transcripts, which a third of a row cannot
+    // hold.
+    const wide =
+        notebook === persona.id ||
+        shelf === persona.id ||
+        memory === persona.id ||
+        performance === persona.id ||
+        rehearse.data?.personaId === persona.id;
 
     return (
-        <Card>
-            {/* Wraps on a phone rather than holding its intrinsic width: at 500px the
-            action row otherwise stayed full size while the left column collapsed
-            toward zero, and the buttons printed over the persona's name. */}
-            <Group justify="space-between" align="flex-start" wrap={phone ? 'wrap' : 'nowrap'}>
-                <Stack gap="xxs" style={{ minWidth: 0 }}>
-                    <Group gap="xs">
-                        <Text fw={600}>{persona.label}</Text>
-                        {/* Two badges rather than one, because the flag underneath
-                        them answers two different questions and this card used to
-                        print the wrong answer to the one an operator is asking.
-                        `presenting` is who is writing breaks right now; `active` is
-                        who does it when the broadcast on air names nobody. They are
-                        the same character on an ordinary station and they are not
-                        during a show with its own host, which is exactly when
-                        somebody is looking at this page. */}
-                        {persona.presenting ? (
-                            <Badge color="green" variant="light">
-                                {t('card.onAirNow')}
-                            </Badge>
-                        ) : undefined}
-                        {/* A co-host is on air too, beside the one writing the
-                        breaks; without this a two-presenter show badged only one. */}
-                        {persona.coHosting ? (
-                            <Badge color="green" variant="light">
-                                {t('card.coHostingNow')}
-                            </Badge>
-                        ) : undefined}
-                        {persona.defaultHost && !persona.presenting ? (
-                            <Badge color="gray" variant="light">
-                                {t('card.stationsOwn')}
-                            </Badge>
-                        ) : undefined}
-                        {persona.djName ? (
-                            <Badge variant="outline" color="gray">
-                                {persona.djName}
-                            </Badge>
-                        ) : undefined}
-                        {/* Listed once, under the first kind it has, and badged with
-                        the rest: a host who also drops by somebody else's show is
-                        one character, not a host card and a guest card. */}
-                        {kindsOf(persona)
-                            .slice(1)
-                            .map(kind => (
-                                <Badge key={kind} variant="outline" color="gray">
-                                    {t(`card.alsoKind.${kind}`)}
-                                </Badge>
-                            ))}
-                    </Group>
-                    {/* Unconstrained free text: without a clamp, a long style sentence
-                    sets the card's own height, and on a phone a wrapped action row
-                    beneath it would be pushed further down with every word. */}
-                    <Text size="sm" c="dimmed" lineClamp={3}>
-                        {persona.style}
-                    </Text>
-                    <PersonaSummary persona={persona} />
-                    <RingsIn persona={persona} roster={all} />
-
-                    {persona.voice ? (
-                        <Group gap="xxs" wrap="nowrap">
-                            <Text size="xs" c="dimmed">
-                                {/* Both halves: the slot is what the editor and the
-                                voices page call it, and what it maps to is the only
-                                part saying anything about the sound. A station with
-                                no speech plugin gets the slot alone, which is all
-                                anything knows then. */}
-                                {t('card.speaksAs', { voice: describeVoice(persona.voice, voices.data?.voices, t) })}
-                            </Text>
-                            <ActionIcon
-                                variant="subtle"
-                                size="xs"
-                                loading={preview.isLoading(persona.voice)}
-                                aria-label={t('card.playVoice', { label: persona.label })}
-                                onClick={() => preview.play(persona.voice!, () => fetchVoiceSample(persona.voice!), t('shared.voicePreviewFailed'))}
-                            >
-                                {preview.isPlaying(persona.voice) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
-                            </ActionIcon>
-                        </Group>
-                    ) : undefined}
-
-                    <PersonaRecord counts={countsFor(persona.key, summary.data?.rows)} />
-
-                    {/* In the card's own column rather than the row of buttons, because
-                    it goes somewhere rather than doing something. Keyed on the
-                    persona's KEY rather than its id, since that is what
-                    `script_history` stamps: the rows outlive the character, so what
-                    it said survives it being deleted. */}
-                    <Group gap="sm" wrap="nowrap">
-                        <Anchor
-                            size="xs"
-                            renderRoot={(props: object) => (
-                                <Link to="/voice" search={{ tab: 'said', segment: '', persona: persona.key }} {...props} />
-                            )}
-                        >
-                            {t('card.said')}
-                        </Anchor>
-                    </Group>
-
-                    {persona.voice && preview.failureFor(persona.voice) ? (
-                        <Text size="xs" c={severityColor.failure}>
-                            {preview.failureFor(persona.voice)}
+        <Card style={wide ? WIDE : undefined} data-wide={wide || undefined}>
+            <Stack gap="xs" h="100%">
+                <Group gap="sm" align="flex-start" wrap="nowrap">
+                    {/* The portrait a listener's player shows, where one was dropped on the sheet;
+                        otherwise the name's initials, so every card has the same anchor. */}
+                    <Avatar src={artSrc(portraitUrl) ?? null} name={persona.label} color="initials" radius="xl" size={40} alt="" />
+                    <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+                        <Text fw={600} truncate>
+                            {persona.label}
                         </Text>
-                    ) : undefined}
-                </Stack>
-                <Group gap="xs" wrap="nowrap" {...(phone ? PHONE_ACTIONS : {})}>
-                    {/* Not offered for a caller at all, rather than offered and refused:
-                    somebody who phones in cannot present the station, and the API
-                    and the database both say so. A button that always fails is a
-                    question the page should not have asked. */}
+                        <Group gap={4}>
+                            {/* Two badges rather than one, because the flag underneath them answers
+                                two different questions and this card used to print the wrong answer
+                                to the one an operator is asking. `presenting` is who is writing
+                                breaks right now; `active` is who does it when the broadcast on air
+                                names nobody. They are the same character on an ordinary station and
+                                they are not during a show with its own host, which is exactly when
+                                somebody is looking at this page. */}
+                            {persona.presenting ? (
+                                <Badge color="green" variant="light">
+                                    {t('card.onAirNow')}
+                                </Badge>
+                            ) : undefined}
+                            {/* A co-host is on air too, beside the one writing the breaks; without
+                                this a two-presenter show badged only one. */}
+                            {persona.coHosting ? (
+                                <Badge color="green" variant="light">
+                                    {t('card.coHostingNow')}
+                                </Badge>
+                            ) : undefined}
+                            {/* Who the schedule hands the air to next, when the next block names a
+                                host of its own. Not drawn on whoever is already speaking. */}
+                            {next && !persona.presenting ? (
+                                <Badge color="blue" variant="light">
+                                    {t('card.next')}
+                                </Badge>
+                            ) : undefined}
+                            {persona.defaultHost && !persona.presenting ? (
+                                <Badge color="gray" variant="light">
+                                    {t('card.stationsOwn')}
+                                </Badge>
+                            ) : undefined}
+                            {persona.djName ? (
+                                <Badge variant="outline" color="gray">
+                                    {persona.djName}
+                                </Badge>
+                            ) : undefined}
+                            {/* Listed once, under the first kind it has, and badged with the rest:
+                                a host who also drops by somebody else's show is one character, not a
+                                host card and a guest card. */}
+                            {kindsOf(persona)
+                                .slice(1)
+                                .map(kind => (
+                                    <Badge key={kind} variant="outline" color="gray">
+                                        {t(`card.alsoKind.${kind}`)}
+                                    </Badge>
+                                ))}
+                        </Group>
+                    </Stack>
+                </Group>
+
+                {/* Two lines, so every card in a row is the same height and the grid reads as a
+                    grid: the whole sheet is one click away under Edit. */}
+                <Text size="sm" c="dimmed" lineClamp={2} title={persona.style}>
+                    {persona.style}
+                </Text>
+                <PersonaSummary persona={persona} />
+                <RingsIn persona={persona} roster={all} />
+
+                {persona.voice ? (
+                    <Group gap="xxs" wrap="nowrap">
+                        <ActionIcon
+                            variant="subtle"
+                            size="xs"
+                            loading={preview.isLoading(persona.voice)}
+                            aria-label={t('card.playVoice', { label: persona.label })}
+                            onClick={() => preview.play(persona.voice!, () => fetchVoiceSample(persona.voice!), t('shared.voicePreviewFailed'))}
+                        >
+                            {preview.isPlaying(persona.voice) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+                        </ActionIcon>
+                        <Text size="xs" c="dimmed" truncate>
+                            {/* Both halves: the slot is what the editor and the voices page call it,
+                                and what it maps to is the only part saying anything about the sound.
+                                A station with no speech plugin gets the slot alone, which is all
+                                anything knows then. */}
+                            {t('card.speaksAs', { voice: describeVoice(persona.voice, voices.data?.voices, t) })}
+                        </Text>
+                    </Group>
+                ) : undefined}
+
+                {persona.voice && preview.failureFor(persona.voice) ? (
+                    <Text size="xs" c={severityColor.failure}>
+                        {preview.failureFor(persona.voice)}
+                    </Text>
+                ) : undefined}
+
+                <Group gap="sm" wrap="nowrap" justify="space-between">
+                    <PersonaRecord counts={countsFor(persona.key, summary.data?.rows)} />
+                    {/* It goes somewhere rather than doing something, so it sits with the record
+                        rather than with the buttons. Keyed on the persona's KEY rather than its id,
+                        since that is what `script_history` stamps: the rows outlive the character,
+                        so what it said survives it being deleted. */}
+                    <Anchor
+                        size="xs"
+                        style={{ flexShrink: 0 }}
+                        renderRoot={(props: object) => <Link to="/voice" search={{ tab: 'said', segment: '', persona: persona.key }} {...props} />}
+                    >
+                        {t('card.said')}
+                    </Anchor>
+                </Group>
+
+                <Group gap="xs" mt="auto" pt="xs" justify="flex-end">
+                    {/* Not offered for a caller at all, rather than offered and refused: somebody
+                        who phones in cannot present the station, and the API and the database both
+                        say so. A button that always fails is a question the page should not have
+                        asked. */}
                     {persona.defaultHost || !presents(persona) ? undefined : (
                         <Button
                             variant="light"
                             size="compact-sm"
+                            mr="auto"
                             loading={setStationHost.isPending && setStationHost.variables === persona.id}
                             onClick={() =>
                                 setStationHost.mutate(persona.id, {
-                                    // The card redraws with the badge moved, which
-                                    // is easy to miss on a page of eleven cards
-                                    // where the one that changed may be scrolled
-                                    // past. The sentence says what actually
-                                    // happened, because this is the station's own
-                                    // host rather than the show's: a broadcast that
-                                    // named its own keeps it until that show ends.
+                                    // The card redraws with the badge moved, which is easy to miss on
+                                    // a page of eleven cards where the one that changed may be
+                                    // scrolled past. The sentence says what actually happened,
+                                    // because this is the station's own host rather than the show's:
+                                    // a broadcast that named its own keeps it until that show ends.
                                     onSuccess: () => notifyDone(t('card.madeHost', { label: persona.label })),
                                 })
                             }
@@ -203,9 +229,12 @@ export function PersonaCard({
                             {t('card.makeHost')}
                         </Button>
                     )}
-                    {/* Spends a generation and changes nothing, so it is a plain button
-                    rather than something behind a confirmation — but it takes the
-                    one model slot, which is why only one runs at a time. */}
+                    <Button variant="subtle" size="compact-sm" onClick={() => onEdit(persona)}>
+                        {t('shared.edit')}
+                    </Button>
+                    {/* Spends a generation and changes nothing, so it is a plain button rather than
+                        something behind a confirmation — but it takes the one model slot, which is
+                        why only one runs at a time. */}
                     <Button
                         variant="subtle"
                         size="compact-sm"
@@ -214,9 +243,6 @@ export function PersonaCard({
                         onClick={() => rehearse.mutate(persona.id)}
                     >
                         {t('card.rehearse')}
-                    </Button>
-                    <Button variant="subtle" size="compact-sm" onClick={() => onEdit(persona)}>
-                        {t('shared.edit')}
                     </Button>
                     {/* Notebook, Stories, Export and Delete behind one control: six
                     equal-weight buttons put Delete at the same visual weight as Put
@@ -269,7 +295,7 @@ export function PersonaCard({
                         </Menu.Dropdown>
                     </Menu>
                 </Group>
-            </Group>
+            </Stack>
 
             {/* Each failure belongs to the button that asked for it. A page-level alert
             for a per-card button puts the reason at the top of a list of fourteen,
@@ -399,8 +425,8 @@ function describeVoice(voiceId: string, voices: Voice[] | undefined, t: TFunctio
     return voice?.description === undefined ? voiceId : t('card.voiceWithDescription', { voice: voiceId, description: voice.description });
 }
 
-/** A card's action row on a phone: its own full-width line under the text, pushed to the right. */
-const PHONE_ACTIONS = { w: '100%', justify: 'flex-end' } as const;
+/** A card with a panel open spans every column of the grid it sits in. */
+const WIDE = { gridColumn: '1 / -1' } as const;
 
 /**
  * The one line under a persona, which says something only when there is something to say.

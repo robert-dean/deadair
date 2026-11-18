@@ -59,7 +59,7 @@ describe('resolveStreamUrl', () => {
         expect(callsTo(fake, 'v4/catalog/annotateObjects')).toHaveLength(1);
     });
 
-    it("says an account without Premium cannot play a chosen record, as a refusal about the record", async () => {
+    it('says an account without Premium cannot play a chosen record, as a refusal about the record', async () => {
         const refused = fixture('playback.source.no.entitlements');
         const { plugin } = await build(() => refused);
 
@@ -68,7 +68,9 @@ describe('resolveStreamUrl', () => {
 
     it('does not ask to play a record Pandora has no on-demand rights for', async () => {
         const { fake, plugin } = await build();
-        fake.web['v4/catalog/annotateObjects'] = { body: { [TRACK]: { name: 'High and Dry', albumId: ALBUM, rightsInfo: { hasInteractive: false } } } };
+        fake.web['v4/catalog/annotateObjects'] = {
+            body: { [TRACK]: { name: 'High and Dry', albumId: ALBUM, rightsInfo: { hasInteractive: false } } },
+        };
 
         await expect(plugin.resolveStreamUrl(TRACK)).rejects.toMatchObject({ code: 'forbidden' });
         expect(callsTo(fake, 'v1/playback/source')).toHaveLength(0);
@@ -93,7 +95,9 @@ describe('resolveStreamUrl', () => {
     });
 
     it('fetches over TLS even when Pandora handed out a plain-http link', async () => {
-        const { plugin } = await build(() => ({ body: { ...recorded, item: { ...recorded.item, audioUrl: 'http://t1-1.p-cdn.us/access/?token=x' } } }));
+        const { plugin } = await build(() => ({
+            body: { ...recorded, item: { ...recorded.item, audioUrl: 'http://t1-1.p-cdn.us/access/?token=x' } },
+        }));
 
         await expect(plugin.resolveStreamUrl(TRACK)).resolves.toMatchObject({ url: 'https://t1-1.p-cdn.us/access/?token=x' });
     });
@@ -107,7 +111,7 @@ describe('resolveStreamUrl', () => {
 });
 
 describe('reportPlayback', () => {
-    it("reports a record starting with the token it was served under", async () => {
+    it('reports a record starting with the token it was served under', async () => {
         const { fake, plugin } = await build();
         await plugin.resolveStreamUrl(TRACK);
 

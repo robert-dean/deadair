@@ -120,7 +120,7 @@ describe('useDeclaredOptions', () => {
     });
 
     // A `podcast` band's topic stores the station's own show by its row id, and an operator picks by its title.
-    it("resolves station.ownShows to the shows the station makes", async () => {
+    it('resolves station.ownShows to the shows the station makes', async () => {
         const queryClient = createTestQueryClient();
         listOwnShows.mockResolvedValue({ shows: [{ id: 'show-1', title: 'Evening News', createdAt: '2026-10-27T00:00:00Z' }] });
 
@@ -207,7 +207,9 @@ describe('the models a writer can be set to', () => {
                 settingKey: 'llm.pluginId',
                 configured: '',
                 candidates: [
-                    ...(inUseId === undefined ? [] : [{ pluginId: inUseId, name: inUseId, enabled: true, status: 'active', listed: false, inUse: true }]),
+                    ...(inUseId === undefined
+                        ? []
+                        : [{ pluginId: inUseId, name: inUseId, enabled: true, status: 'active', listed: false, inUse: true }]),
                     ...others.map(pluginId => ({ pluginId, name: pluginId, enabled: true, status: 'active', listed: false, inUse: false })),
                 ],
                 stale: [],

@@ -49,7 +49,12 @@ describe('annotationsOf', () => {
 
 describe('mapPlaylist', () => {
     it('reports what Pandora said and that the account can read it', () => {
-        expect(mapPlaylist('PL:1:2', { name: 'Drive', totalTracks: 30 })).toEqual({ id: 'PL:1:2', name: 'Drive', trackCount: 30, permissions: ['read'] });
+        expect(mapPlaylist('PL:1:2', { name: 'Drive', totalTracks: 30 })).toEqual({
+            id: 'PL:1:2',
+            name: 'Drive',
+            trackCount: 30,
+            permissions: ['read'],
+        });
     });
 
     it('never drops a playlist it could not describe', () => {

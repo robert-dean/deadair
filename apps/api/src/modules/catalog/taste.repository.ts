@@ -109,7 +109,11 @@ export class TasteRepository extends DataRepository {
             .select('name')
             .where('rating', '=', -1)
             .where('mergedIntoId', 'is', null)
-            .where(sql<string>`lower(name)`, 'in', names.map(name => name.toLowerCase()))
+            .where(
+                sql<string>`lower(name)`,
+                'in',
+                names.map(name => name.toLowerCase()),
+            )
             .execute();
 
         const disliked = new Set(rows.map(row => row.name.toLowerCase()));

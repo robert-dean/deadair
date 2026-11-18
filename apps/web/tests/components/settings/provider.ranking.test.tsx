@@ -33,7 +33,11 @@ function state(overrides: Partial<ProviderCapabilityState> = {}): ProviderCapabi
         mode: 'ordered',
         settingKey: 'rotation.similarityOrder',
         configured: '',
-        candidates: [candidate('deadair.deezer', 'Deezer', 1), candidate('deadair.lastfm', 'Last.fm', 2), candidate('deadair.musicbrainz', 'MusicBrainz', 3)],
+        candidates: [
+            candidate('deadair.deezer', 'Deezer', 1),
+            candidate('deadair.lastfm', 'Last.fm', 2),
+            candidate('deadair.musicbrainz', 'MusicBrainz', 3),
+        ],
         stale: [],
         unanswered: false,
         ...overrides,

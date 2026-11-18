@@ -149,7 +149,9 @@ export class PluginLog {
         const meta =
             rawMeta === undefined
                 ? undefined
-                : Object.fromEntries(Object.entries(rawMeta).map(([key, value]) => [key, typeof value === 'string' ? withoutHeaderValue(value) : value]));
+                : Object.fromEntries(
+                      Object.entries(rawMeta).map(([key, value]) => [key, typeof value === 'string' ? withoutHeaderValue(value) : value]),
+                  );
 
         this.logger[level](message, { ...meta, plugin: pluginId });
 

@@ -95,9 +95,8 @@ export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Re
     // named, or the default it fell to. So the models offered here are the models that will really
     // be reached rather than a different plugin's.
     const modelPluginId =
-        providers.data?.capabilities
-            .find(capability => capability.capability === LLM_CAPABILITY)
-            ?.candidates.find(candidate => candidate.inUse)?.pluginId ?? '';
+        providers.data?.capabilities.find(capability => capability.capability === LLM_CAPABILITY)?.candidates.find(candidate => candidate.inUse)
+            ?.pluginId ?? '';
 
     // Asked of the plugin rather than assembled here, because only it knows what its providers
     // currently offer — and it answers the qualified names, which is what carries the provider.

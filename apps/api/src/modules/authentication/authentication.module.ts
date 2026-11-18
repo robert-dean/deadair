@@ -199,9 +199,7 @@ export const AuthenticationModule: ServerKitModule = {
         registry.register(SessionActivityService).useClass(SessionActivityService).asScoped();
         registry.register(SessionsService).useClass(SessionsService).asScoped();
 
-        registry
-            .register(AuthenticationSessionServiceOptions)
-            .useValue(authenticationSessionOptions());
+        registry.register(AuthenticationSessionServiceOptions).useValue(authenticationSessionOptions());
 
         // Audit. Scoped, so the sink sees this request's IP and User-Agent — which
         // is what the hook factory above existed to arrange. ServerKit swallows a

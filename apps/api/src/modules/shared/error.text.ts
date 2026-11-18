@@ -28,7 +28,10 @@ const INVALID_HEADER = /Headers\.\w+: "[\s\S]*" is an invalid header (value|name
  * plugin's secrets because the throw can happen inside plugin code, where the host never saw the value.
  */
 export const withoutHeaderValue = (text: string): string =>
-    text.replace(INVALID_HEADER, (_, part: string) => `a request header ${part} holds a character HTTP does not allow, so save that credential again`);
+    text.replace(
+        INVALID_HEADER,
+        (_, part: string) => `a request header ${part} holds a character HTTP does not allow, so save that credential again`,
+    );
 
 /**
  * The message, or the value itself stringified when something threw a non-Error.

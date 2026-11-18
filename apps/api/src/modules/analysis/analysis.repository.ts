@@ -174,7 +174,8 @@ export class AnalysisRepository extends DataRepository {
 
     /** {@link listTracksNeedingAnalysis}'s statement, optionally held to the track behind one binding. */
     private async needingAnalysis(schemaVersion: number, limit: number, sourceId?: string): Promise<AnalysableTrack[]> {
-        const scope = sourceId === undefined ? sql`` : sql`and t.id = (select own.track_id from deadair.track_sources own where own.id = ${sourceId})`;
+        const scope =
+            sourceId === undefined ? sql`` : sql`and t.id = (select own.track_id from deadair.track_sources own where own.id = ${sourceId})`;
 
         const rows = await sql<{
             trackId: string;

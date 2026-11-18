@@ -47,6 +47,9 @@ export function dayStretchesOf(occurrences: readonly ScheduleOccurrence[], date:
     return stretches;
 }
 
+/** Below this breakpoint only every sixth hour is labelled, since a phone has no room for nine. */
+const PHONE_HIDDEN = 'sm';
+
 /** Where a stretch sits along the strip, as a share of the day. */
 function placed(from: number, to: number) {
     return { position: 'absolute', top: 0, bottom: 0, left: `${(from / DAY) * 100}%`, width: `${((to - from) / DAY) * 100}%` } as const;
@@ -145,7 +148,7 @@ export function DayStrip({ now, slots, airingSlotId, onEdit }: DayStripProps) {
             </Box>
             <Group justify="space-between" gap={0} aria-hidden>
                 {[0, 3, 6, 9, 12, 15, 18, 21, 24].map(hour => (
-                    <Text key={hour} size="xs" c="dimmed" className="da-num">
+                    <Text key={hour} size="xs" c="dimmed" className="da-num" visibleFrom={hour % 6 === 0 ? undefined : PHONE_HIDDEN}>
                         {clockAt(hour === 24 ? 0 : hour * 60)}
                     </Text>
                 ))}

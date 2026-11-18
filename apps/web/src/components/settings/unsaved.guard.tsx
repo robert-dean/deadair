@@ -6,6 +6,8 @@ import { ConfirmModal } from '../shared/confirm.modal';
 export interface UnsavedGuardProps {
     /** Whether anything on the page is holding an edit nobody has saved. */
     dirty: boolean;
+    /** What the dialog says, for a page whose saving works differently from Settings'. Absent is Settings' own sentence. */
+    body?: string;
 }
 
 /**
@@ -48,7 +50,7 @@ export interface UnsavedGuardProps {
  * `disabled` rather than a `shouldBlockFn` that returns false: with nothing typed the blocker is not
  * merely permissive, it is not installed, so a clean page cannot pay for this at all.
  */
-export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
+export function UnsavedGuard({ dirty, body }: UnsavedGuardProps) {
     const { t } = useTranslation('settings');
     const blocker = useBlocker({
         shouldBlockFn: () => dirty,
@@ -68,7 +70,7 @@ export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
             title={t('unsaved.title')}
             confirmLabel={t('unsaved.confirm')}
         >
-            {t('unsaved.body')}
+            {body ?? t('unsaved.body')}
         </ConfirmModal>
     );
 }

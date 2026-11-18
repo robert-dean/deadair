@@ -145,7 +145,7 @@ export function ShowEditorPage({ open, from }: ShowEditorPageProps) {
                 applyError={applyTo.error}
             />
 
-            <UnsavedGuard dirty={dirty} />
+            <UnsavedGuard dirty={dirty} body={t('showPage.unsaved')} />
         </Stack>
     );
 }

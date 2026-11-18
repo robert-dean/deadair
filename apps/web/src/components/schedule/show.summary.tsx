@@ -53,7 +53,7 @@ export function ShowSummary({ values }: { values: ShowSummaryValues }) {
                 <Eyebrow>{t('slot.summary.title')}</Eyebrow>
                 <Text fw={600}>{values.label.trim() || t('slot.summary.untitled')}</Text>
                 {lines.map(line => (
-                    <Text key={line} size="sm" c="dimmed">
+                    <Text key={line} size="sm" c="dimmed" lineClamp={3}>
                         {line}
                     </Text>
                 ))}

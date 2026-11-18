@@ -133,6 +133,7 @@ export const schedule = {
         missing: 'This show is not in the schedule any more. It may have been deleted from another tab.',
         loadFailedTitle: 'The schedule could not be read',
         loadFailedFallback: 'Nothing was changed. Try again in a moment.',
+        unsaved: 'This show has been changed and not saved. Leaving now throws the changes away, and the show stays as it was.',
     },
     slot: {
         sections: {

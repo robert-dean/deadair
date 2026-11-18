@@ -35,8 +35,8 @@ vi.mock('../../../src/api/schedule.queries', () => ({
 
 // The guard's own behaviour is `unsaved.guard`'s to pin; here it is only whether the page hands it the form's answer.
 vi.mock('../../../src/components/settings/unsaved.guard', () => ({
-    UnsavedGuard: ({ dirty }: { dirty: boolean }) => {
-        guarded(dirty);
+    UnsavedGuard: ({ dirty, body }: { dirty: boolean; body?: string }) => {
+        guarded(dirty, body);
         return undefined;
     },
 }));
@@ -114,9 +114,9 @@ describe('ShowEditorPage', () => {
         update.mockImplementation((_body: unknown, { onSuccess }: { onSuccess: () => void }) => onSuccess());
         render(<ShowEditorPage open={{ slotId: 'slot-1' }} from="specials" />);
 
-        expect(guarded).toHaveBeenLastCalledWith(false);
+        expect(guarded).toHaveBeenLastCalledWith(false, expect.stringContaining('the show stays as it was'));
         await user.click(screen.getByRole('button', { name: 'type' }));
-        expect(guarded).toHaveBeenLastCalledWith(true);
+        expect(guarded).toHaveBeenLastCalledWith(true, expect.any(String));
 
         await user.click(screen.getByRole('button', { name: 'save' }));
         expect(update).toHaveBeenCalledWith(expect.objectContaining({ id: 'slot-1' }), expect.anything());

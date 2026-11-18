@@ -146,7 +146,9 @@ describe('getPlaylistTracks', () => {
 
     it("asks for the details Pandora's page left out, and keeps the playlist's order", async () => {
         const { fake, plugin } = await build();
-        fake.web['v7/playlists/getTracks'] = { body: { tracks: [{ pandoraId: 'TR:2' }, { pandoraId: 'TR:1' }], totalTracks: 2, annotations: track('TR:2', 'Second') } };
+        fake.web['v7/playlists/getTracks'] = {
+            body: { tracks: [{ pandoraId: 'TR:2' }, { pandoraId: 'TR:1' }], totalTracks: 2, annotations: track('TR:2', 'Second') },
+        };
         fake.web['v4/catalog/annotateObjects'] = { body: track('TR:1', 'First') };
 
         const tracks = await plugin.getPlaylistTracks('PL:1:10');

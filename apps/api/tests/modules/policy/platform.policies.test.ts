@@ -6,7 +6,12 @@ import { describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
 import type { PolicyResult } from '@maroonedsoftware/policies';
 
-import { PlatformManagePolicy, PlatformViewPolicy, RequestsAskPolicy, type RequirePolicyContext } from '../../../src/modules/policy/policy.mappings.js';
+import {
+    PlatformManagePolicy,
+    PlatformViewPolicy,
+    RequestsAskPolicy,
+    type RequirePolicyContext,
+} from '../../../src/modules/policy/policy.mappings.js';
 import type { ServerPolicyEnvelope } from '../../../src/modules/policy/policy.envelope.js';
 import type { Actor, GuestActor, UserActor } from '../../../src/modules/permissions/authorization.context.js';
 

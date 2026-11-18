@@ -1,6 +1,6 @@
 {
-  "status": 200,
-  "body": {
-    "updateFacebookInfo": false
-  }
+    "status": 200,
+    "body": {
+        "updateFacebookInfo": false
+    }
 }

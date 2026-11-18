@@ -17,7 +17,13 @@ import { APIKEY_NAMESPACE } from '#modules/authentication/repositories/apikey.fa
 import { API_KEY_GRANTS, type ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
 import { API_KEY_USE_WINDOW } from '#modules/authentication/api.key.options.js';
 import { clearRefreshCookie } from '#modules/authentication/refresh.cookie.js';
-import { AuthorizationContext, type Actor, type GuestActor, type OAuthGrantActor, type UserActor } from '#modules/permissions/authorization.context.js';
+import {
+    AuthorizationContext,
+    type Actor,
+    type GuestActor,
+    type OAuthGrantActor,
+    type UserActor,
+} from '#modules/permissions/authorization.context.js';
 import { OAUTHGRANT_NAMESPACE } from '#modules/oauth/oauth.grant.tuples.js';
 import { PartyPassRepository } from '#modules/requests/party.passes.repository.js';
 import { DeadairPermissionsTupleRepository } from '#modules/permissions/permissions.repository.js';
@@ -169,9 +175,19 @@ const apiKeyActor = async (
  * refusing it, so the dead token stops coming back. No platform roles are loaded: a guest holds none,
  * and `requests.ask` is the only gate that admits one.
  */
-const guestActor = async (container: ScopedContainer, sessionToken: string, actorId: string | undefined, partyPassId: unknown): Promise<GuestActor> => {
+const guestActor = async (
+    container: ScopedContainer,
+    sessionToken: string,
+    actorId: string | undefined,
+    partyPassId: unknown,
+): Promise<GuestActor> => {
     const passId = typeof partyPassId === 'string' && partyPassId.length > 0 ? partyPassId : undefined;
-    if (actorId && passId && (await container.get(ActorsRepository).existsActive(actorId)) && (await container.get(PartyPassRepository).isLive(passId))) {
+    if (
+        actorId &&
+        passId &&
+        (await container.get(ActorsRepository).existsActive(actorId)) &&
+        (await container.get(PartyPassRepository).isLive(passId))
+    ) {
         return { kind: 'guest', sessionToken, actorId, partyPassId: passId };
     }
     await container
@@ -180,7 +196,9 @@ const guestActor = async (container: ScopedContainer, sessionToken: string, acto
         .catch(() => undefined);
     throw httpError(401)
         .withDetails({ code: ErrorCodes.SESSION_ACTOR_MISSING, message: 'the party this guest joined has ended' })
-        .withInternalDetails({ message: `guest session ${sessionToken} for actor ${actorId ?? '(none)'} names a pass that is not live (${passId ?? '(none)'})` });
+        .withInternalDetails({
+            message: `guest session ${sessionToken} for actor ${actorId ?? '(none)'} names a pass that is not live (${passId ?? '(none)'})`,
+        });
 };
 
 export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {

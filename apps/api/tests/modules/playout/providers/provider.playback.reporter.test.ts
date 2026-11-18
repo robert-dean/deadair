@@ -34,10 +34,7 @@ const item = (pluginId: string, externalId: string): RundownItem => ({ pluginId,
 
 const build = () => {
     const registry = new PluginRegistry();
-    registry.setAll([
-        record(REPORTING, { resolveStreamUrl: vi.fn(), reportPlayback: vi.fn() }),
-        record(SILENT, { resolveStreamUrl: vi.fn() }),
-    ]);
+    registry.setAll([record(REPORTING, { resolveStreamUrl: vi.fn(), reportPlayback: vi.fn() }), record(SILENT, { resolveStreamUrl: vi.fn() })]);
     const send = vi.fn(async () => 'job-id');
     const jobs = { send } as unknown as PgBossJobBroker;
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), trace: vi.fn() } as unknown as Logger;

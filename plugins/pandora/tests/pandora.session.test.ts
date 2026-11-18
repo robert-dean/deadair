@@ -18,7 +18,12 @@ describe('signing in', () => {
 
         const partner = fake.tunerCalls[0]!;
         expect(partner.method).toBe('auth.partnerLogin');
-        expect(partner.body).toEqual({ username: PARTNER.username, password: PARTNER.password, deviceModel: PARTNER.deviceModel, version: PARTNER.version });
+        expect(partner.body).toEqual({
+            username: PARTNER.username,
+            password: PARTNER.password,
+            deviceModel: PARTNER.deviceModel,
+            version: PARTNER.version,
+        });
     });
 
     it("signs the listener in encrypted, with the partner's token and Pandora's clock", async () => {
@@ -32,7 +37,13 @@ describe('signing in', () => {
         expect(user.method).toBe('auth.userLogin');
         expect(user.params.get('partner_id')).toBe('42');
         expect(user.params.get('auth_token')).toBe('partner-token');
-        expect(user.body).toMatchObject({ loginType: 'user', username: EMAIL, password: PASSWORD, partnerAuthToken: 'partner-token', returnIsSubscriber: true });
+        expect(user.body).toMatchObject({
+            loginType: 'user',
+            username: EMAIL,
+            password: PASSWORD,
+            partnerAuthToken: 'partner-token',
+            returnIsSubscriber: true,
+        });
         expect(user.body.syncTime).toBeGreaterThanOrEqual(before - 1);
     });
 
@@ -46,18 +57,24 @@ describe('signing in', () => {
         expect(fake.tunerCalls.map(call => call.method)).toEqual(['auth.partnerLogin', 'auth.userLogin']);
     });
 
-    it('says a wrong email or password is the operator\'s to fix', async () => {
+    it("says a wrong email or password is the operator's to fix", async () => {
         const fake = fakePandora();
         fake.userLogin = { stat: 'fail', code: 1002, message: 'INVALID_LOGIN' };
 
-        await expect(session().isSubscriber(fake.host)).rejects.toMatchObject({ code: 'config', message: expect.stringContaining('email or password') });
+        await expect(session().isSubscriber(fake.host)).rejects.toMatchObject({
+            code: 'config',
+            message: expect.stringContaining('email or password'),
+        });
     });
 
     it('says plainly when Pandora will not serve the country the station is in', async () => {
         const fake = fakePandora();
         fake.userLogin = { stat: 'fail', code: 12, message: 'COUNTRY_NOT_ALLOWED' };
 
-        await expect(session().isSubscriber(fake.host)).rejects.toMatchObject({ code: 'config', message: expect.stringContaining('only available in the US') });
+        await expect(session().isSubscriber(fake.host)).rejects.toMatchObject({
+            code: 'config',
+            message: expect.stringContaining('only available in the US'),
+        });
     });
 
     it('tries the sign-in again after one failed, rather than keeping the failure', async () => {
@@ -87,7 +104,8 @@ describe('the web API', () => {
 
     it('signs in again once when Pandora says the token has lapsed', async () => {
         const fake = fakePandora();
-        fake.web['v3/sod/search'] = (_body, call) => (call === 0 ? { status: 401, body: { errorCode: 1001, message: 'Auth Token Invalid' } } : { body: { results: [] } });
+        fake.web['v3/sod/search'] = (_body, call) =>
+            call === 0 ? { status: 401, body: { errorCode: 1001, message: 'Auth Token Invalid' } } : { body: { results: [] } };
 
         await expect(session().web(fake.host, 'v3/sod/search', { query: 'x' })).resolves.toEqual({ results: [] });
         expect(fake.tunerCalls.filter(call => call.method === 'auth.userLogin')).toHaveLength(2);
@@ -95,7 +113,10 @@ describe('the web API', () => {
 
     it("hands back Pandora's own refusal, naming it", async () => {
         const fake = fakePandora();
-        fake.web['v1/playback/source'] = { status: 400, body: { message: 'Listener does not have rights to play source AL:1', errorCode: 0, errorString: 'NO_ENTITLEMENTS' } };
+        fake.web['v1/playback/source'] = {
+            status: 400,
+            body: { message: 'Listener does not have rights to play source AL:1', errorCode: 0, errorString: 'NO_ENTITLEMENTS' },
+        };
 
         const refused = session().web(fake.host, 'v1/playback/source', {});
 

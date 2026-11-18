@@ -89,7 +89,9 @@ if (document === undefined) {
 const effective = document.current?.variant ?? Object.keys(document.variants)[0]!;
 const build = document.variants[effective]!;
 console.log(`  build:    ${effective}${document.current === undefined ? ' (nothing loaded; this is what it would load)' : ' (loaded)'}`);
-console.log(`  it says:  cues [${build.cues.join(', ')}], deliveries [${build.deliveries.join(', ')}], dials [${Object.keys(build.dials).join(', ')}]`);
+console.log(
+    `  it says:  cues [${build.cues.join(', ')}], deliveries [${build.deliveries.join(', ')}], dials [${Object.keys(build.dials).join(', ')}]`,
+);
 console.log(`            up to ${build.maxCharacters ?? 'an unstated number of'} characters, encodes [${document.formats.join(', ')}]`);
 
 /**
@@ -196,7 +198,9 @@ try {
     // rather than when `speak` returns, so give the server a moment to act on it.
     await new Promise<void>(resolve => setTimeout(resolve, 2_000));
     const after = await ask<Health>('/health');
-    console.log(`  resident after: ${after?.residency.resident ?? '?'} of ${after?.residency.max ?? '?'} slots  (this run asked for keepAliveSeconds 0)`);
+    console.log(
+        `  resident after: ${after?.residency.resident ?? '?'} of ${after?.residency.max ?? '?'} slots  (this run asked for keepAliveSeconds 0)`,
+    );
 
     console.log(`\n  play it:  afplay ${path}\n`);
     console.log(`  (temp store at ${root} — rm -rf it when done)\n`);

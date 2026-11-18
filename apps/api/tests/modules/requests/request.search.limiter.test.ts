@@ -10,7 +10,7 @@ function stub(world: { refuse?: string; fault?: boolean } = {}) {
     const seen: string[] = [];
     vi.spyOn(RateLimiterRedis.prototype, 'consume').mockImplementation(async function (this: RateLimiterRedis, key: string | number) {
         seen.push(`${this.keyPrefix}:${key}`);
-        if (world.fault === true) throw new Error('Stream isn\'t writeable and enableOfflineQueue options is false');
+        if (world.fault === true) throw new Error("Stream isn't writeable and enableOfflineQueue options is false");
         if (this.keyPrefix === world.refuse) throw new RateLimiterRes(0, 1000);
         return new RateLimiterRes(1, 0);
     });

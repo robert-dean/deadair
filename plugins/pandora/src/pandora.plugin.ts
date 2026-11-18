@@ -14,7 +14,15 @@ import {
     type SearchTracksOptions,
 } from '@deadair/plugin-sdk';
 
-import { annotationsOf, mapPlaylist, mapTrack, mapTracks, pandoraPlaylistIdFromUrl, type PandoraAnnotation, type PandoraAnnotations } from './pandora.mapping.js';
+import {
+    annotationsOf,
+    mapPlaylist,
+    mapTrack,
+    mapTracks,
+    pandoraPlaylistIdFromUrl,
+    type PandoraAnnotation,
+    type PandoraAnnotations,
+} from './pandora.mapping.js';
 import { ANNOTATE_BATCH, BUSY_RETRY_MS, PLAYLIST_PAGE_SIZE, SEARCH_PAGE_SIZE, SERVED_MEMORY, configSchema } from './pandora.manifest.js';
 import { PandoraSession, PandoraWebError } from './pandora.session.js';
 
@@ -66,7 +74,8 @@ const DEVICE_KEY = 'deviceUuid';
 const MIME_TYPES: Record<string, string> = { aacplus: 'audio/mp4', aac: 'audio/mp4', mp3: 'audio/mpeg' };
 
 /** `limit` read the SDK's way: a total, with nothing set meaning one page. */
-const totalOf = (limit: number | undefined, page: number): number => (limit !== undefined && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : page);
+const totalOf = (limit: number | undefined, page: number): number =>
+    limit !== undefined && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : page;
 const offsetOf = (offset: number | undefined): number => (offset !== undefined && Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0);
 
 /**
@@ -207,9 +216,17 @@ export class PandoraPlugin extends Plugin implements MusicProviderPluginInstance
         const tracks: ProviderTrack[] = [];
         while (tracks.length < total) {
             const limit = Math.min(PLAYLIST_PAGE_SIZE, total - tracks.length);
-            const reply = await session.web<PlaylistTracksReply>(host, 'v7/playlists/getTracks', { request: { pandoraId: playlistId, offset, limit } });
+            const reply = await session.web<PlaylistTracksReply>(host, 'v7/playlists/getTracks', {
+                request: { pandoraId: playlistId, offset, limit },
+            });
             const ids = (reply.tracks ?? []).map(entry => entry.pandoraId).filter((id): id is string => id?.startsWith('TR:') === true);
-            const annotations = { ...(reply.annotations ?? {}), ...(await this.annotate(host, ids.filter(id => reply.annotations?.[id] === undefined))) };
+            const annotations = {
+                ...(reply.annotations ?? {}),
+                ...(await this.annotate(
+                    host,
+                    ids.filter(id => reply.annotations?.[id] === undefined),
+                )),
+            };
             tracks.push(...mapTracks(ids, annotations));
 
             const seen = reply.tracks?.length ?? 0;
@@ -274,7 +291,8 @@ export class PandoraPlugin extends Plugin implements MusicProviderPluginInstance
             throw new PluginError(`Pandora put on ${item.pandoraId} when asked for ${trackId}`).withCode('upstream');
         }
 
-        if (item.trackToken !== undefined) this.remember(trackId, { sourceId: reply.source?.pandoraId ?? albumId, index: item.index ?? 0, trackToken: item.trackToken });
+        if (item.trackToken !== undefined)
+            this.remember(trackId, { sourceId: reply.source?.pandoraId ?? albumId, index: item.index ?? 0, trackToken: item.trackToken });
 
         // Pandora sometimes hands out a plain-http CDN link for audio it also serves over TLS.
         const url = item.audioUrl.startsWith('http:') ? `https:${item.audioUrl.slice(5)}` : item.audioUrl;

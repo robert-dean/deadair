@@ -59,7 +59,8 @@ export function fakePandora(): FakePandora {
 
     host.setFetchImpl(async (url, init) => {
         const parsed = new URL(url);
-        const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+        const json = (status: number, body: unknown) =>
+            new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
         if (parsed.hostname === 'tuner.pandora.com') {
             const method = parsed.searchParams.get('method') ?? '';
@@ -68,7 +69,10 @@ export function fakePandora(): FakePandora {
             fake.tunerCalls.push({ method, params: parsed.searchParams, body });
 
             if (method === 'auth.partnerLogin') {
-                return json(200, { stat: 'ok', result: { partnerId: '42', partnerAuthToken: 'partner-token', syncTime: syncTime(Math.floor(Date.now() / 1000)) } });
+                return json(200, {
+                    stat: 'ok',
+                    result: { partnerId: '42', partnerAuthToken: 'partner-token', syncTime: syncTime(Math.floor(Date.now() / 1000)) },
+                });
             }
             if (method === 'auth.userLogin') return json(200, fake.userLogin);
             return json(200, { stat: 'fail', code: 0, message: `unscripted tuner method ${method}` });

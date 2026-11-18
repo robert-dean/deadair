@@ -130,7 +130,12 @@ describe('which kinds have callers', () => {
     });
 
     it('takes the list the operator wrote, trimmed and lowercased', () => {
-        expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: ' Callin , PHONE-IN ' }))]).toEqual(['callin', 'phone-in', 'visit', 'banter']);
+        expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: ' Callin , PHONE-IN ' }))]).toEqual([
+            'callin',
+            'phone-in',
+            'visit',
+            'banter',
+        ]);
     });
 
     it('keeps the visit and the banter when an operator empties it, since either made alone would be somebody who never speaks', () => {

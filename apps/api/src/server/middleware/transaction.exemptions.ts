@@ -179,7 +179,8 @@ export const oauthDiscoveryExemption: TransactionExemption = ({ method, path }) 
 
 // Read from the settings snapshot and nothing else, so a transaction would be a pooled connection
 // held for no query.
-export const assetLinksExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path.toLowerCase() === '/.well-known/assetlinks.json';
+export const assetLinksExemption: TransactionExemption = ({ method, path }) =>
+    method === 'GET' && path.toLowerCase() === '/.well-known/assetlinks.json';
 
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.

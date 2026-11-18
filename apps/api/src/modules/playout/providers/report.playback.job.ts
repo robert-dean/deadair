@@ -61,7 +61,9 @@ export class ReportPlaybackJob extends PlainJob<Partial<ReportPlaybackPayload>> 
         } catch (error) {
             if (isPluginError(error) && error.retryable) throw error;
 
-            this.logger.info(`playout: a provider would not take a playback report, and will not be asked again for it (${pluginId}: ${errorText(error)})`);
+            this.logger.info(
+                `playout: a provider would not take a playback report, and will not be asked again for it (${pluginId}: ${errorText(error)})`,
+            );
         }
     }
 }

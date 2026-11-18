@@ -166,7 +166,8 @@ export class PandoraSession {
         // The server's clock, as `xxxx<unix seconds>…`: four bytes of noise and then ten digits.
         const clock = new TextDecoder('latin1').decode(this.decrypt.decrypt(hexToBytes(partner.syncTime)));
         const serverNow = Number(clock.slice(4, 14));
-        if (!Number.isFinite(serverNow)) throw new PluginError('Pandora answered the partner sign-in with a clock this plugin cannot read').withCode('upstream');
+        if (!Number.isFinite(serverNow))
+            throw new PluginError('Pandora answered the partner sign-in with a clock this plugin cannot read').withCode('upstream');
         const clockOffsetS = serverNow - Date.now() / 1000;
 
         const user = await this.tuner<UserLoginResult>(host, 'auth.userLogin', {
@@ -228,7 +229,8 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 function hexToBytes(hex: string): Uint8Array {
-    if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) throw new PluginError('Pandora answered with a clock that is not hex').withCode('upstream');
+    if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex))
+        throw new PluginError('Pandora answered with a clock that is not hex').withCode('upstream');
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < bytes.length; i += 1) bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
     return bytes;

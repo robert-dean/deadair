@@ -56,7 +56,10 @@ describe('an invalid header in a message', () => {
     };
 
     it('takes the value out of what append and set throw', () => {
-        for (const error of [refusal(h => h.append('authorization', `Bearer ${KEY}\nx`)), refusal(h => h.set('authorization', `Bearer ${KEY}\u0000x`))]) {
+        for (const error of [
+            refusal(h => h.append('authorization', `Bearer ${KEY}\nx`)),
+            refusal(h => h.set('authorization', `Bearer ${KEY}\u0000x`)),
+        ]) {
             expect(serverkitErrorText(error)).not.toContain('sk-abc');
             expect(serverkitErrorText(error)).toContain('a request header value holds a character');
         }

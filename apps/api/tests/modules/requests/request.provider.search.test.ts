@@ -128,7 +128,7 @@ describe('RequestProviderSearch', () => {
         expect(search).toHaveBeenCalledTimes(2);
     });
 
-    it('spends the caller\'s allowance only on a term the providers are asked about fresh', async () => {
+    it("spends the caller's allowance only on a term the providers are asked about fresh", async () => {
         const { finder, limiter } = build({ reached: [found('One', 'A')] });
 
         await finder.search('blue', [], 10, 'user:a-1');

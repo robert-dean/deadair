@@ -117,7 +117,14 @@ describe('AnalysisRepository.trackNeedingAnalysisFor', () => {
 
     it('answers the track and the binding the walk would measure', async () => {
         const { track } = await oneStatement([
-            { trackId: 'track-9', title: 'A Record', artistName: 'An Artist', pluginId: 'deadair.navidrome', externalId: 'nd-9', durationMs: 200_000 },
+            {
+                trackId: 'track-9',
+                title: 'A Record',
+                artistName: 'An Artist',
+                pluginId: 'deadair.navidrome',
+                externalId: 'nd-9',
+                durationMs: 200_000,
+            },
         ]);
 
         expect(track).toEqual({

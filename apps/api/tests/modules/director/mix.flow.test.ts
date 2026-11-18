@@ -339,11 +339,32 @@ describe('a bypassed node', () => {
         nodes: flow.nodes.map(node => (ids.includes(node.id) ? { ...node, bypassed: true } : node)),
     });
 
-    it('holds nothing and is left off the path, so a limit switched off is not filling up while it is off', () => {
+    it('holds nothing and is left off the path while it stays bypassed', () => {
         const flow = bypass(church(), 'block', 'share');
         const walk = walkRecord(flow, rec('Burzum', 'black metal'), ctx([...heavy(9), blackMetal()]));
         expect(walk).toEqual({ path: ['picks', 'split', 'merge', 'air'] });
         expect(countThrough(flow, [{ ...rec('Mayhem', 'black metal'), hour: 20 }])[0]?.path).not.toContain('share');
+    });
+
+    it('counts the show so far through it once it is switched back on, the time it was off included', () => {
+        // Bypassed while two black metal records aired, then back on: the replay counts both through it.
+        const aired = [
+            { ...rec('Mayhem', 'black metal'), hour: 20 },
+            { ...rec('Emperor', 'black metal'), hour: 20 },
+        ];
+        expect(countThrough(bypass(church(), 'share'), aired).some(record => record.path.includes('share'))).toBe(false);
+        expect(countThrough(church(), aired).every(record => record.path.includes('share'))).toBe(true);
+    });
+
+    it('never stops a record being given back when the only Block on its way is bypassed', () => {
+        const flow = bypass(church(), 'block');
+        const spent = { ...rec('Britney Spears', 'pop'), hour: 20, path: ['picks', 'split', 'row', 'count', 'merge', 'air'] };
+        expect(holdMixFlow([rec('Burzum', 'black metal')], { flow, ctx: ctx() })).toMatchObject({ gaveWay: false, kept: [{ artist: 'Burzum' }] });
+        // Held by the count and given back: the bypassed Block on its way does not count against it.
+        expect(holdMixFlow([rec('Burzum', 'pop')], { flow, ctx: ctx([...heavy(2), spent]) })).toMatchObject({
+            gaveWay: true,
+            kept: [{ artist: 'Burzum' }],
+        });
     });
 
     it("sends every record down a bypassed split's everything else", () => {

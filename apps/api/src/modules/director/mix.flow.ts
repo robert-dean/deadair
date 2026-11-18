@@ -233,8 +233,9 @@ export function walkRecord(
     let node = options.entry === undefined ? wires.picks() : wires.node(options.entry);
     // A valid flow has no circles; the bound is for one that somehow does.
     for (let step = 0; node !== undefined && step <= flow.nodes.length; step += 1) {
-        // A bypassed node is passed through without being counted, so a limit switched off for an hour
-        // has not been filling up while it was off.
+        // A bypassed node is passed through and left off the path while it stays bypassed. The counts are
+        // a replay through the flow as it now stands, so once it is switched back on the records that
+        // aired while it was off are counted through it again, as for any mid-show edit.
         if (node.bypassed !== true) path.push(node.id);
         if (node.kind === 'onAir') return { path };
         // `blocksOnly` is giving way: only a Block holds. See `holdMixFlow`.

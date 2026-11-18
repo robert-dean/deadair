@@ -58,8 +58,8 @@ const socketOf = (handle: string | null | undefined): number | undefined => {
  * A show's mix flow on a canvas: the nodes it has, the wires between them, and what would stop it
  * running, marked on the node as it is drawn.
  *
- * Edits a copy, handed back by {@link Props.onDone}; the slot editor saves it with the show, which is
- * where the station's own check refuses anything this one missed. The dashed wires from each limit back
+ * Edits a copy, handed back by {@link Props.onDone} only once nothing would stop it running; the show's
+ * page saves it with the show, where the station's own check stays the authority. The dotted wires from each limit back
  * to Picks are drawn and never stored: they are what the station tells the model about what each limit
  * has left.
  */
@@ -477,7 +477,7 @@ function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }:
                             {problems.length}
                         </Badge>
                         <Text size="xs" c="dimmed" className="da-num">
-                            {t('editor.status', { nodes: flow.nodes.length, wires: flow.links.length })}
+                            {t('editor.nodes', { count: flow.nodes.length })} · {t('editor.wires', { count: flow.links.length })}
                         </Text>
                     </Group>
                     {problems.length === 0 ? (
@@ -509,7 +509,7 @@ interface Adding {
     end?: { side: 'source' | 'target'; type: SocketType; nodeId: string; socket: number };
 }
 
-/** Records, the ordinary wire, as React Flow draws it from `--xy-edge-stroke`. */
+/** Records, the ordinary wire: `--xy-edge-stroke`, which `mix.flow.module.css` points at the same `--da-phosphor`. */
 const RECORDS_WIRE = { stroke: 'var(--da-phosphor)' };
 
 /** A number wired from a Time switch into a limit. */

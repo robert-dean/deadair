@@ -15,7 +15,6 @@ export const mix = {
     },
     outline: {
         block: 'Never',
-        blockNone: 'Never: no bands named yet',
         split: 'Split by {{by}}',
         branch: '{{match}}',
         branchRange: 'From {{min}} to {{max}}',
@@ -46,7 +45,10 @@ export const mix = {
         crumbs: 'Programme › {{show}}',
         crumbsUnnamed: 'Programme › New show',
         fixFirst: 'Put right what the strip below lists first: the station would refuse this flow as it is.',
-        status: '{{nodes}} nodes · {{wires}} wires',
+        nodes_one: '{{count}} node',
+        nodes_other: '{{count}} nodes',
+        wires_one: '{{count}} wire',
+        wires_other: '{{count}} wires',
         legend: {
             records: 'Records',
             number: 'A number',

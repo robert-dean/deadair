@@ -590,9 +590,12 @@ the show so far by its new wiring. A record a Require added is replayed from Pic
 not say which node added it, so once it is queued it counts against the limits it skipped. The first record of a
 group is always let through, so 10% is a share and never a ban on a show that has aired nothing yet.
 **A node can be bypassed** (`MixNode.bypassed`): switched off without being taken out, so an operator can
-hear the show without one rule and put it back. It holds nothing and is left off the path, so a limit switched
-off for an hour has not been filling up while it was off (`walkRecord` and so `countThrough`); `budgetLeft`
-tells the model nothing about it; a bypassed Split sends everything down "everything else", a bypassed Require
+hear the show without one rule and put it back. While bypassed it holds nothing and is left off the path
+(`walkRecord`), and `budgetLeft` tells the model nothing about it. **Switched back on, it counts the show so
+far by the flow as it now stands, the time it was off included**, as any mid-show edit does, because the counts
+are a replay of the show's history (`countThrough`) and not a stored path: a Limit count of three switched back
+on after five black metal records holds the rest. Remembering what aired while it was off would need a path
+stored per record, which the replay exists not to have. Besides that, a bypassed Split sends everything down "everything else", a bypassed Require
 never falls due, a bypassed judge asks nothing, and a bypassed Time switch leaves its limit on its own
 `percent`. Its wires are checked as if it were on, so switching it back can never produce a flow that does not
 run; Picks, On air and Merge cannot be bypassed, since none of them is a rule.
@@ -651,7 +654,11 @@ on the node, and lists beneath it, what would stop the flow running (`flowProble
 `mixFlowProblems`, circles and unreached nodes included, so a flow the canvas calls ready is one the save takes), refuses a wire between unlike sockets or into a socket that already has one but a Merge's, keeps a split's wires on
 their branches when its branches change (`relinkSplit`), offers each selected node a toolbar (Bypass, Take its wires off, Remove; Picks and On air are
 marked fixed), and draws a dotted wire from each limit back to
-Picks that is never stored: it is what the model is told. The station's own check stays the authority.
+Picks that is never stored: it is what the model is told. The show's page lists the flow (`mixOutline`, which
+answers `undefined` for a flow a list would draw wrongly, such as branches ending at different Merges) with a
+Block's bands, a Limit share's percent and a Require's `afterPercent` editable in place; rules are added by
+search (`AddRule`, narrowed by `kindsAt` at a dropped wire); and Use this flow is disabled while `flowProblems`
+lists anything. The station's own check stays the authority.
 
 **A Require node is a promise, so its record goes FIRST** (`MixRequireSetGenerator`, ahead of the festival
 and the brief's acts in the chain). A prose "rare pop hit" produced one pop record in five Sundays; a require

@@ -100,6 +100,6 @@ interface Props {
     brief?: string;
     /** The show's period, which Picks shows beside the brief. */
     period?: ShowPeriod;
-    /** Whether it differs from what was saved, which the line under the summary says. */
+    /** Whether it differs from what was saved, which the line under the list says. */
     changed?: boolean;
 }

@@ -1,0 +1,23 @@
+/*
+ * Where the labelled Jump to anything gives way to the bare icon. Wider than Mantine's `xl` (88em),
+ * because at 1440px the four tabs, the on-air chip and the label did not all fit in Neon, whose
+ * signage is uppercase and tracked: the chip was squeezed to its badge and spilled over Check-up.
+ * The icon frees about 130px for the chip's title in every theme.
+ */
+.jumpWide {
+    display: none;
+}
+
+.jumpNarrow {
+    display: block;
+}
+
+@media (min-width: 100em) {
+    .jumpWide {
+        display: block;
+    }
+
+    .jumpNarrow {
+        display: none;
+    }
+}

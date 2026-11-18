@@ -14,6 +14,26 @@ import { formatDuration } from '../shared/format.duration';
  * end, so the header carries it. Nothing at all while nothing is playing: the tally beside the
  * wordmark already says why the station is quiet, and a chip reading "nothing" would say it twice.
  */
+/**
+ * The header's one give: `flexShrink` and `minWidth: 0` let the chip, and the title inside it, get
+ * narrower than their text when the header runs out of room, rather than pushing the clock and the
+ * menu off the edge. A block box, so the flex item is the chip's border and not an inline run.
+ */
+const CHIP_STYLE = {
+    display: 'block',
+    border: '1px solid var(--da-border)',
+    borderRadius: 999,
+    padding: '3px 12px 3px 5px',
+    maxWidth: 340,
+    minWidth: 0,
+    flexShrink: 1,
+    // At its narrowest the badge and the time would otherwise spill out over the next link.
+    overflow: 'hidden',
+} as const;
+
+/** A flex child's minimum width is its text unless it is told otherwise, which would stop `truncate`. */
+const TITLE_STYLE = { minWidth: 0 } as const;
+
 export function OnAirChip({ status }: { status: PlayoutStatus | undefined }) {
     const { t } = useTranslation('shell');
     const nowPlaying = status?.nowPlaying;
@@ -32,13 +52,13 @@ export function OnAirChip({ status }: { status: PlayoutStatus | undefined }) {
                     : t('onAir.label', { title: nowPlaying.item.title, remaining })
             }
             renderRoot={(props: object) => <Link to="/" {...props} />}
-            style={{ border: '1px solid var(--da-border)', borderRadius: 999, padding: '3px 12px 3px 5px', maxWidth: 340, minWidth: 0 }}
+            style={CHIP_STYLE}
         >
             <Group gap={8} wrap="nowrap" aria-hidden>
                 <Badge size="sm" color="red" variant="filled" radius="xl" style={{ flexShrink: 0 }}>
                     {t('onAir.tag')}
                 </Badge>
-                <Text size="xs" truncate>
+                <Text size="xs" truncate style={TITLE_STYLE}>
                     {nowPlaying.item.title}
                 </Text>
                 {remaining === undefined ? undefined : (

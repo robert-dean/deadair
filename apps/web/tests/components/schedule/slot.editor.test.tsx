@@ -12,7 +12,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CatalogPlaylistPage, PersonaList, ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
 
-import { SlotEditor } from '../../../src/components/schedule/slot.editor';
+import { SlotEditorForm, slotEditorTitle } from '../../../src/components/schedule/slot.editor';
+import { i18n } from '../../../src/i18n/i18n.setup';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listImportablePlaylists = vi.fn();
@@ -70,7 +71,7 @@ const slot = (over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
 
 const noop = () => {};
 
-describe('SlotEditor', () => {
+describe('SlotEditorForm', () => {
     it('sends nothing about beds on an ordinary save, and false once they are switched off', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);
@@ -78,9 +79,9 @@ describe('SlotEditor', () => {
         const user = setupUser();
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({}) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -105,9 +106,9 @@ describe('SlotEditor', () => {
         const user = setupUser();
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ beds: false }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -130,9 +131,9 @@ describe('SlotEditor', () => {
         const user = setupUser();
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({}) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -157,9 +158,9 @@ describe('SlotEditor', () => {
         const user = setupUser();
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ enabled: false }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -179,7 +180,7 @@ describe('SlotEditor', () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
 
         expect(await screen.findByRole('combobox', { name: 'Mode' })).toHaveValue('Rotation');
         expect(screen.getByRole('combobox', { name: 'When it runs out' })).toHaveValue('Keep going');
@@ -190,9 +191,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ mode: 'setlist', onEnd: 'repeat' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onDelete={noop}
                 saving={false}
@@ -209,16 +210,23 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
 
         const { rerender } = render(
-            <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />,
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot() }}
+                onCancel={noop}
+                onSubmit={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
         );
 
         await screen.findByRole('combobox', { name: 'Mode' });
         expect(screen.queryByText(/This slot is on air/)).toBeNull();
 
         rerender(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot() }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onDelete={noop}
                 saving={false}
@@ -238,9 +246,9 @@ describe('SlotEditor', () => {
         const user = setupUser();
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ brief: 'Heavy metal' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onApply={onApply}
                 onDelete={noop}
@@ -264,9 +272,9 @@ describe('SlotEditor', () => {
         const user = setupUser();
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot() }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onApply={onApply}
                 onDelete={noop}
@@ -287,9 +295,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
 
         const { rerender } = render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot() }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onApply={noop}
                 onDelete={noop}
@@ -301,9 +309,9 @@ describe('SlotEditor', () => {
         expect(screen.queryByRole('button', { name: 'Save and apply now' })).toBeNull();
 
         rerender(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot() }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onDelete={noop}
                 saving={false}
@@ -319,9 +327,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot() }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onApply={noop}
                 onDelete={noop}
@@ -340,7 +348,7 @@ describe('SlotEditor', () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} airing />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} airing />);
 
         await screen.findByRole('combobox', { name: 'Mode' });
         expect(screen.queryByText(/This slot is on air/)).toBeNull();
@@ -353,7 +361,7 @@ describe('SlotEditor', () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
 
         expect(await screen.findByText(/Starting again replays what this block already aired/)).toBeInTheDocument();
         expect(screen.getByText(/stays off\s*(the\s*)?air whether the block is running for the first time or the fifth/)).toBeInTheDocument();
@@ -365,7 +373,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('combobox', { name: 'Mode' });
 
         await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Overnight');
@@ -392,7 +400,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('combobox', { name: 'Mode' });
 
         // A rotation already talks and a feature never does, so there is nothing to ask.
@@ -413,9 +421,9 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
 
         const { unmount } = render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ mode: 'setlist', breaks: true }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onDelete={noop}
                 saving={false}
@@ -427,9 +435,9 @@ describe('SlotEditor', () => {
 
         // No box can say `false`, so a value set through the API has to survive a save untouched.
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ mode: 'rotation', breaks: false }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -457,9 +465,9 @@ describe('SlotEditor', () => {
             listPersonas.mockResolvedValue(PERSONAS);
 
             const { rerender } = render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: halloween }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={noop}
                     onDelete={noop}
                     saving={false}
@@ -467,11 +475,18 @@ describe('SlotEditor', () => {
                 />,
             );
 
-            expect(await screen.findByText('Edit special')).toBeInTheDocument();
-            expect(screen.getByRole('switch', { name: /Repeats every year/ })).toBeChecked();
+            expect(slotEditorTitle(i18n.getFixedT(null, ['schedule', 'common']), { kind: 'edit', slot: halloween })).toBe('Edit special');
+            expect(await screen.findByRole('switch', { name: /Repeats every year/ })).toBeChecked();
 
             rerender(
-                <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />,
+                <SlotEditorForm
+                    target={{ kind: 'edit', slot: slot() }}
+                    onCancel={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
             );
             expect(screen.queryByRole('switch', { name: /Repeats every year/ })).toBeNull();
         });
@@ -483,9 +498,9 @@ describe('SlotEditor', () => {
             const user = setupUser();
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: halloween }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={onSubmit}
                     onDelete={noop}
                     saving={false}
@@ -504,9 +519,9 @@ describe('SlotEditor', () => {
                 listImportablePlaylists.mockResolvedValue(PLAYLISTS);
                 listPersonas.mockResolvedValue(PERSONAS);
                 render(
-                    <SlotEditor
+                    <SlotEditorForm
                         target={target === undefined ? { kind: 'new', special: true } : { kind: 'edit', slot: target }}
-                        onClose={noop}
+                        onCancel={noop}
                         onSubmit={onSubmit}
                         onDelete={noop}
                         saving={false}
@@ -528,7 +543,7 @@ describe('SlotEditor', () => {
             it('opens on its rule, as a special, with the dates and days out of the way', async () => {
                 await edit(onARule, noop);
 
-                expect(screen.getByText('Edit special')).toBeInTheDocument();
+                expect(slotEditorTitle(i18n.getFixedT(null, ['schedule', 'common']), { kind: 'edit', slot: onARule })).toBe('Edit special');
                 expect(screen.getByRole('radio', { name: 'By a rule' })).toBeChecked();
                 expect(screen.getByRole('combobox', { name: 'Which' })).toHaveValue('fourth');
                 expect(screen.queryByRole('textbox', { name: 'Dates' })).toBeNull();
@@ -624,9 +639,9 @@ describe('SlotEditor', () => {
             const user = setupUser();
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'new', special: true }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={onSubmit}
                     onDelete={noop}
                     saving={false}
@@ -658,11 +673,18 @@ describe('SlotEditor', () => {
             listPersonas.mockResolvedValue(PERSONAS);
 
             const { rerender } = render(
-                <SlotEditor target={{ kind: 'new', special: true }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />,
+                <SlotEditorForm
+                    target={{ kind: 'new', special: true }}
+                    onCancel={noop}
+                    onSubmit={noop}
+                    onDelete={noop}
+                    saving={false}
+                    deleting={false}
+                />,
             );
             expect(await screen.findByRole('switch', { name: /A live show/ })).not.toBeChecked();
 
-            rerender(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
+            rerender(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
             expect(screen.queryByRole('switch', { name: /A live show/ })).toBeNull();
         });
 
@@ -673,9 +695,9 @@ describe('SlotEditor', () => {
             const user = setupUser();
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: pirate }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={onSubmit}
                     onDelete={noop}
                     saving={false}
@@ -701,9 +723,9 @@ describe('SlotEditor', () => {
             const user = setupUser();
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: pirate }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={onSubmit}
                     onDelete={noop}
                     saving={false}
@@ -723,9 +745,9 @@ describe('SlotEditor', () => {
             listPersonas.mockResolvedValue(PERSONAS);
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: pirate }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={noop}
                     onApply={noop}
                     airing
@@ -747,7 +769,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('checkbox', { name: /Take calls/ });
 
         await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Breakfast');
@@ -767,7 +789,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('checkbox', { name: /Request show/ });
 
         await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Request hour');
@@ -791,7 +813,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('textbox', { name: /Artist rest \(minutes\)/ });
 
         await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Metallica hour');
@@ -818,7 +840,14 @@ describe('SlotEditor', () => {
         const lifted = slot({ artistCooldownMinutes: 0, repeatWindowDays: 0 });
 
         render(
-            <SlotEditor target={{ kind: 'edit', slot: lifted }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />,
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: lifted }}
+                onCancel={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
         );
 
         expect(await screen.findByRole('textbox', { name: /Artist rest \(minutes\)/ })).toHaveValue('0');
@@ -837,7 +866,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('combobox', { name: /Who writes the breaks first/ });
 
         await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Own words');
@@ -860,9 +889,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ writerOrder: 'station' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={vi.fn()}
                 onDelete={noop}
                 saving={false}
@@ -878,7 +907,7 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={vi.fn()} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={vi.fn()} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('checkbox', { name: /Request show/ });
 
         await user.click(screen.getByRole('combobox', { name: 'Mode' }));
@@ -897,7 +926,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('combobox', { name: 'Playing from' });
 
         await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Breakfast');
@@ -920,7 +949,7 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
 
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
         await screen.findByRole('combobox', { name: 'Playing from' });
         // A slot the station fills itself has nothing to mix into, so there is nothing to offer.
         expect(screen.queryByRole('checkbox', { name: /Mix in similar records/ })).toBeNull();
@@ -942,9 +971,9 @@ describe('SlotEditor', () => {
         listCharts.mockResolvedValue(CHARTS);
 
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'ranked' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={noop}
                 onDelete={noop}
                 saving={false}
@@ -967,7 +996,16 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
         listCharts.mockResolvedValue(CHARTS);
 
-        render(<SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
+        render(
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot() }}
+                onCancel={noop}
+                onSubmit={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
 
         await screen.findByRole('combobox', { name: 'Playing from' });
         expect(screen.queryByRole('combobox', { name: 'Played' })).toBeNull();
@@ -979,9 +1017,9 @@ describe('SlotEditor', () => {
         listCharts.mockResolvedValue(CHARTS);
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1005,9 +1043,9 @@ describe('SlotEditor', () => {
         listCharts.mockResolvedValue(CHARTS);
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100', chartPositions: false }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1027,9 +1065,9 @@ describe('SlotEditor', () => {
         listCharts.mockResolvedValue(CHARTS);
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1055,7 +1093,14 @@ describe('SlotEditor', () => {
         const onSubmit = vi.fn();
         const user = setupUser();
         render(
-            <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />,
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot() }}
+                onCancel={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
         );
 
         await user.click(await screen.findByRole('combobox', { name: 'Built around a festival' }));
@@ -1074,9 +1119,9 @@ describe('SlotEditor', () => {
         listCharts.mockResolvedValue(CHARTS);
         const onSubmit = vi.fn();
         const { unmount } = render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ festivalId: 'f-over' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1090,7 +1135,14 @@ describe('SlotEditor', () => {
         unmount();
 
         render(
-            <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />,
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot() }}
+                onCancel={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
         );
         await screen.findByRole('combobox', { name: 'Built around a festival' });
         await setupUser().click(screen.getByRole('button', { name: 'Save' }));
@@ -1106,9 +1158,9 @@ describe('SlotEditor', () => {
         });
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ sourceStationPlaylistId: 'owned-1' }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1129,9 +1181,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ moods: ['comfort'] }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1144,7 +1196,7 @@ describe('SlotEditor', () => {
         expect(onSubmit.mock.calls[0]![0].moods).toEqual(['comfort']);
 
         const untouched = vi.fn();
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
         await setupUser().type((await screen.findAllByRole('textbox', { name: 'Name' })).at(-1)!, 'Breakfast');
         await setupUser().click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
         expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('moods');
@@ -1155,9 +1207,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ moods: ['happiness'], avoidMoods: ['sadness', 'anger'] }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1171,7 +1223,7 @@ describe('SlotEditor', () => {
         expect(onSubmit.mock.calls[0]![0].moods).toEqual(['happiness']);
 
         const untouched = vi.fn();
-        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
         await setupUser().type((await screen.findAllByRole('textbox', { name: 'Name' })).at(-1)!, 'Breakfast');
         await setupUser().click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
         expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('avoidMoods');
@@ -1182,9 +1234,9 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
         const onSubmit = vi.fn();
         render(
-            <SlotEditor
+            <SlotEditorForm
                 target={{ kind: 'edit', slot: slot({ moods: ['comfort', 'loneliness', 'sadness'] }) }}
-                onClose={noop}
+                onCancel={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
                 saving={false}
@@ -1218,7 +1270,7 @@ describe('SlotEditor', () => {
             const onSubmit = vi.fn();
             const user = setupUser();
 
-            render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+            render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
             await screen.findByRole('combobox', { name: 'Playing from' });
             // A slot the station fills itself has no playlist to pick up.
             expect(resumeSwitch()).toBeNull();
@@ -1243,7 +1295,7 @@ describe('SlotEditor', () => {
             const onSubmit = vi.fn();
             const user = setupUser();
 
-            render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+            render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
             await screen.findByRole('combobox', { name: 'Playing from' });
             expect(screen.queryByRole('switch', { name: /Shuffle the playlist/ })).toBeNull();
 
@@ -1265,9 +1317,9 @@ describe('SlotEditor', () => {
             const user = setupUser();
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: playlistSlot() }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={noop}
                     onDelete={noop}
                     saving={false}
@@ -1291,9 +1343,9 @@ describe('SlotEditor', () => {
             listPersonas.mockResolvedValue(PERSONAS);
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: playlistSlot() }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={noop}
                     onDelete={noop}
                     saving={false}
@@ -1311,9 +1363,9 @@ describe('SlotEditor', () => {
             const user = setupUser();
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: playlistSlot({ resumePlaylist: false }) }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={noop}
                     onDelete={noop}
                     saving={false}
@@ -1335,9 +1387,9 @@ describe('SlotEditor', () => {
             readSlotPlaylistPosition.mockRejectedValue(new Error('the provider did not answer'));
 
             render(
-                <SlotEditor
+                <SlotEditorForm
                     target={{ kind: 'edit', slot: playlistSlot() }}
-                    onClose={noop}
+                    onCancel={noop}
                     onSubmit={noop}
                     onDelete={noop}
                     saving={false}

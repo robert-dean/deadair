@@ -1,6 +1,6 @@
 import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
-import { DEFAULT_PROGRAMME_TAB, isProgrammeTab, SchedulePage, type ProgrammeTab } from '../components/schedule/schedule.page';
+import { DEFAULT_PROGRAMME_TAB, isProgrammeTab, SchedulePage, type ProgrammeTab } from '../../components/schedule/schedule.page';
 
 /** A destination at rest carries no query string, exactly as Voice and the catalog lists do. */
 const DEFAULTS: { tab: ProgrammeTab } = { tab: DEFAULT_PROGRAMME_TAB };
@@ -12,7 +12,7 @@ const DEFAULTS: { tab: ProgrammeTab } = { tab: DEFAULT_PROGRAMME_TAB };
  * somebody, and the back button steps through them. An unknown tab falls back to Today rather than
  * throwing.
  */
-export const Route = createFileRoute('/schedule')({
+export const Route = createFileRoute('/schedule/')({
     component: ProgrammeRoute,
     validateSearch: (input: Record<string, unknown>): { tab: ProgrammeTab } => ({
         tab: isProgrammeTab(input.tab) ? input.tab : DEFAULT_PROGRAMME_TAB,

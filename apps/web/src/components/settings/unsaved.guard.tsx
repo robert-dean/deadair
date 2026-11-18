@@ -20,6 +20,9 @@ export interface UnsavedGuardProps {
  * clicking Rotation used to be scrolling and is now a navigation, so what was impossible to lose is
  * one click from gone.
  *
+ * The show editor (`schedule/show.editor.page.tsx`) is the second page it guards, for the same
+ * reason: it was a dialog, and as a page the shell's keys and the back button can leave it.
+ *
  * It is deliberately not a general facility. It takes a bit and asks a question; what counts as an
  * unsaved edit is `ConfigFieldsForm`'s question, answered there, because clearing a secret is an
  * unsaved change the form's own `isDirty()` cannot see.

@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Button, Chip, Divider, Group, Modal, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
+import { useEffect, type ReactNode } from 'react';
+import { Button, Chip, Divider, Group, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { MixFlow, ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
@@ -86,31 +86,9 @@ import { weekdayShort } from '../../i18n/format.locale';
  * only what can change mid-show does. It is a button rather than a consequence of saving because a
  * label fixed or a change meant for next week must not throw away the rest of today's hour.
  */
-export function SlotEditor({ target, onClose, ...form }: Props) {
-    const { t } = useTranslation(['schedule', 'common']);
-    const [dirty, setDirty] = useState(false);
-
-    return (
-        <Modal
-            opened={target !== undefined}
-            onClose={onClose}
-            title={slotEditorTitle(t, target)}
-            size="lg"
-            closeOnClickOutside={false}
-            closeOnEscape={!dirty}
-        >
-            {target === undefined ? undefined : <SlotEditorForm target={target} onCancel={onClose} onDirtyChange={setDirty} {...form} />}
-        </Modal>
-    );
-}
-
 /**
- * The slot editor's form, without anything around it.
- *
- * Apart from the dialog so the same form can be drawn on a page of its own: everything about what a
- * slot says and how it is saved is here, and the frame only decides how it is opened and closed. It
- * reports whether it holds unsaved edits through `onDirtyChange`, which is what a frame needs to
- * decide whether closing it may throw them away.
+ * The form itself. `ShowEditorPage` is the page it is drawn on, and owns the saving. The form reports
+ * whether it holds unsaved edits through `onDirtyChange`, which is what the page's guard asks.
  */
 export function SlotEditorForm({
     target,
@@ -284,7 +262,7 @@ export function SlotEditorForm({
                 {/* The slot the running order belongs to right now: saving it is real, but the
                         station does not hear it until this block comes round again. Told here,
                         beside the form it is about, rather than left for the caption at the
-                        bottom of the modal to cover on its own. */}
+                        bottom of the page to cover on its own. */}
                 {slot && airing ? <ErrorAlert tone="notice">{t('slot.onAir')}</ErrorAlert> : undefined}
 
                 {/* The when-half as one sentence. Four fields that only make sense together read
@@ -335,7 +313,7 @@ export function SlotEditorForm({
                     ) : undefined}
 
                     {/* Broken here on purpose rather than left to wrap. The days are the one part
-                            that cannot shrink, so a single row would fold at whatever width the modal
+                            that cannot shrink, so a single row would fold at whatever width the page
                             happened to be and the sentence would read as fragments. */}
                     {special && form.values.byRule ? undefined : (
                         <Group gap="xs" align="center" wrap="wrap">
@@ -602,7 +580,6 @@ function Word({ children }: { children: ReactNode }) {
  */
 export type EditorTarget = { kind: 'edit'; slot: ScheduleSlot } | { kind: 'new'; startsAtMinutes?: number; days?: number[]; special?: boolean };
 
-/** Whether the editor is open on a special: an existing one, or a new one asked for from the Specials tab. */
 /**
  * The rule half of the sentence. Its own component so the calendars are only asked for once somebody
  * chooses a rule: the months of each are read off the station, as the Occasions tab reads them.
@@ -658,11 +635,6 @@ export function slotEditorTitle(t: TFunction<['schedule', 'common']>, target: Ed
     if (isSpecialTarget(target)) return editing ? t('slot.special.editTitle') : t('slot.special.newTitle');
 
     return editing ? t('slot.editTitle') : t('slot.newTitle');
-}
-
-interface Props extends Omit<SlotEditorFormProps, 'target' | 'onCancel' | 'onDirtyChange'> {
-    target?: EditorTarget;
-    onClose: () => void;
 }
 
 export interface SlotEditorFormProps {

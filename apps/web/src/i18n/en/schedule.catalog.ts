@@ -121,6 +121,13 @@ export const schedule = {
         sittingInFor: '{{guest}}, sitting in for {{regular}}',
         withCoHosts: '{{host}} with {{coHosts}}',
     },
+    showPage: {
+        back: 'Programme',
+        missingTitle: 'No such show',
+        missing: 'This show is not in the schedule any more. It may have been deleted from another tab.',
+        loadFailedTitle: 'The schedule could not be read',
+        loadFailedFallback: 'Nothing was changed. Try again in a moment.',
+    },
     slot: {
         sound: {
             title: 'Sound',

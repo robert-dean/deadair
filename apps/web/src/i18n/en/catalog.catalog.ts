@@ -47,11 +47,14 @@ export const catalog = {
             title: 'Nothing to show',
             body: 'This page of the catalog has no records on it.',
         },
-        stateMark: {
-            audio: { label: 'audio on this machine', text: 'audio', tooltip: 'Has audio on this machine' },
-            measured: { label: 'measured', text: 'measured', tooltip: 'Has measured' },
-            described: { label: 'described by a provider', text: 'described', tooltip: 'Has described by a provider' },
-            suspended: { label: 'suspended', text: 'suspended', tooltip: 'Kept off the station for now' },
+        readiness: {
+            ready: { label: 'Ready', tooltip: 'Its audio is on this machine and has been measured, so it can air with its own cue points.' },
+            unmeasured: { label: 'Not measured', tooltip: 'Its audio is on this machine, but it has not been measured yet.' },
+            notFetched: {
+                label: 'Not fetched',
+                tooltip: 'The station fetches a record a few records before it airs, so this is how most of a library looks.',
+            },
+            suspended: { label: 'Suspended', tooltip: 'Kept off the station for now.' },
         },
     },
     suspend: {

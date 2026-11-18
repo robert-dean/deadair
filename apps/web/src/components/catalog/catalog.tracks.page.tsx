@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
+import { Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,8 @@ import { QueryView } from '../shared/query.view';
 import { PhoneCard } from '../shared/phone.card';
 import { RowOpener } from '../shared/row.opener';
 import { SortableTh } from '../shared/sortable.th';
+import { StatusLamp } from '../shared/status.lamp';
+import type { StatusTone } from '../shared/status';
 import { usePhone } from '../shared/use.phone';
 import { CatalogPagination } from './catalog.pagination';
 import type { TrackSort } from '@deadair/sdk';
@@ -81,22 +83,44 @@ function NothingHere({ search, state, measured, total }: { search: string; state
 }
 
 /**
- * One of the three facts a row carries about what the station has of a track.
+ * How ready a record is to air, as one mark rather than a badge per fact.
  *
- * Drawn only when it is true, as a word rather than a letter: a fixed "A M E" needed a hover on
- * each letter to mean anything, and a dimmed one was the only signal that something was missing.
- * The absence of a badge already says "not yet" without a placeholder to parse. The tooltip still
- * carries the full sentence.
+ * A row used to carry up to four badges, which made a list of a thousand records loud with things
+ * that are mostly fine. What a row can afford is a glance, and the glance is one question: could
+ * this go on now? Suspended comes first because it is a decision, whatever the bytes are doing.
+ * Not fetched is drawn QUIET, as plain dimmed text with no lamp: the station fetches a record a few
+ * boundaries before its slot, so it is the ordinary state of most of a library and colouring it
+ * made a healthy list look like a fault list. Everything more detailed is the drawer, one click away.
  */
-function StateMark({ on, kind }: { on: boolean; kind: 'audio' | 'measured' | 'described' | 'suspended' }) {
+export type TrackReadiness = 'suspended' | 'ready' | 'unmeasured' | 'notFetched';
+
+export function trackReadiness(track: { hasAudio: boolean; measured: boolean; suspended?: boolean }): TrackReadiness {
+    if (track.suspended === true) return 'suspended';
+    if (!track.hasAudio) return 'notFetched';
+    return track.measured ? 'ready' : 'unmeasured';
+}
+
+const READINESS_TONE: Record<Exclude<TrackReadiness, 'notFetched'>, StatusTone> = {
+    suspended: 'off',
+    ready: 'ok',
+    unmeasured: 'standby',
+};
+
+function ReadinessMark({ track }: { track: { hasAudio: boolean; measured: boolean; suspended?: boolean } }) {
     const { t } = useTranslation('catalog');
-    if (!on) return null;
+    const readiness = trackReadiness(track);
 
     return (
-        <Tooltip label={t(`tracks.stateMark.${kind}.tooltip`)}>
-            <Badge size="xs" variant="light" aria-label={t(`tracks.stateMark.${kind}.label`)}>
-                {t(`tracks.stateMark.${kind}.text`)}
-            </Badge>
+        <Tooltip label={t(`tracks.readiness.${readiness}.tooltip`)} multiline w={260}>
+            <span>
+                {readiness === 'notFetched' ? (
+                    <Text size="xs" c="dimmed">
+                        {t('tracks.readiness.notFetched.label')}
+                    </Text>
+                ) : (
+                    <StatusLamp tone={READINESS_TONE[readiness]} label={t(`tracks.readiness.${readiness}.label`)} />
+                )}
+            </span>
         </Tooltip>
     );
 }
@@ -207,9 +231,12 @@ export function CatalogTracksPage({
                                             </Text>
                                         }
                                         figure={
-                                            <Text size="xs" c="dimmed" className="da-num">
-                                                {formatDuration(track.durationMs)}
-                                            </Text>
+                                            <Stack gap={2} align="flex-end">
+                                                <Text size="xs" c="dimmed" className="da-num">
+                                                    {formatDuration(track.durationMs)}
+                                                </Text>
+                                                <ReadinessMark track={track} />
+                                            </Stack>
                                         }
                                         action={
                                             <Group onClick={event => event.stopPropagation()}>
@@ -227,18 +254,6 @@ export function CatalogTracksPage({
                                             // The rating and the expansion are their own controls, so a tap on
                                             // them stays theirs rather than also opening the record.
                                             <Stack gap="xxs" pt="xxs" onClick={event => event.stopPropagation()}>
-                                                {/* Below the title rather than beside it: three badges spelled out in
-                                        words don't fit next to a truncating title on a 375px card the way
-                                        three letters did. Only rendered when there is at least one to show,
-                                        so a fresh, empty-of-facts row doesn't reserve a blank line for it. */}
-                                                {track.hasAudio || track.measured || track.enriched || track.suspended === true ? (
-                                                    <Group gap="xxs" wrap="wrap">
-                                                        <StateMark on={track.hasAudio} kind="audio" />
-                                                        <StateMark on={track.measured} kind="measured" />
-                                                        <StateMark on={track.enriched} kind="described" />
-                                                        <StateMark on={track.suspended === true} kind="suspended" />
-                                                    </Group>
-                                                ) : undefined}
                                                 <RatingControl
                                                     size="xs"
                                                     rating={track.rating}
@@ -282,11 +297,9 @@ export function CatalogTracksPage({
                                             <SortableTh sortBy="duration" w={120} {...sorting}>
                                                 {t('columns.duration')}
                                             </SortableTh>
-                                            {/* Not sortable, and the contract says why: a state is three
-                                    independent booleans, so there is no order of it an operator
-                                    would agree with. Wide enough for up to three badges, since only
-                                    the facts that are true are drawn. */}
-                                            <Table.Th w={220}>{t('columns.state')}</Table.Th>
+                                            {/* Not sortable, and the contract says why: a state is independent
+                                    booleans, so there is no order of it an operator would agree with. */}
+                                            <Table.Th w={150}>{t('columns.state')}</Table.Th>
                                             <SortableTh sortBy="rating" w={150} {...sorting}>
                                                 {t('columns.rating')}
                                             </SortableTh>
@@ -328,17 +341,9 @@ export function CatalogTracksPage({
                                                         <AlbumLink id={track.albumId}>{track.albumName ?? ''}</AlbumLink>
                                                     </Table.Td>
                                                     <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                                                    {/* Three facts, as badges rather than three columns: what a row
-                                            can afford is a glance, and anything more detailed is the
-                                            record's own page one click away. Only the ones that are true
-                                            draw at all — an absent badge already reads as "not yet". */}
+                                                    {/* One mark rather than a badge per fact; see `ReadinessMark`. */}
                                                     <Table.Td>
-                                                        <Group gap="xxs" wrap="wrap">
-                                                            <StateMark on={track.hasAudio} kind="audio" />
-                                                            <StateMark on={track.measured} kind="measured" />
-                                                            <StateMark on={track.enriched} kind="described" />
-                                                            <StateMark on={track.suspended === true} kind="suspended" />
-                                                        </Group>
+                                                        <ReadinessMark track={track} />
                                                     </Table.Td>
                                                     <Table.Td onClick={event => event.stopPropagation()}>
                                                         <RatingControl

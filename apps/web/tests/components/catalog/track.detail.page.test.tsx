@@ -149,7 +149,15 @@ describe('TrackDetailPage', () => {
     // wrong, so a row with one must not read as measured.
     it('says the tempo and how sure the station is of it', async () => {
         getTrack.mockResolvedValue(
-            detail({ analysis: { schemaVersion: 1, complete: true, analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z'), bpm: 117.11, beatConfidence: 0.994 } }),
+            detail({
+                analysis: {
+                    schemaVersion: 1,
+                    complete: true,
+                    analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z'),
+                    bpm: 117.11,
+                    beatConfidence: 0.994,
+                },
+            }),
         );
 
         render(<TrackDetailPage trackId={TRACK_ID} />);
@@ -159,7 +167,9 @@ describe('TrackDetailPage', () => {
     });
 
     it('offers no tempo for a record measured without one', async () => {
-        getTrack.mockResolvedValue(detail({ analysis: { schemaVersion: 1, complete: true, analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z') } }));
+        getTrack.mockResolvedValue(
+            detail({ analysis: { schemaVersion: 1, complete: true, analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z') } }),
+        );
 
         render(<TrackDetailPage trackId={TRACK_ID} />);
 

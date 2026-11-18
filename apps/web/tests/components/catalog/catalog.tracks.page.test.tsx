@@ -5,7 +5,7 @@ import { SdkError } from '@deadair/sdk';
 
 import { CatalogTracksPage } from '../../../src/components/catalog/catalog.tracks.page';
 import { stubPhoneMedia } from '../../utils/phone';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, waitFor, within } from '../../utils/render';
 import { DEFAULT_PAGE_SIZE } from '../../../src/components/catalog/catalog.page.params';
 
 /**
@@ -466,7 +466,7 @@ describe('CatalogTracksPage', () => {
         );
 
         expect(await screen.findByRole('checkbox', { name: /1 Suspended/ })).toBeInTheDocument();
-        expect(screen.getByLabelText('suspended')).toBeInTheDocument();
+        expect(screen.getByLabelText('Status: Suspended')).toBeInTheDocument();
     });
 
     describe('the measurement filters', () => {
@@ -612,10 +612,16 @@ describe('CatalogTracksPage', () => {
         for (const width of widths) expect(width).toBeGreaterThan(1);
     });
 
-    // Only the facts that are true draw a badge at all — the absence of one already says "not yet",
-    // so the row for a fact that is false must have nothing findable by its label.
-    it('marks each row with what the station has of it, and only that', async () => {
-        listTracks.mockResolvedValue(page([track({ hasAudio: true, measured: false, enriched: true })]));
+    // One mark per row, answering whether the record could go on now. Not fetched is the ordinary
+    // state of most of a library, so it is drawn as quiet text and never as a lamp.
+    it('marks each row with how ready it is to air, and draws not fetched quietly', async () => {
+        listTracks.mockResolvedValue(
+            page([
+                track({ id: 'a', title: 'Ready one', hasAudio: true, measured: true }),
+                track({ id: 'b', title: 'Unmeasured one', hasAudio: true, measured: false }),
+                track({ id: 'c', title: 'Cold one', hasAudio: false, measured: false }),
+            ]),
+        );
 
         render(
             <CatalogTracksPage
@@ -632,9 +638,12 @@ describe('CatalogTracksPage', () => {
             />,
         );
 
-        expect(await screen.findByLabelText('audio on this machine')).toBeInTheDocument();
-        expect(screen.getByLabelText('described by a provider')).toBeInTheDocument();
-        expect(screen.queryByLabelText('measured')).not.toBeInTheDocument();
+        expect(await screen.findByLabelText('Status: Ready')).toBeInTheDocument();
+        expect(screen.getByLabelText('Status: Not measured')).toBeInTheDocument();
+        // The state filter has a chip by the same name, so the row is where this one is looked for.
+        const cold = screen.getByText('Cold one').closest('tr')!;
+        expect(within(cold).getByText('Not fetched')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Status: Not fetched')).not.toBeInTheDocument();
     });
 
     it('surfaces a failed read as an alert', async () => {

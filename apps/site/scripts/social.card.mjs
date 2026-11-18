@@ -3,8 +3,9 @@
  *
  * `node scripts/social.card.mjs [path to a browser]`. The logo, the colours and the screenshot are the site's own, so
  * run it again when the desk's screenshot is retaken. Google Fonts are not fetched: the faces come
- * from the same `@fontsource` packages the site loads. Cover art is other people's, so `.cover` blurs
- * the record on air in that screenshot, by position: move it if a retake moves the cover.
+ * from the same `@fontsource` packages the site loads. Cover art is other people's, and the card
+ * blurs none of it itself: the desk is shot with `--blur-art`, which blurs every cover on the page,
+ * the record on air included. A box placed by position went stale with every retake.
  */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -28,13 +29,11 @@ const html = `<!doctype html><style>
     .brand img { width: 52px; height: 52px; }
     h1 { position: absolute; left: 64px; top: 142px; width: 1000px; font-size: 68px; font-weight: 500; line-height: 1.08; letter-spacing: -0.025em; }
     .desk { position: absolute; left: 64px; top: 324px; width: 1072px; border: 1px solid #313836; border-radius: 12px; }
-    .cover { position: absolute; left: 244px; top: 391px; width: 69px; height: 70px; backdrop-filter: blur(14px); }
     .fade { position: absolute; inset: 500px 0 0; background: linear-gradient(transparent, #0c0e0d); }
 </style>
 <div class="brand"><img src="${dataUrl(join(root, '../web/public/logo-mark.png'), 'image/png')}">deadair</div>
 <h1>An AI radio station<br>you run yourself.</h1>
 <img class="desk" src="${dataUrl(join(root, 'static/img/console/desk.webp'), 'image/webp')}">
-<div class="cover"></div>
 <div class="fade"></div>`;
 
 const browser = await chromium.launch({ executablePath: process.argv[2] });

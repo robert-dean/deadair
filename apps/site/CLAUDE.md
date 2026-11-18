@@ -128,8 +128,10 @@ publish, which the productions page needs whenever a caller's subject is somebod
 **The image a link unfurls with is drawn, and it contains a screenshot.** `scripts/social.card.mjs`
 writes `static/img/social.card.png` (1200x630) from the logo, the carbon colours and
 `static/img/console/desk.webp`, and `image` in `docusaurus.config.ts` names it. It is not redrawn by
-the build, so run it again after retaking the desk, and check that the blur over the cover art still
-sits on the cover, because it is placed by position. It takes a path to a browser if Playwright's own
+the build, so run it again after retaking the desk. It blurs nothing itself: shoot the desk with
+`--blur-art`, which blurs every cover on the page, the record on air included. It used to lay a blur
+box over the cover by position, and the first retake after the console's redesign left the box
+smudging the on-air card's text. It takes a path to a browser if Playwright's own
 is not installed.
 
 **The sitemap leaves out every generated API page but the index.** They were 86% of its URLs, one

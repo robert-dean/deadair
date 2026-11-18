@@ -72,6 +72,22 @@ const slot = (over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
 const noop = () => {};
 
 describe('SlotEditorForm', () => {
+    it('is divided into its parts, marks the two a show needs, and says what it adds up to', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
+
+        for (const name of ['When', 'Who presents it', 'Music', 'What it says', 'Sound', 'Repeat rules']) {
+            expect(screen.getByRole('heading', { name })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name })).toBeInTheDocument();
+        }
+        expect(screen.getAllByText('Required')).toHaveLength(2);
+        const summary = screen.getByRole('region', { name: 'How it will sound' });
+        expect(summary).toHaveTextContent('06:00 until 09:00');
+        expect(summary).toHaveTextContent('The station’s own host');
+    });
+
     it('sends nothing about beds on an ordinary save, and false once they are switched off', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

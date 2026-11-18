@@ -6,7 +6,6 @@ import type { GetInputPropsReturnType } from '@mantine/form';
 
 import { useScopeSegment, useSegments } from '../../api/segments.queries';
 import { ErrorAlert } from '../shared/error.alert';
-import { Eyebrow } from '../shared/eyebrow';
 
 /**
  * The kinds of recording that make a show sound like itself, in the order they are drawn: a jingle
@@ -32,7 +31,6 @@ export function ShowSoundField({ slotId, beds }: { slotId: string | undefined; b
 
     return (
         <Stack gap="xs">
-            <Eyebrow>{t('slot.sound.title')}</Eyebrow>
             <Checkbox label={t('slot.sound.bedsLabel')} description={t('slot.sound.bedsDescription')} {...beds} />
             {slotId === undefined ? (
                 <Text size="xs" c="dimmed">

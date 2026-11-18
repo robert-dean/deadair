@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActionIcon, Anchor, Badge, Button, Card, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core';
 import { IconCheck, IconPencil, IconPlayerPauseFilled, IconPlayerPlayFilled, IconTrash, IconX } from '@tabler/icons-react';
 import type { Pronunciation } from '@deadair/sdk';
@@ -19,7 +19,9 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
 import { severityColor } from '../shared/status';
+import { usePhone } from '../shared/use.phone';
 import { useVoicePreview, type VoicePreview } from '../voices/voice.preview';
 
 /**
@@ -57,6 +59,13 @@ export function PronunciationsPage() {
     const remove = useDeletePronunciation();
     const voices = useVoices(true);
     const preview = useVoicePreview();
+
+    // A phone draws each entry as a card rather than a table row: the tables are 600px wide, which
+    // put every row's buttons past the right edge of a 375px page, inside a scroll nobody knows to
+    // make. On a card the buttons are thumb-sized, as the desk's 44px precedent says.
+    const phone = usePhone();
+    const icon = phone ? 44 : 'sm';
+    const glyph = phone ? 18 : 14;
 
     // Absent is the plugin's own default, which is what a sample route given no voice speaks in.
     const [voice, setVoice] = useState<string | undefined>(undefined);
@@ -133,53 +142,43 @@ export function PronunciationsPage() {
                             </Text>
                         </Stack>
 
-                        <Table.ScrollContainer minWidth={600}>
-                            <Table verticalSpacing="sm" highlightOnHover>
-                                <Table.Tbody>
-                                    {suggested.map(entry => (
-                                        <Table.Tr key={entry.id}>
-                                            <Table.Td w={340}>
-                                                <Said entry={entry} />
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Evidence entry={entry} />
-                                            </Table.Td>
-                                            <Table.Td w={140}>
-                                                <Group gap={4} justify="flex-end">
-                                                    <Listen
-                                                        preview={preview}
-                                                        listenKey={entry.id}
-                                                        written={entry.written}
-                                                        spoken={entry.spoken}
-                                                        voice={voice}
-                                                    />
-                                                    <ActionIcon
-                                                        size="sm"
-                                                        variant="subtle"
-                                                        color="teal"
-                                                        aria-label={t('proposed.accept', { written: entry.written })}
-                                                        loading={setState.isPending && setState.variables?.id === entry.id}
-                                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
-                                                    >
-                                                        <IconCheck size={14} />
-                                                    </ActionIcon>
-                                                    <ActionIcon
-                                                        size="sm"
-                                                        variant="subtle"
-                                                        color="gray"
-                                                        aria-label={t('proposed.reject', { written: entry.written })}
-                                                        loading={setState.isPending && setState.variables?.id === entry.id}
-                                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'rejected' } })}
-                                                    >
-                                                        <IconX size={14} />
-                                                    </ActionIcon>
-                                                </Group>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))}
-                                </Table.Tbody>
-                            </Table>
-                        </Table.ScrollContainer>
+                        <EntryRows
+                            entries={suggested}
+                            phone={phone}
+                            verticalSpacing="sm"
+                            actions={entry => (
+                                <>
+                                    <Listen
+                                        preview={preview}
+                                        listenKey={entry.id}
+                                        written={entry.written}
+                                        spoken={entry.spoken}
+                                        voice={voice}
+                                        size={icon}
+                                    />
+                                    <ActionIcon
+                                        size={icon}
+                                        variant="subtle"
+                                        color="teal"
+                                        aria-label={t('proposed.accept', { written: entry.written })}
+                                        loading={setState.isPending && setState.variables?.id === entry.id}
+                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
+                                    >
+                                        <IconCheck size={glyph} />
+                                    </ActionIcon>
+                                    <ActionIcon
+                                        size={icon}
+                                        variant="subtle"
+                                        color="gray"
+                                        aria-label={t('proposed.reject', { written: entry.written })}
+                                        loading={setState.isPending && setState.variables?.id === entry.id}
+                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'rejected' } })}
+                                    >
+                                        <IconX size={glyph} />
+                                    </ActionIcon>
+                                </>
+                            )}
+                        />
                         <ListenFailure preview={preview} keys={suggested.map(entry => entry.id)} />
                     </Stack>
                 </Card>
@@ -192,92 +191,81 @@ export function PronunciationsPage() {
                     {lexicon.data && active.length === 0 ? (
                         <EmptyState title={t('active.empty.title')}>{t('active.empty.body')}</EmptyState>
                     ) : (
-                        <Table.ScrollContainer minWidth={600}>
-                            <Table verticalSpacing="xs" highlightOnHover>
-                                <Table.Tbody>
-                                    {active.map(entry => (
-                                        <Table.Tr key={entry.id}>
-                                            {editing?.id === entry.id ? (
-                                                <Table.Td colSpan={3}>
-                                                    <Group gap="xs" wrap="nowrap">
-                                                        <TextInput
-                                                            size="xs"
-                                                            w={200}
-                                                            aria-label={t('field.written')}
-                                                            value={editing.written}
-                                                            onChange={event => setEditing({ ...editing, written: event.currentTarget.value })}
-                                                        />
-                                                        <Text size="xs" c="dimmed">
-                                                            {t('active.isSaid')}
-                                                        </Text>
-                                                        <TextInput
-                                                            size="xs"
-                                                            flex={1}
-                                                            aria-label={t('field.spoken')}
-                                                            value={editing.spoken}
-                                                            onChange={event => setEditing({ ...editing, spoken: event.currentTarget.value })}
-                                                        />
-                                                        <Listen
-                                                            preview={preview}
-                                                            listenKey={`edit:${entry.id}`}
-                                                            written={editing.written}
-                                                            spoken={editing.spoken}
-                                                            voice={voice}
-                                                        />
-                                                        <Button size="xs" variant="light" loading={update.isPending} onClick={save}>
-                                                            {t('active.save')}
-                                                        </Button>
-                                                        <Button size="xs" variant="subtle" color="gray" onClick={() => setEditing(undefined)}>
-                                                            {t('common:action.cancel')}
-                                                        </Button>
-                                                    </Group>
-                                                </Table.Td>
-                                            ) : (
-                                                <>
-                                                    <Table.Td w={340}>
-                                                        <Said entry={entry} />
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Evidence entry={entry} />
-                                                    </Table.Td>
-                                                    <Table.Td w={140}>
-                                                        <Group gap={4} justify="flex-end">
-                                                            <Listen
-                                                                preview={preview}
-                                                                listenKey={entry.id}
-                                                                written={entry.written}
-                                                                spoken={entry.spoken}
-                                                                voice={voice}
-                                                            />
-                                                            <ActionIcon
-                                                                size="sm"
-                                                                variant="subtle"
-                                                                aria-label={t('active.edit', { written: entry.written })}
-                                                                onClick={() =>
-                                                                    setEditing({ id: entry.id, written: entry.written, spoken: entry.spoken })
-                                                                }
-                                                            >
-                                                                <IconPencil size={14} />
-                                                            </ActionIcon>
-                                                            <ActionIcon
-                                                                size="sm"
-                                                                variant="subtle"
-                                                                color="red"
-                                                                aria-label={t('active.delete', { written: entry.written })}
-                                                                loading={remove.isPending}
-                                                                onClick={() => setDeleting(entry)}
-                                                            >
-                                                                <IconTrash size={14} />
-                                                            </ActionIcon>
-                                                        </Group>
-                                                    </Table.Td>
-                                                </>
-                                            )}
-                                        </Table.Tr>
-                                    ))}
-                                </Table.Tbody>
-                            </Table>
-                        </Table.ScrollContainer>
+                        <EntryRows
+                            entries={active}
+                            phone={phone}
+                            verticalSpacing="xs"
+                            editor={entry =>
+                                editing?.id === entry.id ? (
+                                    // One line on a desk; on a phone the two fields take the width
+                                    // and the buttons a row of their own.
+                                    <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'}>
+                                        <TextInput
+                                            size="xs"
+                                            w={phone ? '100%' : 200}
+                                            aria-label={t('field.written')}
+                                            value={editing.written}
+                                            onChange={event => setEditing({ ...editing, written: event.currentTarget.value })}
+                                        />
+                                        <Text size="xs" c="dimmed">
+                                            {t('active.isSaid')}
+                                        </Text>
+                                        <TextInput
+                                            size="xs"
+                                            flex={1}
+                                            miw={phone ? '100%' : undefined}
+                                            aria-label={t('field.spoken')}
+                                            value={editing.spoken}
+                                            onChange={event => setEditing({ ...editing, spoken: event.currentTarget.value })}
+                                        />
+                                        <Listen
+                                            preview={preview}
+                                            listenKey={`edit:${entry.id}`}
+                                            written={editing.written}
+                                            spoken={editing.spoken}
+                                            voice={voice}
+                                            size={icon}
+                                        />
+                                        <Button size="xs" variant="light" loading={update.isPending} onClick={save}>
+                                            {t('active.save')}
+                                        </Button>
+                                        <Button size="xs" variant="subtle" color="gray" onClick={() => setEditing(undefined)}>
+                                            {t('common:action.cancel')}
+                                        </Button>
+                                    </Group>
+                                ) : undefined
+                            }
+                            actions={entry => (
+                                <>
+                                    <Listen
+                                        preview={preview}
+                                        listenKey={entry.id}
+                                        written={entry.written}
+                                        spoken={entry.spoken}
+                                        voice={voice}
+                                        size={icon}
+                                    />
+                                    <ActionIcon
+                                        size={icon}
+                                        variant="subtle"
+                                        aria-label={t('active.edit', { written: entry.written })}
+                                        onClick={() => setEditing({ id: entry.id, written: entry.written, spoken: entry.spoken })}
+                                    >
+                                        <IconPencil size={glyph} />
+                                    </ActionIcon>
+                                    <ActionIcon
+                                        size={icon}
+                                        variant="subtle"
+                                        color="red"
+                                        aria-label={t('active.delete', { written: entry.written })}
+                                        loading={remove.isPending}
+                                        onClick={() => setDeleting(entry)}
+                                    >
+                                        <IconTrash size={glyph} />
+                                    </ActionIcon>
+                                </>
+                            )}
+                        />
                     )}
 
                     <ListenFailure preview={preview} keys={[...active.flatMap(entry => [entry.id, `edit:${entry.id}`]), 'draft']} />
@@ -320,41 +308,33 @@ export function PronunciationsPage() {
                             </Text>
                         </Stack>
 
-                        <Table.ScrollContainer minWidth={600}>
-                            <Table verticalSpacing="xs">
-                                <Table.Tbody>
-                                    {rejected.map(entry => (
-                                        <Table.Tr key={entry.id}>
-                                            <Table.Td w={340}>
-                                                <Said entry={entry} dimmed />
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Evidence entry={entry} />
-                                            </Table.Td>
-                                            <Table.Td w={140}>
-                                                <Group gap={4} justify="flex-end">
-                                                    <Listen
-                                                        preview={preview}
-                                                        listenKey={entry.id}
-                                                        written={entry.written}
-                                                        spoken={entry.spoken}
-                                                        voice={voice}
-                                                    />
-                                                    <Button
-                                                        size="compact-xs"
-                                                        variant="subtle"
-                                                        loading={setState.isPending && setState.variables?.id === entry.id}
-                                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
-                                                    >
-                                                        {t('rejected.restore')}
-                                                    </Button>
-                                                </Group>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))}
-                                </Table.Tbody>
-                            </Table>
-                        </Table.ScrollContainer>
+                        <EntryRows
+                            entries={rejected}
+                            phone={phone}
+                            verticalSpacing="xs"
+                            highlightOnHover={false}
+                            dimmed
+                            actions={entry => (
+                                <>
+                                    <Listen
+                                        preview={preview}
+                                        listenKey={entry.id}
+                                        written={entry.written}
+                                        spoken={entry.spoken}
+                                        voice={voice}
+                                        size={icon}
+                                    />
+                                    <Button
+                                        size={phone ? 'xs' : 'compact-xs'}
+                                        variant="subtle"
+                                        loading={setState.isPending && setState.variables?.id === entry.id}
+                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
+                                    >
+                                        {t('rejected.restore')}
+                                    </Button>
+                                </>
+                            )}
+                        />
                         <ListenFailure preview={preview} keys={rejected.map(entry => entry.id)} />
                     </Stack>
                 </Card>
@@ -381,6 +361,100 @@ export function PronunciationsPage() {
 }
 
 /**
+ * One section's entries: a table on a desk, a card per entry on a phone.
+ *
+ * The three sections differ only in their buttons and in whether a row can be edited in place, so
+ * those come in as functions and the two layouts are written once. A card is the same three things
+ * the row holds (what is said, where it came from, the buttons), with the source under the line
+ * rather than in a column of its own.
+ */
+function EntryRows({
+    entries,
+    phone,
+    actions,
+    editor,
+    dimmed = false,
+    verticalSpacing,
+    highlightOnHover = true,
+}: {
+    entries: readonly Pronunciation[];
+    phone: boolean;
+    actions: (entry: Pronunciation) => ReactNode;
+    /** The row's editing form, when this entry is the one being edited. */
+    editor?: (entry: Pronunciation) => ReactNode;
+    dimmed?: boolean;
+    verticalSpacing: 'xs' | 'sm';
+    highlightOnHover?: boolean;
+}) {
+    if (phone) {
+        return (
+            <Stack gap="xxs">
+                {entries.map(entry => {
+                    const form = editor?.(entry);
+                    if (form) {
+                        return (
+                            <Card key={entry.id} withBorder={false} padding="xs" radius="sm">
+                                {form}
+                            </Card>
+                        );
+                    }
+                    return (
+                        <PhoneCard
+                            key={entry.id}
+                            title={
+                                <Text size="sm" fw={500} c={dimmed ? 'dimmed' : undefined} truncate>
+                                    {entry.written}
+                                </Text>
+                            }
+                            subtitle={<SaidAs entry={entry} dimmed={dimmed} truncate />}
+                            below={<Evidence entry={entry} />}
+                            action={
+                                <Group gap={0} wrap="nowrap">
+                                    {actions(entry)}
+                                </Group>
+                            }
+                        />
+                    );
+                })}
+            </Stack>
+        );
+    }
+
+    return (
+        <Table.ScrollContainer minWidth={600}>
+            <Table verticalSpacing={verticalSpacing} highlightOnHover={highlightOnHover}>
+                <Table.Tbody>
+                    {entries.map(entry => {
+                        const form = editor?.(entry);
+                        return (
+                            <Table.Tr key={entry.id}>
+                                {form ? (
+                                    <Table.Td colSpan={3}>{form}</Table.Td>
+                                ) : (
+                                    <>
+                                        <Table.Td w={340}>
+                                            <Said entry={entry} dimmed={dimmed} />
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Evidence entry={entry} />
+                                        </Table.Td>
+                                        <Table.Td w={140}>
+                                            <Group gap={4} justify="flex-end">
+                                                {actions(entry)}
+                                            </Group>
+                                        </Table.Td>
+                                    </>
+                                )}
+                            </Table.Tr>
+                        );
+                    })}
+                </Table.Tbody>
+            </Table>
+        </Table.ScrollContainer>
+    );
+}
+
+/**
  * Hear one entry. Drawn disabled rather than hidden when there is nothing to say, so the row keeps its
  * shape: an entry that drops the words, or a draft with a side still empty.
  */
@@ -397,11 +471,12 @@ function Listen({
     written: string;
     spoken: string;
     voice: string | undefined;
-    size?: 'sm' | 'md';
+    size?: 'sm' | 'md' | number;
 }) {
     const { t } = useTranslation('pronunciations');
     const sayable = written.trim().length > 0 && spoken.trim().length > 0;
     const playing = preview.isPlaying(listenKey);
+    const glyph = typeof size === 'number' ? 18 : 14;
 
     return (
         <ActionIcon
@@ -412,7 +487,7 @@ function Listen({
             aria-label={playing ? t('listen.pause', { written }) : t('listen.play', { written })}
             onClick={() => preview.play(listenKey, () => fetchPronunciationSample(written.trim(), spoken.trim(), voice), t('listen.failed'))}
         >
-            {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+            {playing ? <IconPlayerPauseFilled size={glyph} /> : <IconPlayerPlayFilled size={glyph} />}
         </ActionIcon>
     );
 }
@@ -431,12 +506,25 @@ function ListenFailure({ preview, keys }: { preview: VoicePreview; keys: readonl
 
 /** One entry as a sentence: what is written, and what comes out of the engine instead. */
 function Said({ entry, dimmed = false }: { entry: Pronunciation; dimmed?: boolean }) {
-    const { t } = useTranslation('pronunciations');
     return (
         <Group gap="xs" wrap="nowrap">
             <Text size="sm" fw={500} c={dimmed ? 'dimmed' : undefined}>
                 {entry.written}
             </Text>
+            <SaidAs entry={entry} dimmed={dimmed} />
+        </Group>
+    );
+}
+
+/**
+ * The second half of {@link Said}: the arrow and what comes out of the engine. A card on a phone puts
+ * it on a line of its own under the written word, so the respelling, which is what the row is for,
+ * gets the width beside the buttons rather than half of it.
+ */
+function SaidAs({ entry, dimmed = false, truncate = false }: { entry: Pronunciation; dimmed?: boolean; truncate?: boolean }) {
+    const { t } = useTranslation('pronunciations');
+    return (
+        <>
             <Text size="xs" c="dimmed">
                 →
             </Text>
@@ -445,11 +533,11 @@ function Said({ entry, dimmed = false }: { entry: Pronunciation; dimmed?: boolea
                     {t('notSaid')}
                 </Badge>
             ) : (
-                <Text size="sm" c={dimmed ? 'dimmed' : undefined}>
+                <Text size="sm" c={dimmed ? 'dimmed' : undefined} truncate={truncate}>
                     {entry.spoken}
                 </Text>
             )}
-        </Group>
+        </>
     );
 }
 

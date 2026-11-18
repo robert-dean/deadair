@@ -24,7 +24,9 @@ import { Eyebrow } from '../shared/eyebrow';
 import { PackImportModal, packFieldsIn } from '../shared/pack.import.modal';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
 import { RowOpener } from '../shared/row.opener';
+import { usePhone } from '../shared/use.phone';
 import { TopicEditor, type TopicTarget } from './topic.editor';
 
 /**
@@ -93,6 +95,32 @@ export function TopicsPage() {
 
     const all = topics.data?.topics ?? [];
     const bands = clock.data?.bands ?? [];
+
+    // A phone gets a card per subject rather than the table: at 500px wide the table put the delete
+    // button past the right edge of a 375px page, inside a scroll nobody knows to make.
+    const phone = usePhone();
+
+    const deleteButton = (topic: Topic) => (
+        <ActionIcon
+            size={phone ? 44 : 'sm'}
+            variant="subtle"
+            color="red"
+            aria-label={t('page.deleteAriaLabel', { label: topic.label })}
+            loading={remove.isPending}
+            onKeyDown={event => event.stopPropagation()}
+            onClick={event => {
+                // Not the row's click (or the card's Enter) as well, which would open the editor under the dialog.
+                event.stopPropagation();
+                // A band that asked for this goes with it: one that quietly lost its subject would
+                // read a general break under this name, which is the failure the whole feature
+                // exists to prevent. The count is read here rather than in the dialog so the dialog
+                // stays a dumb question.
+                setDeleting({ topic, bands: bands.filter(band => band.topicId === topic.id).length });
+            }}
+        >
+            <IconTrash size={phone ? 18 : 14} />
+        </ActionIcon>
+    );
 
     return (
         <Stack gap="lg">
@@ -176,6 +204,27 @@ export function TopicsPage() {
                                 <Text size="sm" c="dimmed">
                                     {t('page.none', { nouns: kind.nounMany })}
                                 </Text>
+                            ) : phone ? (
+                                <Stack gap="xxs">
+                                    {held.map(topic => (
+                                        <PhoneCard
+                                            key={topic.id}
+                                            onClick={() => setEditing({ kind, target: { kind: 'edit', topic } })}
+                                            aria-label={t('page.openAriaLabel', { label: topic.label })}
+                                            title={
+                                                <Text size="sm" fw={500} truncate>
+                                                    {topic.label}
+                                                </Text>
+                                            }
+                                            subtitle={
+                                                <Text size="xs" c="dimmed" truncate>
+                                                    {summarize(topic, kind, t)}
+                                                </Text>
+                                            }
+                                            action={deleteButton(topic)}
+                                        />
+                                    ))}
+                                </Stack>
                             ) : (
                                 <Table.ScrollContainer minWidth={500}>
                                     <Table verticalSpacing="xs" highlightOnHover>
@@ -197,30 +246,8 @@ export function TopicsPage() {
                                                         </Text>
                                                     </Table.Td>
                                                     <Table.Td w={60}>
-                                                        <Group gap={2} justify="flex-end" onClick={event => event.stopPropagation()}>
-                                                            <ActionIcon
-                                                                size="sm"
-                                                                variant="subtle"
-                                                                color="red"
-                                                                aria-label={t('page.deleteAriaLabel', { label: topic.label })}
-                                                                loading={remove.isPending}
-                                                                onClick={() => {
-                                                                    // A band that asked for this goes
-                                                                    // with it: one that quietly lost its
-                                                                    // subject would read a general break
-                                                                    // under this name, which is the
-                                                                    // failure the whole feature exists
-                                                                    // to prevent. The count is read here
-                                                                    // rather than in the dialog so the
-                                                                    // dialog stays a dumb question.
-                                                                    setDeleting({
-                                                                        topic,
-                                                                        bands: bands.filter(band => band.topicId === topic.id).length,
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <IconTrash size={14} />
-                                                            </ActionIcon>
+                                                        <Group gap={2} justify="flex-end">
+                                                            {deleteButton(topic)}
                                                         </Group>
                                                     </Table.Td>
                                                 </Table.Tr>

@@ -26,6 +26,7 @@ export const topics = {
         new: 'New {{noun}}',
         none: 'No {{nouns}} yet, which is a working station: every break of this sort covers whatever it finds.',
         deleteAriaLabel: 'Delete {{label}}',
+        openAriaLabel: 'Edit {{label}}',
         confirm: {
             title: 'Delete {{label}}?',
             titleFallback: 'Delete this subject?',

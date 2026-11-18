@@ -159,3 +159,39 @@
         width: 100%;
     }
 }
+
+/* The strip under the canvas: what would stop the flow running, its size, and a key to the wires. */
+.status {
+    border-top: 1px solid var(--da-border);
+    padding-top: var(--mantine-spacing-xs);
+}
+
+/* Switched off and still wired: drawn faint, with a dashed edge, so it reads as present but not judging. */
+.node[data-bypassed='true'] {
+    opacity: 0.55;
+    border-style: dashed;
+}
+
+/* What is wrong with this node, on the node, as well as in the strip under the canvas. */
+.callout {
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--da-border);
+    background: var(--mantine-color-red-light);
+}
+
+.toolbar {
+    background: var(--da-raised);
+    border: 1px solid var(--da-border-strong);
+    border-radius: var(--mantine-radius-sm);
+    padding: 2px;
+}
+
+/* What Picks proposes from, read off the show. */
+.picksShow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px dashed var(--da-border);
+}

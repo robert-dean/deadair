@@ -89,6 +89,9 @@ export function mixFlowProblems(flow: MixFlow | undefined): string[] {
         });
         if (ins.includes('records') && !fedRecords.has(node.id)) say(node, 'has nothing wired into it');
         problems.push(...kindProblems(node, inUsed).map(what => `${NAMES[node.kind]} "${node.id}" ${what}`));
+        // Switched off is a state of a rule, and these three are not rules: without Picks or On air no record
+        // moves at all, and a Merge only joins wires.
+        if (node.bypassed === true && (node.kind === 'picks' || node.kind === 'onAir' || node.kind === 'merge')) say(node, 'cannot be bypassed');
     }
 
     // No cycles, and nothing unreachable: every node is reached from Picks, a Require or a Time switch.

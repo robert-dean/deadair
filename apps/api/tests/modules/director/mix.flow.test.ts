@@ -332,3 +332,64 @@ describe('counting by how far through the show', () => {
         expect(late!.path).toContain('second');
     });
 });
+
+describe('a bypassed node', () => {
+    const bypass = (flow: MixFlow, ...ids: string[]): MixFlow => ({
+        ...flow,
+        nodes: flow.nodes.map(node => (ids.includes(node.id) ? { ...node, bypassed: true } : node)),
+    });
+
+    it('holds nothing and is left off the path while it stays bypassed', () => {
+        const flow = bypass(church(), 'block', 'share');
+        const walk = walkRecord(flow, rec('Burzum', 'black metal'), ctx([...heavy(9), blackMetal()]));
+        expect(walk).toEqual({ path: ['picks', 'split', 'merge', 'air'] });
+        expect(countThrough(flow, [{ ...rec('Mayhem', 'black metal'), hour: 20 }])[0]?.path).not.toContain('share');
+    });
+
+    it('counts the show so far through it once it is switched back on, the time it was off included', () => {
+        // Bypassed while two black metal records aired, then back on: the replay counts both through it.
+        const aired = [
+            { ...rec('Mayhem', 'black metal'), hour: 20 },
+            { ...rec('Emperor', 'black metal'), hour: 20 },
+        ];
+        expect(countThrough(bypass(church(), 'share'), aired).some(record => record.path.includes('share'))).toBe(false);
+        expect(countThrough(church(), aired).every(record => record.path.includes('share'))).toBe(true);
+    });
+
+    it('never stops a record being given back when the only Block on its way is bypassed', () => {
+        const flow = bypass(church(), 'block');
+        const spent = { ...rec('Britney Spears', 'pop'), hour: 20, path: ['picks', 'split', 'row', 'count', 'merge', 'air'] };
+        expect(holdMixFlow([rec('Burzum', 'black metal')], { flow, ctx: ctx() })).toMatchObject({ gaveWay: false, kept: [{ artist: 'Burzum' }] });
+        // Held by the count and given back: the bypassed Block on its way does not count against it.
+        expect(holdMixFlow([rec('Burzum', 'pop')], { flow, ctx: ctx([...heavy(2), spent]) })).toMatchObject({
+            gaveWay: true,
+            kept: [{ artist: 'Burzum' }],
+        });
+    });
+
+    it("sends every record down a bypassed split's everything else", () => {
+        const walk = walkRecord(bypass(church(), 'split'), rec('Britney Spears', 'pop'), ctx());
+        expect(walk.path).toEqual(['picks', 'block', 'merge', 'air']);
+    });
+
+    it('tells the model nothing about it, and a bypassed time switch leaves the limit on its own percent', () => {
+        const flow = bypass(church(), 'block', 'count', 'clock');
+        const lines = budgetLeft(flow, ctx(heavy(3)));
+        expect(lines.map(line => line.nodeId)).toEqual(['share']);
+        // The limit has no percent of its own, so with its switch off it holds nothing.
+        expect(walkRecord(flow, rec('Emperor', 'black metal'), ctx([...heavy(9), blackMetal()])).heldAt).toBeUndefined();
+    });
+
+    it('never falls due as a Require, and asks nothing as a judge', () => {
+        expect(dueRequirements(bypass(church(), 'pop'), ctx([], 20, 90))).toEqual([]);
+        const judging: MixFlow = {
+            ...church(),
+            nodes: church().nodes.map(node =>
+                node.id === 'split'
+                    ? { ...node, splitBy: 'judged' as const, question: 'Is it sinful?', bypassed: true, branches: [{ values: ['yes'] }] }
+                    : node,
+            ),
+        };
+        expect(judgeQuestions(judging)).toEqual([]);
+    });
+});

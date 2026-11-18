@@ -181,6 +181,11 @@ public sealed record MixNode
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? ElseValue { get; init; }
 
+    /// <summary>Switched off without being taken out: it judges nothing, counts nothing and tells the model nothing, and its wires still have to be whole. A Block, a limit or No two in a row lets every record through, a Split sends every record down "everything else", a Require never falls due and a Time switch leaves its limit on its own `percent`. Picks, On air and Merge cannot be bypassed. Absent is no</summary>
+    [JsonPropertyName("bypassed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Bypassed { get; init; }
+
     /// <summary>The phrase of the brief this node was drafted from, shown on the canvas. Nothing reads it</summary>
     [JsonPropertyName("fromBrief")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

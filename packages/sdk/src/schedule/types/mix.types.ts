@@ -101,6 +101,8 @@ export interface MixNode {
     thenValue?: number;
     /** `timeSwitch`: its value before `fromHour` */
     elseValue?: number;
+    /** Switched off without being taken out: it judges nothing, counts nothing and tells the model nothing, and its wires still have to be whole. A Block, a limit or No two in a row lets every record through, a Split sends every record down "everything else", a Require never falls due and a Time switch leaves its limit on its own `percent`. Picks, On air and Merge cannot be bypassed. Absent is no */
+    bypassed?: boolean;
     /** The phrase of the brief this node was drafted from, shown on the canvas. Nothing reads it */
     fromBrief?: string;
     /** Where the canvas draws it. Nothing else reads it */

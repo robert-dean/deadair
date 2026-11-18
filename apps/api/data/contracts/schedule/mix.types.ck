@@ -37,6 +37,7 @@ contract MixNode: {
     fromHour?: int(min=0, max=23) # `timeSwitch`: the hour on the station's clock it changes at
     thenValue?: number(min=0, max=1000) # `timeSwitch`: its value from `fromHour` to the end of the show
     elseValue?: number(min=0, max=1000) # `timeSwitch`: its value before `fromHour`
+    bypassed?: boolean # Switched off without being taken out: it judges nothing, counts nothing and tells the model nothing, and its wires still have to be whole. A Block, a limit or No two in a row lets every record through, a Split sends every record down "everything else", a Require never falls due and a Time switch leaves its limit on its own `percent`. Picks, On air and Merge cannot be bypassed. Absent is no
     fromBrief?: string(max=200) # The phrase of the brief this node was drafted from, shown on the canvas. Nothing reads it
     x?: number # Where the canvas draws it. Nothing else reads it
     y?: number

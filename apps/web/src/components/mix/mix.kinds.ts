@@ -48,6 +48,24 @@ export function socketsOf(node: Pick<MixNode, 'kind' | 'branches'>): { ins: Sock
     }
 }
 
+/**
+ * The rules that can be added at the loose end of a wire, and which of their sockets it meets.
+ *
+ * A wire dragged from an output into empty space wants a rule with an INPUT of the same type; one
+ * dragged back from an input wants a rule with an OUTPUT of it. A rule with no such socket is not
+ * offered, since adding it could not finish the wire.
+ */
+export function kindsAt(
+    end: { side: 'source' | 'target'; type: SocketType } | undefined,
+): { kind: (typeof PALETTE_KINDS)[number]; socket: number }[] {
+    return PALETTE_KINDS.flatMap(kind => {
+        if (end === undefined) return [{ kind, socket: 0 }];
+        const { ins, outs } = socketsOf(freshNode(kind, kind, { x: 0, y: 0 }));
+        const socket = (end.side === 'source' ? ins : outs).indexOf(end.type);
+        return socket < 0 ? [] : [{ kind, socket }];
+    });
+}
+
 /** What a node of a kind starts with when it is added, so a fresh node is one setting away from running. */
 export function freshNode(kind: MixKind, id: string, position: { x: number; y: number }): MixNode {
     const at = { x: Math.round(position.x), y: Math.round(position.y) };
@@ -110,7 +128,10 @@ export interface FlowProblem {
         | 'noAmount'
         | 'noCount'
         | 'nothingRequired'
-        | 'switchUnfinished';
+        | 'switchUnfinished'
+        | 'circle'
+        | 'unreached'
+        | 'cannotBypass';
     output?: number;
 }
 
@@ -138,8 +159,40 @@ export function flowProblems(flow: MixFlow): FlowProblem[] {
         if (ins.includes('records') && !fed.has(node.id)) problems.push({ nodeId: node.id, kind: 'nothingWiredIn' });
         const own = ownProblem(node, flow.links);
         if (own !== undefined) problems.push({ nodeId: node.id, kind: own });
+        if (node.bypassed === true && !canBypass(node)) problems.push({ nodeId: node.id, kind: 'cannotBypass' });
     }
+
+    // No circles, and nothing a record can never reach: the station's own two checks, so a flow the
+    // canvas calls ready is one the save takes.
+    const next = new Map<string, string[]>();
+    for (const link of flow.links) next.set(link.from, [...(next.get(link.from) ?? []), link.to]);
+    const reached = new Set<string>();
+    const state = new Map<string, 'open' | 'done'>();
+    const visit = (id: string): boolean => {
+        if (state.get(id) === 'done') return false;
+        if (state.get(id) === 'open') return true;
+        state.set(id, 'open');
+        reached.add(id);
+        const looped = (next.get(id) ?? []).some(visit);
+        state.set(id, 'done');
+        return looped;
+    };
+    const sources = flow.nodes.filter(node => node.kind === 'picks' || node.kind === 'require' || node.kind === 'timeSwitch');
+    if (sources.map(node => visit(node.id)).some(Boolean)) problems.push({ kind: 'circle' });
+    // A node with nothing wired in already says so; saying it is unreached as well is the same fault twice.
+    const unfed = new Set(problems.flatMap(problem => (problem.kind === 'nothingWiredIn' && problem.nodeId !== undefined ? [problem.nodeId] : [])));
+    for (const node of flow.nodes) if (!reached.has(node.id) && !unfed.has(node.id)) problems.push({ nodeId: node.id, kind: 'unreached' });
     return problems;
+}
+
+/** Whether a node is a rule that can be switched off. Picks, On air and a Merge are not rules. */
+export function canBypass(node: Pick<MixNode, 'kind'>): boolean {
+    return node.kind !== 'picks' && node.kind !== 'onAir' && node.kind !== 'merge';
+}
+
+/** The links without any that touch a node, which is what "take its wires off" leaves. */
+export function unwire(links: readonly MixLink[], nodeId: string): MixLink[] {
+    return links.filter(link => link.from !== nodeId && link.to !== nodeId);
 }
 
 function nodeOf(flow: MixFlow, id: string): MixNode | undefined {

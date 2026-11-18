@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Group, List, Menu, Modal, Popover, Stack, Text, Tooltip } from '@mantine/core';
+import { Badge, Button, Group, List, Modal, Popover, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { IconPlus, IconSparkles } from '@tabler/icons-react';
 import {
     Background,
     Controls,
     MarkerType,
+    MiniMap,
     ReactFlow,
     ReactFlowProvider,
     useReactFlow,
@@ -12,6 +13,7 @@ import {
     type Edge,
     type EdgeChange,
     type IsValidConnection,
+    type OnConnectEnd,
     type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -21,9 +23,21 @@ import { useTranslation } from 'react-i18next';
 import { useDraftMixFlow } from '../../api/schedule.queries';
 import { useTheme } from '../../theme.store';
 import { ErrorAlert } from '../shared/error.alert';
+import { AddRule } from './mix.add';
 import { MixReadings } from './mix.readings';
-import { flowProblems, freshNode, nextId, PALETTE_KINDS, relinkSplit, socketsOf, starterFlow, type FlowProblem } from './mix.kinds';
-import { MixNodeView, type MixFlowNode } from './mix.node';
+import {
+    flowProblems,
+    freshNode,
+    nextId,
+    relinkSplit,
+    socketsOf,
+    starterFlow,
+    unwire,
+    type FlowProblem,
+    type MixKind,
+    type SocketType,
+} from './mix.kinds';
+import { MixNodeView, type MixFlowNode, type ShowPeriod } from './mix.node';
 import classes from './mix.flow.module.css';
 
 const NODE_TYPES = { mix: MixNodeView };
@@ -44,26 +58,30 @@ const socketOf = (handle: string | null | undefined): number | undefined => {
  * A show's mix flow on a canvas: the nodes it has, the wires between them, and what would stop it
  * running, marked on the node as it is drawn.
  *
- * Edits a copy, handed back by {@link Props.onDone}; the slot editor saves it with the show, which is
- * where the station's own check refuses anything this one missed. The dashed wires from each limit back
+ * Edits a copy, handed back by {@link Props.onDone} only once nothing would stop it running; the show's
+ * page saves it with the show, where the station's own check stays the authority. The dotted wires from each limit back
  * to Picks are drawn and never stored: they are what the station tells the model about what each limit
  * has left.
  */
-export function MixFlowEditor({ opened, flow, title, brief, draftOnOpen, onDone, onClose }: Props) {
+export function MixFlowEditor({ opened, flow, title, brief, period, draftOnOpen, onDone, onClose }: Props) {
     const { t } = useTranslation('mix');
     return (
         <Modal
             opened={opened}
             onClose={onClose}
             fullScreen
-            title={title ? t('editor.titleNamed', { show: title }) : t('editor.title')}
+            withCloseButton={false}
+            // The canvas draws its own heading, as a page would; this names the dialog for a screen reader.
+            aria-label={title ? t('editor.titleNamed', { show: title }) : t('editor.title')}
             closeOnEscape={false}
         >
             {opened ? (
                 <ReactFlowProvider>
                     <Canvas
+                        {...(title === undefined ? {} : { title })}
                         initial={flow ?? starterFlow()}
                         brief={brief ?? ''}
+                        {...(period === undefined ? {} : { period })}
                         draftOnOpen={draftOnOpen === true}
                         onDone={onDone}
                         onClose={onClose}
@@ -83,19 +101,23 @@ interface Props {
     brief?: string;
     /** Start a draft from the brief as soon as the canvas opens. */
     draftOnOpen?: boolean;
+    /** The show's period, which Picks shows beside the brief. */
+    period?: ShowPeriod;
     onDone: (flow: MixFlow) => void;
     onClose: () => void;
 }
 
 interface CanvasProps {
+    title?: string;
     initial: MixFlow;
     brief: string;
+    period?: ShowPeriod;
     draftOnOpen: boolean;
     onDone: (flow: MixFlow) => void;
     onClose: () => void;
 }
 
-function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
+function Canvas({ title, initial, brief, period, draftOnOpen, onDone, onClose }: CanvasProps) {
     const { t } = useTranslation('mix');
     const theme = useTheme();
     const { screenToFlowPosition, fitView, getNodes, getInternalNode } = useReactFlow();
@@ -163,17 +185,41 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
         }));
     }, []);
 
+    const unwireNode = useCallback((id: string) => setFlow(current => ({ ...current, links: unwire(current.links, id) })), []);
+    const removeNode = useCallback(
+        (id: string) => setFlow(current => ({ ...current, nodes: current.nodes.filter(node => node.id !== id), links: unwire(current.links, id) })),
+        [],
+    );
+
+    // Which nodes are selected. Kept here because the nodes handed to React Flow are rebuilt from the
+    // flow on every render: without it a click never selected anything, so neither the toolbar nor
+    // the Delete key had a node to act on.
+    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    // And each node's measured size, for the same reason: the minimap draws only nodes it knows the size of.
+    const [sizes, setSizes] = useState<ReadonlyMap<string, { width: number; height: number }>>(new Map());
+
     const nodes: MixFlowNode[] = useMemo(
         () =>
             flow.nodes.map(node => ({
                 id: node.id,
+                selected: selected.has(node.id),
+                ...(sizes.has(node.id) ? { measured: sizes.get(node.id) } : {}),
                 type: 'mix' as const,
                 position: { x: node.x ?? 0, y: node.y ?? 0 },
                 // Picks and On air are what every flow is; removing either leaves nothing that can run.
                 deletable: node.kind !== 'picks' && node.kind !== 'onAir',
-                data: { node, problems: problems.filter(problem => problem.nodeId === node.id), lit: lit.includes(node.id), onChange: changeNode },
+                data: {
+                    node,
+                    problems: problems.filter(problem => problem.nodeId === node.id),
+                    problemTexts: problems.filter(problem => problem.nodeId === node.id).map(problem => problemText(t, problem, flow.nodes)),
+                    lit: lit.includes(node.id),
+                    ...(node.kind === 'picks' ? { show: { brief, ...(period === undefined ? {} : { period }) } } : {}),
+                    onChange: changeNode,
+                    onUnwire: unwireNode,
+                    onRemove: removeNode,
+                },
             })),
-        [flow.nodes, problems, lit, changeNode],
+        [flow.nodes, problems, lit, changeNode, unwireNode, removeNode, t, brief, period, selected, sizes],
     );
 
     const edges: Edge[] = useMemo(() => {
@@ -187,7 +233,9 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                 target: link.to,
                 targetHandle: `in-${link.in}`,
                 markerEnd: { type: MarkerType.ArrowClosed },
-                ...(number ? { style: { stroke: 'var(--mantine-color-orange-6)' } } : {}),
+                // Records solid, a number dashed, and what the model is told dotted: three kinds of wire
+                // an operator can tell apart without reading the sockets they join.
+                ...(number ? { style: NUMBER_WIRE } : {}),
             };
         });
         const picks = flow.nodes.find(node => node.kind === 'picks');
@@ -207,7 +255,7 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                           selectable: false,
                           deletable: false,
                           focusable: false,
-                          style: { stroke: 'var(--mantine-color-grape-5)', strokeDasharray: '6 5', opacity: 0.6 },
+                          style: BUDGET_WIRE,
                       }));
         return [...wires, ...budget];
     }, [flow.links, flow.nodes]);
@@ -215,6 +263,25 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
     const onNodesChange = useCallback(
         (changes: NodeChange<MixFlowNode>[]) => {
             if (changes.some(change => change.type === 'dimensions')) fitWhenMeasured();
+            const measured = changes.flatMap(change => (change.type === 'dimensions' && change.dimensions !== undefined ? [change] : []));
+            if (measured.length > 0) {
+                setSizes(current => {
+                    const next = new Map(current);
+                    for (const change of measured) if (change.dimensions !== undefined) next.set(change.id, change.dimensions);
+                    return next;
+                });
+            }
+            const picked = changes.flatMap(change => (change.type === 'select' ? [change] : []));
+            if (picked.length > 0) {
+                setSelected(current => {
+                    const next = new Set(current);
+                    for (const change of picked) {
+                        if (change.selected) next.add(change.id);
+                        else next.delete(change.id);
+                    }
+                    return next;
+                });
+            }
             setFlow(current => {
                 let next = current;
                 for (const change of changes) {
@@ -270,17 +337,60 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
         }));
     }, []);
 
-    const add = (kind: (typeof PALETTE_KINDS)[number]) => {
-        const centre = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-        setFlow(current => ({ ...current, nodes: [...current.nodes, freshNode(kind, nextId(kind, current.nodes), centre)] }));
+    // Where a rule is about to be added, and the loose end of the wire it is being added at, if any.
+    const [adding, setAdding] = useState<Adding | undefined>();
+    const addAtCentre = () => setAdding({ at: screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 }) });
+
+    /** A wire dropped on empty canvas: offer the rules that can take it, where it was dropped. */
+    const onConnectEnd: OnConnectEnd = useCallback(
+        (event, connection) => {
+            if (connection.isValid === true || connection.fromHandle === null || connection.fromNode === null) return;
+            const from = flow.nodes.find(node => node.id === connection.fromNode?.id);
+            const socket = socketOf(connection.fromHandle.id);
+            if (from === undefined || socket === undefined) return;
+            const side = connection.fromHandle.type;
+            const type = (side === 'source' ? socketsOf(from).outs : socketsOf(from).ins)[socket];
+            if (type === undefined) return;
+            const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+            if (point === undefined) return;
+            setAdding({ at: screenToFlowPosition({ x: point.clientX, y: point.clientY }), end: { side, type, nodeId: from.id, socket } });
+        },
+        [flow.nodes, screenToFlowPosition],
+    );
+
+    /** The rule picked, placed where it was asked for and wired to the loose end it was asked from. */
+    const place = (kind: MixKind, socket: number) => {
+        const request = adding;
+        setAdding(undefined);
+        if (request === undefined) return;
+        setFlow(current => {
+            const node = freshNode(kind, nextId(kind, current.nodes), request.at);
+            const end = request.end;
+            if (end === undefined) return { ...current, nodes: [...current.nodes, node] };
+            const link: MixLink =
+                end.side === 'source'
+                    ? { from: end.nodeId, out: end.socket, to: node.id, in: socket }
+                    : { from: node.id, out: socket, to: end.nodeId, in: end.socket };
+            // One wire per output, as a drawn wire replaces whatever left the same one.
+            const kept = current.links.filter(existing => !(existing.from === link.from && existing.out === link.out));
+            return { ...current, nodes: [...current.nodes, node], links: [...kept, link] };
+        });
     };
 
     return (
-        <Stack gap="sm" h="calc(100dvh - 90px)">
-            <Group justify="space-between" wrap="wrap">
-                <Text size="sm" c="dimmed" maw={720}>
-                    {t('editor.help')}
-                </Text>
+        <Stack gap="sm" h="calc(100dvh - 32px)">
+            <Group justify="space-between" align="flex-end" wrap="wrap">
+                <Stack gap={2}>
+                    <Text size="xs" c="dimmed">
+                        {title ? t('editor.crumbs', { show: title }) : t('editor.crumbsUnnamed')}
+                    </Text>
+                    <Title order={2} size="h3">
+                        {t('editor.title')}
+                    </Title>
+                    <Text size="sm" c="dimmed" maw={720}>
+                        {t('editor.help')}
+                    </Text>
+                </Stack>
                 <Group gap="xs">
                     <Popover opened={confirming} onChange={setConfirming} position="bottom-end" withArrow>
                         <Popover.Target>
@@ -320,31 +430,28 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                             </Stack>
                         </Popover.Dropdown>
                     </Popover>
-                    <Menu position="bottom-end" withinPortal>
-                        <Menu.Target>
-                            <Button size="xs" variant="light" leftSection={<IconPlus size={14} />}>
-                                {t('editor.add')}
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            {PALETTE_KINDS.map(kind => (
-                                <Menu.Item key={kind} onClick={() => add(kind)}>
-                                    <Text size="sm">{t(`kinds.${kind}`)}</Text>
-                                    <Text size="xs" c="dimmed">
-                                        {t(`hints.${kind}`)}
-                                    </Text>
-                                </Menu.Item>
-                            ))}
-                        </Menu.Dropdown>
-                    </Menu>
+                    <Tooltip label={t('editor.addHint')} multiline w={240}>
+                        <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={addAtCentre}>
+                            {t('editor.add')}
+                        </Button>
+                    </Tooltip>
                     <Button size="xs" variant="default" onClick={onClose}>
                         {t('editor.cancel')}
                     </Button>
-                    <Button size="xs" onClick={() => onDone(flow)}>
-                        {t('editor.done')}
-                    </Button>
+                    <Tooltip label={t('editor.fixFirst')} disabled={problems.length === 0} multiline w={260}>
+                        <Button size="xs" disabled={problems.length > 0} onClick={() => onDone(flow)}>
+                            {t('editor.done')}
+                        </Button>
+                    </Tooltip>
                 </Group>
             </Group>
+
+            <AddRule
+                opened={adding !== undefined}
+                end={adding?.end === undefined ? undefined : { side: adding.end.side, type: adding.end.type }}
+                onPick={place}
+                onClose={() => setAdding(undefined)}
+            />
 
             {drafting.isError ? <ErrorAlert title={t('draft.failed')} error={drafting.error} onDismiss={() => drafting.reset()} /> : undefined}
 
@@ -357,6 +464,12 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
+                        onConnectEnd={onConnectEnd}
+                        // A double-click on the canvas adds a rule there rather than zooming in.
+                        zoomOnDoubleClick={false}
+                        onPaneClick={event => {
+                            if (event.detail === 2) setAdding({ at: screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+                        }}
                         isValidConnection={isValidConnection}
                         colorMode={theme.scheme}
                         deleteKeyCode={['Backspace', 'Delete']}
@@ -366,6 +479,15 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                     >
                         <Background gap={24} />
                         <Controls showInteractive={false} />
+                        <MiniMap
+                            pannable
+                            zoomable
+                            ariaLabel={t('editor.minimap')}
+                            nodeColor={MINIMAP_NODE}
+                            nodeStrokeColor={MINIMAP_STROKE}
+                            maskColor={MINIMAP_MASK}
+                            nodeStrokeWidth={3}
+                        />
                     </ReactFlow>
                 </div>
                 {drafting.isPending || readings !== undefined ? (
@@ -381,11 +503,19 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                 ) : undefined}
             </Group>
 
-            <Group gap="lg" align="flex-start" wrap="wrap">
+            <Group gap="lg" align="flex-start" wrap="wrap" className={classes.status} role="status">
                 <Stack gap={4}>
-                    <Text size="xs" fw={600}>
-                        {t('editor.problemsTitle')}
-                    </Text>
+                    <Group gap="xs">
+                        <Text size="xs" fw={600}>
+                            {t('editor.problemsTitle')}
+                        </Text>
+                        <Badge size="xs" variant="light" color={problems.length === 0 ? 'teal' : 'red'}>
+                            {problems.length}
+                        </Badge>
+                        <Text size="xs" c="dimmed" className="da-num">
+                            {t('editor.nodes', { count: flow.nodes.length })} · {t('editor.wires', { count: flow.links.length })}
+                        </Text>
+                    </Group>
                     {problems.length === 0 ? (
                         <Text size="xs" c="dimmed">
                             {t('editor.noProblems')}
@@ -398,11 +528,57 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                         </List>
                     )}
                 </Stack>
-                <Text size="xs" c="dimmed" maw={420}>
-                    {t('editor.budget')}
-                </Text>
+                <Stack gap={4} maw={420}>
+                    <WireLegend />
+                    <Text size="xs" c="dimmed">
+                        {t('editor.budget')}
+                    </Text>
+                </Stack>
             </Group>
         </Stack>
+    );
+}
+
+/** The minimap draws the nodes in the console's own surfaces, so they show on its panel in every theme. */
+const MINIMAP_NODE = 'var(--da-border-strong)';
+const MINIMAP_STROKE = 'var(--da-phosphor)';
+const MINIMAP_MASK = 'rgb(0 0 0 / 35%)';
+
+/** Where a rule is being added, in the canvas's own coordinates, and the loose wire end it is joining. */
+interface Adding {
+    at: { x: number; y: number };
+    end?: { side: 'source' | 'target'; type: SocketType; nodeId: string; socket: number };
+}
+
+/** Records, the ordinary wire: `--xy-edge-stroke`, which `mix.flow.module.css` points at the same `--da-phosphor`. */
+const RECORDS_WIRE = { stroke: 'var(--da-phosphor)' };
+
+/** A number wired from a Time switch into a limit. */
+const NUMBER_WIRE = { stroke: 'var(--mantine-color-orange-6)', strokeDasharray: '7 4' };
+
+/** What each limit has left, which the station tells the model: drawn, never stored. */
+const BUDGET_WIRE = { stroke: 'var(--mantine-color-grape-5)', strokeDasharray: '1 5', strokeLinecap: 'round', strokeWidth: 2, opacity: 0.7 } as const;
+
+/** The three kinds of wire, as a key under the canvas. */
+function WireLegend() {
+    const { t } = useTranslation('mix');
+    return (
+        <Group gap="md" aria-hidden>
+            {[
+                { label: t('editor.legend.records'), style: RECORDS_WIRE },
+                { label: t('editor.legend.number'), style: NUMBER_WIRE },
+                { label: t('editor.legend.told'), style: BUDGET_WIRE },
+            ].map(({ label, style }) => (
+                <Group key={label} gap={6} wrap="nowrap">
+                    <svg width={28} height={8} aria-hidden>
+                        <line x1={1} y1={4} x2={27} y2={4} strokeWidth={2} {...style} />
+                    </svg>
+                    <Text size="xs" c="dimmed">
+                        {label}
+                    </Text>
+                </Group>
+            ))}
+        </Group>
     );
 }
 

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Group, List, Menu, Modal, Popover, Stack, Text, Tooltip } from '@mantine/core';
+import { Badge, Button, Group, List, Menu, Modal, Popover, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { IconPlus, IconSparkles } from '@tabler/icons-react';
 import {
     Background,
     Controls,
     MarkerType,
+    MiniMap,
     ReactFlow,
     ReactFlowProvider,
     useReactFlow,
@@ -56,12 +57,15 @@ export function MixFlowEditor({ opened, flow, title, brief, draftOnOpen, onDone,
             opened={opened}
             onClose={onClose}
             fullScreen
-            title={title ? t('editor.titleNamed', { show: title }) : t('editor.title')}
+            withCloseButton={false}
+            // The canvas draws its own heading, as a page would; this names the dialog for a screen reader.
+            aria-label={title ? t('editor.titleNamed', { show: title }) : t('editor.title')}
             closeOnEscape={false}
         >
             {opened ? (
                 <ReactFlowProvider>
                     <Canvas
+                        {...(title === undefined ? {} : { title })}
                         initial={flow ?? starterFlow()}
                         brief={brief ?? ''}
                         draftOnOpen={draftOnOpen === true}
@@ -88,6 +92,7 @@ interface Props {
 }
 
 interface CanvasProps {
+    title?: string;
     initial: MixFlow;
     brief: string;
     draftOnOpen: boolean;
@@ -95,7 +100,7 @@ interface CanvasProps {
     onClose: () => void;
 }
 
-function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
+function Canvas({ title, initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
     const { t } = useTranslation('mix');
     const theme = useTheme();
     const { screenToFlowPosition, fitView, getNodes, getInternalNode } = useReactFlow();
@@ -187,7 +192,9 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                 target: link.to,
                 targetHandle: `in-${link.in}`,
                 markerEnd: { type: MarkerType.ArrowClosed },
-                ...(number ? { style: { stroke: 'var(--mantine-color-orange-6)' } } : {}),
+                // Records solid, a number dashed, and what the model is told dotted: three kinds of wire
+                // an operator can tell apart without reading the sockets they join.
+                ...(number ? { style: NUMBER_WIRE } : {}),
             };
         });
         const picks = flow.nodes.find(node => node.kind === 'picks');
@@ -207,7 +214,7 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                           selectable: false,
                           deletable: false,
                           focusable: false,
-                          style: { stroke: 'var(--mantine-color-grape-5)', strokeDasharray: '6 5', opacity: 0.6 },
+                          style: BUDGET_WIRE,
                       }));
         return [...wires, ...budget];
     }, [flow.links, flow.nodes]);
@@ -276,11 +283,19 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
     };
 
     return (
-        <Stack gap="sm" h="calc(100dvh - 90px)">
-            <Group justify="space-between" wrap="wrap">
-                <Text size="sm" c="dimmed" maw={720}>
-                    {t('editor.help')}
-                </Text>
+        <Stack gap="sm" h="calc(100dvh - 32px)">
+            <Group justify="space-between" align="flex-end" wrap="wrap">
+                <Stack gap={2}>
+                    <Text size="xs" c="dimmed">
+                        {title ? t('editor.crumbs', { show: title }) : t('editor.crumbsUnnamed')}
+                    </Text>
+                    <Title order={2} size="h3">
+                        {t('editor.title')}
+                    </Title>
+                    <Text size="sm" c="dimmed" maw={720}>
+                        {t('editor.help')}
+                    </Text>
+                </Stack>
                 <Group gap="xs">
                     <Popover opened={confirming} onChange={setConfirming} position="bottom-end" withArrow>
                         <Popover.Target>
@@ -340,9 +355,11 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                     <Button size="xs" variant="default" onClick={onClose}>
                         {t('editor.cancel')}
                     </Button>
-                    <Button size="xs" onClick={() => onDone(flow)}>
-                        {t('editor.done')}
-                    </Button>
+                    <Tooltip label={t('editor.fixFirst')} disabled={problems.length === 0} multiline w={260}>
+                        <Button size="xs" disabled={problems.length > 0} onClick={() => onDone(flow)}>
+                            {t('editor.done')}
+                        </Button>
+                    </Tooltip>
                 </Group>
             </Group>
 
@@ -366,6 +383,7 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                     >
                         <Background gap={24} />
                         <Controls showInteractive={false} />
+                        <MiniMap pannable zoomable ariaLabel={t('editor.minimap')} nodeStrokeWidth={3} />
                     </ReactFlow>
                 </div>
                 {drafting.isPending || readings !== undefined ? (
@@ -381,11 +399,19 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                 ) : undefined}
             </Group>
 
-            <Group gap="lg" align="flex-start" wrap="wrap">
+            <Group gap="lg" align="flex-start" wrap="wrap" className={classes.status} role="status">
                 <Stack gap={4}>
-                    <Text size="xs" fw={600}>
-                        {t('editor.problemsTitle')}
-                    </Text>
+                    <Group gap="xs">
+                        <Text size="xs" fw={600}>
+                            {t('editor.problemsTitle')}
+                        </Text>
+                        <Badge size="xs" variant="light" color={problems.length === 0 ? 'teal' : 'red'}>
+                            {problems.length}
+                        </Badge>
+                        <Text size="xs" c="dimmed" className="da-num">
+                            {t('editor.status', { nodes: flow.nodes.length, wires: flow.links.length })}
+                        </Text>
+                    </Group>
                     {problems.length === 0 ? (
                         <Text size="xs" c="dimmed">
                             {t('editor.noProblems')}
@@ -398,11 +424,46 @@ function Canvas({ initial, brief, draftOnOpen, onDone, onClose }: CanvasProps) {
                         </List>
                     )}
                 </Stack>
-                <Text size="xs" c="dimmed" maw={420}>
-                    {t('editor.budget')}
-                </Text>
+                <Stack gap={4} maw={420}>
+                    <WireLegend />
+                    <Text size="xs" c="dimmed">
+                        {t('editor.budget')}
+                    </Text>
+                </Stack>
             </Group>
         </Stack>
+    );
+}
+
+/** Records, the ordinary wire, as React Flow draws it from `--xy-edge-stroke`. */
+const RECORDS_WIRE = { stroke: 'var(--da-phosphor)' };
+
+/** A number wired from a Time switch into a limit. */
+const NUMBER_WIRE = { stroke: 'var(--mantine-color-orange-6)', strokeDasharray: '7 4' };
+
+/** What each limit has left, which the station tells the model: drawn, never stored. */
+const BUDGET_WIRE = { stroke: 'var(--mantine-color-grape-5)', strokeDasharray: '1 5', strokeLinecap: 'round', strokeWidth: 2, opacity: 0.7 } as const;
+
+/** The three kinds of wire, as a key under the canvas. */
+function WireLegend() {
+    const { t } = useTranslation('mix');
+    return (
+        <Group gap="md" aria-hidden>
+            {[
+                { label: t('editor.legend.records'), style: RECORDS_WIRE },
+                { label: t('editor.legend.number'), style: NUMBER_WIRE },
+                { label: t('editor.legend.told'), style: BUDGET_WIRE },
+            ].map(({ label, style }) => (
+                <Group key={label} gap={6} wrap="nowrap">
+                    <svg width={28} height={8} aria-hidden>
+                        <line x1={1} y1={4} x2={27} y2={4} strokeWidth={2} {...style} />
+                    </svg>
+                    <Text size="xs" c="dimmed">
+                        {label}
+                    </Text>
+                </Group>
+            ))}
+        </Group>
     );
 }
 

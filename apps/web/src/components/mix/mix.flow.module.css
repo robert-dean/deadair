@@ -159,3 +159,9 @@
         width: 100%;
     }
 }
+
+/* The strip under the canvas: what would stop the flow running, its size, and a key to the wires. */
+.status {
+    border-top: 1px solid var(--da-border);
+    padding-top: var(--mantine-spacing-xs);
+}

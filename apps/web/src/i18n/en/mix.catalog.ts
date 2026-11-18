@@ -16,6 +16,16 @@ export const mix = {
     editor: {
         title: 'Mix flow',
         titleNamed: 'Mix flow: {{show}}',
+        crumbs: 'Programme › {{show}}',
+        crumbsUnnamed: 'Programme › New show',
+        fixFirst: 'Put right what the strip below lists first: the station would refuse this flow as it is.',
+        status: '{{nodes}} nodes · {{wires}} wires',
+        legend: {
+            records: 'Records',
+            number: 'A number',
+            told: 'What the model is told',
+        },
+        minimap: 'The whole flow, in miniature',
         help: 'Records enter at Picks and leave at On air. Drag from an output to an input to wire them; select a wire or a node and press Backspace or Delete to remove it.',
         add: 'Add',
         done: 'Use this flow',

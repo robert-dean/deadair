@@ -5,6 +5,7 @@ import type { MixFlow } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { Eyebrow } from '../shared/eyebrow';
+import { MixOutline } from './mix.outline.list';
 import type { ShowPeriod } from './mix.node';
 
 /** Loaded when first opened, so the canvas library is not in every page's first download. */
@@ -31,7 +32,8 @@ export function MixFlowField({ value, onChange, showName, brief, period, changed
             <Text size="xs" c="dimmed">
                 {t('field.description')}
             </Text>
-            <Text size="sm">{nodes === 0 ? t('field.none') : t('field.summary', { count: nodes })}</Text>
+            {/* The flow as a list, with its common settings editable here; the canvas is for the wiring. */}
+            {value === undefined || nodes === 0 ? <Text size="sm">{t('field.none')}</Text> : <MixOutline flow={value} onChange={onChange} />}
             {changed ? (
                 <Text size="xs" c="dimmed">
                     {t('field.unsaved')}
@@ -46,7 +48,7 @@ export function MixFlowField({ value, onChange, showName, brief, period, changed
                         setOpen(true);
                     }}
                 >
-                    {nodes === 0 ? t('field.create') : t('field.edit')}
+                    {nodes === 0 ? t('field.create') : t('field.open')}
                 </Button>
                 {nodes === 0 && hasBrief ? (
                     <Button

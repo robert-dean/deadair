@@ -27,10 +27,11 @@ describe('MixFlowField', () => {
         expect(screen.getByRole('button', { name: 'Draw a mix flow' })).toBeInTheDocument();
     });
 
-    it('counts the nodes of a flow, and removing it sends one with none', async () => {
+    it('lists a flow as rules, and removing it sends one with none', async () => {
         const onChange = vi.fn();
         render(<MixFlowField value={flow} onChange={onChange} />);
-        expect(screen.getByText('A mix flow of 3 nodes.')).toBeInTheDocument();
+        expect(screen.getByRole('list', { name: 'The mix flow, as a list' })).toHaveTextContent('Never');
+        expect(screen.getByText('Burzum')).toBeInTheDocument();
 
         await setupUser().click(screen.getByRole('button', { name: 'Remove it' }));
         expect(onChange).toHaveBeenCalledWith({ version: 1, nodes: [], links: [] });
@@ -41,7 +42,7 @@ describe('MixFlowField', () => {
         const user = setupUser();
         render(<MixFlowField value={flow} onChange={onChange} showName="Church" />);
 
-        await user.click(screen.getByRole('button', { name: 'Edit the mix flow' }));
+        await user.click(screen.getByRole('button', { name: 'Open the canvas' }));
         expect(await screen.findByText('Every record has a way to On air.')).toBeInTheDocument();
         expect(screen.getByText('Block bands')).toBeInTheDocument();
 

@@ -106,7 +106,7 @@ describe('drafting a mix flow from the brief', () => {
     it('asks before a draft replaces what is drawn', async () => {
         const user = setupUser();
         render(<MixFlowField value={drawn} onChange={vi.fn()} brief={BRIEF} />);
-        await user.click(screen.getByRole('button', { name: 'Edit the mix flow' }));
+        await user.click(screen.getByRole('button', { name: 'Open the canvas' }));
 
         await user.click(await screen.findByRole('button', { name: 'Draft from the brief' }));
         expect(draftMixFlow).not.toHaveBeenCalled();

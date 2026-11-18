@@ -2426,7 +2426,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
 
     // ── personas ───────────────────────────────────────────────────────────────
     // Drawn nowhere on the settings page, on the schedule group's terms:
-    // `PresenterNamePanel` owns it, above the roster on the characters page. It
+    // `PresenterNamePanel` owns it, under "Settings for presenters" on the
+    // characters page's Presenting now strip. It
     // sat beside the station's name for as long as it existed, where it read as
     // THE presenter's name, and any host with a name of its own overrides it,
     // which nothing on that page could say.

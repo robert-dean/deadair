@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Button, Card, Collapse, Group, Stack, Text, TextInput } from '@mantine/core';
+import { Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useTranslation } from 'react-i18next';
 import type { Persona } from '@deadair/sdk';
@@ -29,58 +28,48 @@ const KEY = 'station.djName';
  * nothing on that page saying why. Here the override is in view, and the sentence above the fold
  * names the hosts it actually reaches.
  *
- * ## Behind a fold, with the summary in view
+ * ## In the strip's popover, with the summary above the field
  *
- * The same shape as `SustainingPanel`: what stays on the screen is who the setting reaches, which
- * is also the affordance for changing it. An operator on this page has nearly always come for a
- * character, not for this.
+ * It opens from "Settings for presenters" on the Presenting now strip, beside the story wait: an
+ * operator on this page has nearly always come for a character, not for this, so it no longer takes
+ * a card of its own above the roster. The line above the field still says who the setting reaches.
  */
 export function PresenterNamePanel({ hosts }: PresenterNamePanelProps) {
     const settings = useSettings();
     const save = useUpdateSettings();
     const { t } = useTranslation('personas');
-    const [opened, setOpened] = useState(false);
 
     const stored = storedName(settings.data?.values ?? {});
     const unnamed = hosts.filter(host => (host.djName ?? '').trim() === '');
 
     return (
-        <Card padding="lg">
-            <Stack gap="sm">
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Stack gap={2}>
-                        <Eyebrow>{t('presenterName.eyebrow')}</Eyebrow>
-                        {/* Nothing is claimed until the settings have answered: an unanswered read
-                            and a station with no name set are the same empty map. */}
-                        <Text size="sm" c="dimmed" maw={620}>
-                            {settings.data === undefined ? ' ' : summaryOf(stored, unnamed)}
-                        </Text>
-                    </Stack>
-                    <Button size="xs" variant="light" onClick={() => setOpened(open => !open)}>
-                        {opened ? t('shared.done') : t('shared.change')}
-                    </Button>
-                </Group>
-
-                {settings.error ? (
-                    <ErrorAlert title={t('presenterName.readError')} error={settings.error} fallback={t('shared.settingsUnavailable')} />
-                ) : undefined}
-
-                <Collapse expanded={opened}>
-                    {/* Keyed on what the server last said, so the form is built from the answer
-                        rather than from the empty map the first render has. As `SustainingPanel`. */}
-                    <PresenterNameForm
-                        key={stored}
-                        initial={stored}
-                        // `null` rather than `''` for an emptied box: an explicit null deletes the
-                        // row, which is how a setting goes back to unset.
-                        onSubmit={name => save.mutate({ [KEY]: name.trim() === '' ? null : name.trim() })}
-                        saving={save.isPending}
-                        succeeded={save.isSuccess}
-                        failure={save.isError ? apiErrorMessage(save.error, t('presenterName.saveFallback')) : undefined}
-                    />
-                </Collapse>
+        <Stack gap="sm">
+            <Stack gap={2}>
+                <Eyebrow>{t('presenterName.eyebrow')}</Eyebrow>
+                {/* Nothing is claimed until the settings have answered: an unanswered read
+                    and a station with no name set are the same empty map. */}
+                <Text size="sm" c="dimmed" maw={620}>
+                    {settings.data === undefined ? ' ' : summaryOf(stored, unnamed)}
+                </Text>
             </Stack>
-        </Card>
+
+            {settings.error ? (
+                <ErrorAlert title={t('presenterName.readError')} error={settings.error} fallback={t('shared.settingsUnavailable')} />
+            ) : undefined}
+
+            {/* Keyed on what the server last said, so the form is built from the answer
+                rather than from the empty map the first render has. As `SustainingPanel`. */}
+            <PresenterNameForm
+                key={stored}
+                initial={stored}
+                // `null` rather than `''` for an emptied box: an explicit null deletes the
+                // row, which is how a setting goes back to unset.
+                onSubmit={name => save.mutate({ [KEY]: name.trim() === '' ? null : name.trim() })}
+                saving={save.isPending}
+                succeeded={save.isSuccess}
+                failure={save.isError ? apiErrorMessage(save.error, t('presenterName.saveFallback')) : undefined}
+            />
+        </Stack>
     );
 }
 

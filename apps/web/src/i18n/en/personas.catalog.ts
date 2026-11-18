@@ -26,8 +26,6 @@ export const personas = {
         remove: 'Remove',
     },
     shared: {
-        done: 'Done',
-        change: 'Change',
         save: 'Save',
         edit: 'Edit',
         add: 'Add',
@@ -55,6 +53,13 @@ export const personas = {
         exportAll: 'Export all',
         import: 'Import',
         restore: 'Restore built-ins',
+        restored: 'Any built-in character this station was missing is back. Nothing you rewrote was touched.',
+        exporting: 'Exporting the roster…',
+        exported: 'The roster was exported.',
+        more: {
+            button: 'More',
+            label: 'More for the whole roster',
+        },
         newOther: 'New caller or guest…',
         newCaller: 'New caller',
         newGuest: 'New guest',
@@ -77,7 +82,14 @@ export const personas = {
             placeholder: 'Find a character',
             clear: 'Clear the filter',
         },
-        noMatch: 'No character here matches that. Clear the box to see the whole roster again.',
+        noMatch: 'No character here matches that. Clear the box, or choose All, to see the whole roster again.',
+        only: {
+            all: 'All',
+            hosts: 'Hosts',
+            others: 'Callers and guests',
+            spoke_one: 'Spoke in {{count}} h',
+            spoke_other: 'Spoke in {{count}} h',
+        },
         heading: {
             hosts: 'Hosts',
             newsreader: 'Newsreader',
@@ -86,6 +98,7 @@ export const personas = {
         },
     },
     card: {
+        next: 'Next',
         alsoKind: {
             host: 'Also hosts',
             caller: 'Also rings in',
@@ -734,6 +747,13 @@ export const personas = {
         // `<strong/>` is filled with the host's name, as the component's own child.
         body: "The show on air is presented by <strong/>, which the broadcast named for itself. Putting a persona on air below changes the station's own host, which takes over when this show ends.",
         unknownHost: 'a character this station no longer has',
+        // `<strong/>` is filled with the host's name, as the component's own child.
+        speaking: '<strong/> is presenting.',
+        speakingOwn: "<strong/> is presenting, as the station's own host. Make another host the station's own and the next break is theirs.",
+        nobody: "Nobody is presenting, so breaks are written from the station's own phrasings and spoken in the default voice.",
+        coHosts_one: 'With {{names}} beside them as co-host.',
+        coHosts_other: 'With {{names}} beside them as co-hosts.',
+        settings: 'Settings for presenters',
         handBack: 'Hand it back',
         failure: 'The show kept the host it had.',
         note: "Handing it back re-writes the breaks already written for this show and not yet aired, in whoever's character it lands in.",

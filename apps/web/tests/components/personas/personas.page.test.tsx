@@ -8,21 +8,30 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Persona } from '@deadair/sdk';
 
 import { PersonasPage } from '../../../src/components/personas/personas.page';
-import { render, screen, setupUser, within } from '../../utils/render';
+import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 import { stubPhoneMedia } from '../../utils/phone';
 
 // This page opens four queries on mount (personas, voices, script summary). Everything but the
 // persona list itself is covered by its own suite; here it only has to not throw.
 const readScriptPerformance = vi.fn();
+const readScriptSummary = vi.fn(() => Promise.resolve({ hours: 24, rows: [] as object[] }));
+const readCurrentSlot = vi.fn(() => Promise.resolve({ now: '2026-11-18 21:30:00', upcoming: [] as object[] }));
+const listSchedule = vi.fn(() => Promise.resolve({ slots: [] as object[] }));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
-        personas: { listPersonas: () => listPersonas() },
+        personas: {
+            listPersonas: () => listPersonas(),
+            exportPersonas: () => exportPersonas(),
+            restorePersonas: () => restorePersonas(),
+        },
         render: {
             listVoices: () => Promise.resolve({ voices: [] }),
             readScriptPerformance: (...args: unknown[]) => readScriptPerformance(...args),
-            readScriptSummary: () => Promise.resolve({ rows: [] }),
+            readScriptSummary: () => readScriptSummary(),
         },
+        schedule: { readCurrentSlot: () => readCurrentSlot(), listSchedule: () => listSchedule() },
+        art: { listPersonaPortraits: () => Promise.resolve({ portraits: [] }) },
         settings: { getSettings: () => Promise.resolve({ descriptors: [], values: {}, configured: {} }) },
     },
 }));
@@ -36,6 +45,20 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const listPersonas = vi.fn();
+const exportPersonas = vi.fn();
+const restorePersonas = vi.fn();
+
+// The roster export reports through notifications, which this suite renders no provider for: what
+// was shown is read off the spy instead.
+const shown = vi.fn((_: { message: string }) => 'n-1');
+vi.mock('@mantine/notifications', () => ({
+    notifications: { show: (options: { message: string }) => shown(options), hide: vi.fn() },
+}));
+
+vi.mock('../../../src/components/shared/download', async importOriginal => ({
+    ...(await importOriginal<object>()),
+    saveJsonDownload: vi.fn(),
+}));
 
 const persona = (overrides: Partial<Persona> = {}): Persona => ({
     id: 'p-1',
@@ -74,7 +97,7 @@ describe('PersonasPage', () => {
         });
         render(<PersonasPage />);
 
-        await user.click(await screen.findByRole('button', { name: /more/i }));
+        await user.click(await screen.findByRole('button', { name: 'More about Marlowe' }));
         await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
 
         const row = (await screen.findByRole('cell', { name: 'talkbreak' })).closest('tr')!;
@@ -95,7 +118,7 @@ describe('PersonasPage', () => {
         readScriptPerformance.mockResolvedValue({ days: 30, rows: [] });
         render(<PersonasPage />);
 
-        await user.click(await screen.findByRole('button', { name: /more/i }));
+        await user.click(await screen.findByRole('button', { name: 'More about Marlowe' }));
         await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
 
         expect(await screen.findByText('This character has written nothing in the last 30 days.')).toBeInTheDocument();
@@ -199,11 +222,12 @@ describe('PersonasPage', () => {
         render(<PersonasPage />);
 
         // The badges sit beside the name in one Group, so the name's own parent is the card's
-        // heading row and scopes each assertion to the right character.
-        const speaking = (await screen.findByText('Fran')).parentElement;
+        // heading row and scopes each assertion to the right character. By paragraph, since the
+        // Presenting now strip names whoever is speaking too.
+        const speaking = (await screen.findByText('Fran', { selector: 'p' })).parentElement;
         expect(within(speaking as HTMLElement).getByText('On air now')).toBeInTheDocument();
 
-        const stationsOwn = screen.getByText('Marlowe').parentElement;
+        const stationsOwn = screen.getByText('Marlowe', { selector: 'p' }).parentElement;
         expect(within(stationsOwn as HTMLElement).getByText('Station\u2019s own')).toBeInTheDocument();
         expect(within(stationsOwn as HTMLElement).queryByText('On air now')).not.toBeInTheDocument();
     });
@@ -219,9 +243,9 @@ describe('PersonasPage', () => {
         });
         render(<PersonasPage />);
 
-        const cohost = (await screen.findByText('Garth')).parentElement;
+        const cohost = (await screen.findByText('Garth', { selector: 'p' })).parentElement;
         expect(within(cohost as HTMLElement).getByText('On air now, co-host')).toBeInTheDocument();
-        expect(within(screen.getByText('Fran').parentElement as HTMLElement).getByText('On air now')).toBeInTheDocument();
+        expect(within(screen.getByText('Fran', { selector: 'p' }).parentElement as HTMLElement).getByText('On air now')).toBeInTheDocument();
     });
 
     it('says "On air now" once when the station\u2019s own host is the one presenting', async () => {
@@ -229,7 +253,7 @@ describe('PersonasPage', () => {
         listPersonas.mockResolvedValue({ personas: [persona({ defaultHost: true, presenting: true })] });
         render(<PersonasPage />);
 
-        await screen.findByText('Marlowe');
+        await screen.findByText('Marlowe', { selector: 'p' });
         expect(screen.getByText('On air now')).toBeInTheDocument();
         expect(screen.queryByText('Station\u2019s own')).not.toBeInTheDocument();
     });
@@ -265,5 +289,156 @@ describe('PersonasPage', () => {
         } finally {
             restore();
         }
+    });
+
+    // Export all, Import and Restore built-ins were three buttons at the weight of New host. They are
+    // about the roster as a file, so they sit behind one menu, and the export says what it is doing
+    // in a notification because the item that asked has closed by then.
+    it('keeps the roster file actions behind one menu, and the export reports itself', async () => {
+        shown.mockClear();
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        exportPersonas.mockResolvedValue({ data: { format: 'deadair.personas', version: 1, personas: [] }, headers: {} });
+        const user = setupUser();
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe');
+        expect(screen.queryByRole('button', { name: 'Export all' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Import' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Restore built-ins' })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'More for the whole roster' }));
+        expect(screen.getByRole('menuitem', { name: 'Import' })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: 'Restore built-ins' })).toBeInTheDocument();
+        await user.click(screen.getByRole('menuitem', { name: 'Export all' }));
+
+        await waitFor(() => expect(shown).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'The roster was exported.' })));
+        expect(shown).toHaveBeenCalledWith(expect.objectContaining({ message: 'Exporting the roster…', loading: true }));
+        expect(exportPersonas).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves a failed roster export on the page rather than in a notification', async () => {
+        shown.mockClear();
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        exportPersonas.mockRejectedValue(new Error('disk full'));
+        const user = setupUser();
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe');
+        await user.click(screen.getByRole('button', { name: 'More for the whole roster' }));
+        await user.click(screen.getByRole('menuitem', { name: 'Export all' }));
+
+        expect(await screen.findByText('The personas could not be exported')).toBeInTheDocument();
+        expect(shown).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'The roster was exported.' }));
+    });
+
+    // The strip used to draw only during a show with its own host, with the presenter name and the
+    // story wait as two full cards beneath it. Now it says who is speaking in every state, and the
+    // two settings open from it.
+    it('says who is presenting, and opens the presenter settings from the strip', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona({ defaultHost: true, presenting: true }), persona({ id: 'p-2', key: 'sidekick', label: 'Garth', coHosting: true })],
+        });
+        const user = setupUser();
+        render(<PersonasPage />);
+
+        expect(await screen.findByText(/is presenting, as the station's own host/)).toBeInTheDocument();
+        expect(screen.getByText('With Garth beside them as co-host.')).toBeInTheDocument();
+        // The two settings are no longer cards on the page.
+        expect(screen.queryByText('Presenter name')).not.toBeInTheDocument();
+        expect(screen.queryByText('Returning to a story')).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Settings for presenters' }));
+        expect(await screen.findByRole('textbox', { name: 'Presenter name' })).toBeInTheDocument();
+        expect(screen.getByRole('textbox', { name: /Wait before returning to a story/ })).toBeInTheDocument();
+        expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(2);
+    });
+
+    it('says so when nobody is presenting', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        render(<PersonasPage />);
+
+        expect(await screen.findByText(/Nobody is presenting/)).toBeInTheDocument();
+    });
+
+    it('narrows the roster by kind, and to the ones that spoke in the last day', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [
+                persona(),
+                persona({ id: 'p-2', key: 'trucker', kind: 'caller', label: 'Trucker' }),
+                persona({ id: 'p-3', key: 'expert', kind: 'guest', label: 'Expert' }),
+            ],
+        });
+        readScriptSummary.mockResolvedValueOnce({ hours: 24, rows: [{ personaKey: 'trucker', written: 3, declined: 0, failed: 0 }] });
+        const user = setupUser();
+        render(<PersonasPage />);
+        await screen.findByText('Marlowe', { selector: 'p' });
+
+        await user.click(screen.getByRole('radio', { name: 'Callers and guests' }));
+        expect(screen.queryByText('Marlowe', { selector: 'p' })).not.toBeInTheDocument();
+        expect(screen.getByText('Trucker', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.getByText('Expert', { selector: 'p' })).toBeInTheDocument();
+
+        await user.click(screen.getByRole('radio', { name: 'Hosts' }));
+        expect(screen.getByText('Marlowe', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.queryByText('Trucker', { selector: 'p' })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('radio', { name: 'Spoke in 24 h' }));
+        expect(screen.getByText('Trucker', { selector: 'p' })).toBeInTheDocument();
+        expect(screen.queryByText('Marlowe', { selector: 'p' })).not.toBeInTheDocument();
+        expect(screen.queryByText('Expert', { selector: 'p' })).not.toBeInTheDocument();
+    });
+
+    // The first block in `upcoming` is the one on now when there is one, so Next goes to the first
+    // block that has not started, and only when its slot names a host of its own.
+    it('badges the host of the next block on the schedule as Next', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona({ defaultHost: true, presenting: true }), persona({ id: 'p-2', key: 'owl', label: 'Night owl' })],
+        });
+        readCurrentSlot.mockResolvedValueOnce({
+            now: '2026-11-18 21:30:00',
+            upcoming: [
+                { slotId: 's-on', label: 'Evening', start: '2026-11-18 18:00:00', end: '2026-11-18 22:00:00' },
+                { slotId: 's-late', label: 'Late', start: '2026-11-18 22:00:00', end: '2026-11-18 23:59:59' },
+            ],
+        });
+        listSchedule.mockResolvedValueOnce({
+            slots: [
+                { id: 's-on', label: 'Evening', startsAtMinutes: 1080, endsAtMinutes: 1320, personaId: 'p-1' },
+                { id: 's-late', label: 'Late', startsAtMinutes: 1320, endsAtMinutes: 0, personaId: 'p-2' },
+            ],
+        });
+        render(<PersonasPage />);
+
+        const owl = (await screen.findByText('Night owl', { selector: 'p' })).parentElement as HTMLElement;
+        expect(await within(owl).findByText('Next')).toBeInTheDocument();
+        expect(screen.getAllByText('Next')).toHaveLength(1);
+    });
+
+    it('gives no one Next when the next block is the station’s own host', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        readCurrentSlot.mockResolvedValueOnce({
+            now: '2026-11-18 21:30:00',
+            upcoming: [{ slotId: 's-late', label: 'Late', start: '2026-11-18 22:00:00', end: '2026-11-18 23:59:59' }],
+        });
+        listSchedule.mockResolvedValueOnce({ slots: [{ id: 's-late', label: 'Late', startsAtMinutes: 1320, endsAtMinutes: 0 }] });
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe', { selector: 'p' });
+        await waitFor(() => expect(listSchedule).toHaveBeenCalled());
+        expect(screen.queryByText('Next')).not.toBeInTheDocument();
+    });
+
+    it('widens a card to the whole row while one of its panels is open', async () => {
+        listPersonas.mockResolvedValue({ personas: [persona()] });
+        readScriptPerformance.mockResolvedValue({ days: 30, rows: [] });
+        const user = setupUser();
+        const { container } = render(<PersonasPage />);
+        await screen.findByText('Marlowe', { selector: 'p' });
+        expect(container.querySelector('[data-wide]')).toBeNull();
+
+        await user.click(screen.getByRole('button', { name: 'More about Marlowe' }));
+        await user.click(await screen.findByRole('menuitem', { name: 'How it is doing' }));
+
+        expect(container.querySelector('[data-wide]')).not.toBeNull();
     });
 });

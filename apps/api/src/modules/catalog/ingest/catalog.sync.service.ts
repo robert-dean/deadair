@@ -14,6 +14,18 @@ import { resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js';
 
+/**
+ * Pages the catalog walk reads from one list before it gives up: a million items at fifty a page.
+ *
+ * Its own number rather than the shared `PLUGIN_MAX_PAGES`, which is sized for a list collected
+ * into one response. This walk streams, so the only thing a cap buys it is an end to a provider that
+ * ignores `offset` without repeating itself, and a provider that repeats is caught at its second page
+ * anyway. The shared 10,000 stopped a terabyte library at its first 10,000 tracks, which a Subsonic
+ * server hands over alphabetically, so the station shuffled the records whose titles start with a digit
+ * or an A or a B and never saw the rest.
+ */
+export const CATALOG_SYNC_MAX_PAGES = 20_000;
+
 /** What one plugin's walk produced. */
 export interface PluginSyncSummary {
     pluginId: string;
@@ -278,9 +290,9 @@ export class CatalogSyncService {
      * themselves.** A throw and a cancellation both arrive here as control flow.
      * A walk that ran out of pages does not: `pluginPages` yields its last item
      * and returns like any other, so for as long as this existed a provider that
-     * ignores `offset`, or a library past ten thousand items, produced a
-     * summary indistinguishable from a complete run and swept everything the cap
-     * cut off. That is the third one, and `truncated` is how it gets here.
+     * ignores `offset`, or a library past the page cap, produced a summary
+     * indistinguishable from a complete run and swept everything the cap cut
+     * off. That is the third one, and `truncated` is how it gets here.
      */
     private async syncPlugin(candidate: CatalogPlugin, maxPercent: number, signal?: AbortSignal): Promise<PluginSyncSummary> {
         const pluginId = candidate.record.id;
@@ -454,7 +466,7 @@ export class CatalogSyncService {
      * `onTruncated` is required here rather than optional as it is on the request, because this walk
      * is the caller that cannot afford to omit it. See {@link syncPlugin}.
      */
-    private pages<T>(
+    private pages<T extends { id: string }>(
         candidate: CatalogPlugin,
         op: string,
         fetch: (offset: number) => Promise<T[]>,
@@ -464,7 +476,15 @@ export class CatalogSyncService {
         return pluginPages(
             this.pluginInvoker,
             this.logger,
-            { pluginId: candidate.record.id, op, incomplete: 'its catalog', onTruncated, signal },
+            {
+                pluginId: candidate.record.id,
+                op,
+                incomplete: 'its catalog',
+                onTruncated,
+                signal,
+                maxPages: CATALOG_SYNC_MAX_PAGES,
+                keyOf: item => item.id,
+            },
             fetch,
         );
     }

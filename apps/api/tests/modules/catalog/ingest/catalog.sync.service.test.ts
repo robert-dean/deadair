@@ -425,15 +425,32 @@ describe('CatalogSyncService.syncAll', () => {
             expect(summaries[0]!.error).toBe('cancelled');
         });
 
+        it('reads a library longer than 10,000 tracks to its end, and sweeps it', async () => {
+            // A terabyte library used to stop at the shared cap of 10,000, which a
+            // Subsonic server fills with the start of the alphabet. The walk has a
+            // cap of its own now, so the whole library is ingested and the walk
+            // counts as complete.
+            const library = Array.from({ length: 10_050 }, (_, i) => track(`t${i}`));
+            const provider = fakeProvider({ playlists: [playlist('all')], tracks: { all: library } });
+            const { resolver, ingested, swept } = fakeResolver();
+            const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver);
+
+            const summaries = await service.syncAll();
+
+            expect(ingested).toHaveLength(library.length);
+            expect(summaries[0]!.error).toBeUndefined();
+            expect(swept).toHaveLength(1);
+        });
+
         it('does not sweep when the walk stopped at the page cap', async () => {
             // The third partial walk, and the only one that used to look complete
             // from here: `pluginPages` yields its last item and returns normally,
             // so nothing threw and nothing was cancelled. A provider that ignores
-            // `offset` produces this, and so does a library past ten thousand
-            // items; either way the ids this run saw are not the library.
+            // `offset` produces this, and so would a library past the cap;
+            // either way the ids this run saw are not the library.
             //
-            // Every playlist is unreadable, so the cap is reached on the playlist
-            // walk alone and no track pages are fetched for it.
+            // Every playlist is unreadable, so the repeated page is reached on the
+            // playlist walk alone and no track pages are fetched for it.
             const unreadable = Array.from({ length: PAGE_SIZE }, (_, i) => playlist(`p${i}`, { permissions: ['edit'] }));
             const instance = {
                 listPlaylists: vi.fn(async () => unreadable),

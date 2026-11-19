@@ -294,13 +294,22 @@ refuse every time and warn the operator about a walk that did nothing wrong. A r
 playlist stays until the next whole walk judges it. A hidden playlist is refused, 409 at the route and
 `hidden` in the walk, on the rule that hiding one takes it out of the library.
 
+**The walk reads a library to its end, however long it is.** It pages fifty at a time and has its own cap,
+`CATALOG_SYNC_MAX_PAGES` (a million items), rather than the shared `PLUGIN_MAX_PAGES` of 10,000 that the
+console's playlist read keeps. It used to share that one, on the argument that 10,000 was past any real
+library. A terabyte Navidrome library is ten times that, and an empty `search3` hands songs over
+alphabetically, so the station synced the records starting with a digit, an A or a B, and its shuffle
+sounded sequential. A provider that ignores `offset` was the cap's only reason for being low, and
+`pluginPages` now catches it at the first full page holding the same ids as the one before, which ends the walk as
+truncated (no sweep, nothing kept) at page two instead of page two hundred.
+
 **The Library page answers from the list the walk kept, and asks a provider live only for a source with nothing
 kept.** It used to ask every provider for its playlists on every visit, inside the plugin's call timeout, and a
 Spotify that was slow or rate limited (the walk reading it at the same moment was enough) answered nothing: the
 page went empty although the walk had read every playlist minutes before and thrown the list away. The walk now
 reads a plugin's whole list before any of its tracks and keeps it in `deadair.provider_playlist_listings`, one
 row per plugin replaced whole, and only when the list was read to the end, on the sweep's own rule: a list cut
-short at the page cap, cancelled or failed is never kept, because every playlist it missed would vanish from the
+short at the page cap or by a provider repeating a page, cancelled or failed is never kept, because every playlist it missed would vanish from the
 page. The walk is the only writer; `PlaylistsService` reads it, and a source's live answer is not kept from
 there, since a settings save has already queued a walk for that plugin. Hiding is applied when the list is READ,
 so it never waits on a walk. A quarantined or misconfigured source still lists what was kept beside the error

@@ -629,10 +629,28 @@ describe('PlaylistsService.getPlaylistTracks', () => {
 
     // A provider that ignores `offset` serves a full page forever. The walk has to
     // end anyway, and it has to say so: a silently truncated playlist looks exactly
-    // like a complete one.
-    it('gives up at the page cap and warns, when the provider ignores offset', async () => {
+    // like a complete one. The repeated page is enough to know, so it ends at the
+    // second call rather than reading page one two hundred times.
+    it('gives up at the repeated page and warns, when the provider ignores offset', async () => {
         const instance = catalogInstance({
             getPlaylistTracks: vi.fn(async () => Array.from({ length: PAGE_SIZE }, (_, i) => track(`t${i}`))),
+        });
+        const { service, registry, logger } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
+
+        const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        expect(instance.getPlaylistTracks).toHaveBeenCalledTimes(2);
+        expect(result.tracks).toHaveLength(PAGE_SIZE);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('same page twice'), expect.objectContaining({ plugin: SPOTIFY_ID }));
+    });
+
+    // A playlist really longer than the cap: every page is new, so only the cap ends it.
+    it('gives up at the page cap and warns, when every page is full and new', async () => {
+        const instance = catalogInstance({
+            getPlaylistTracks: vi.fn(async (_id: string, options?: { offset?: number }) =>
+                Array.from({ length: PAGE_SIZE }, (_, i) => track(`t${(options?.offset ?? 0) + i}`)),
+            ),
         });
         const { service, registry, logger } = makeService(userActor('u-admin', ['admin']));
         registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.104.3] — 2026-11-19
+
+- A library of more than 10,000 tracks now syncs in full. The catalog sync used to stop at the first 10,000 tracks a provider handed over, which for Navidrome is the start of the alphabet, so a large library only ever played records starting with a digit, an A or a B. A provider that keeps serving the same page is now caught on its second page and logged, rather than read two hundred times.
+
 ## [0.104.2] — 2026-11-18
 
 - The speaker button in the Desk's on-air card now reads **Speakers**, or **2 speakers** while the station is playing on some. In the Neon Transmitter theme its old wording was cut off mid-word as "ON A SPEAK". A label that still doesn't fit, such as a longer word in another language, now ends in an ellipsis instead of being cut off.
@@ -2100,7 +2104,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.3...HEAD
+[0.104.3]: https://github.com/robert-dean/deadair/compare/v0.104.2...v0.104.3
 [0.104.2]: https://github.com/robert-dean/deadair/compare/v0.104.1...v0.104.2
 [0.104.1]: https://github.com/robert-dean/deadair/compare/v0.104.0...v0.104.1
 [0.104.0]: https://github.com/robert-dean/deadair/compare/v0.103.0...v0.104.0

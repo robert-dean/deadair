@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.105.0] — 2026-11-20
+
+- A show on the timetable can now have a description for listeners: a sentence or two saying what the show is, written in the block's editor beside its name. The timetable and now playing carry it, Programme's Today strip shows it, and a schedule exported to a file keeps it. It is never read to the presenter or the model, and it is separate from the brief, which stays the presenter's and is never shown to listeners. Now playing shows the description while the block's own show is on, and not for a show put on air by hand under another name.
+
 ## [0.104.3] — 2026-11-19
 
 - A library of more than 10,000 tracks now syncs in full. The catalog sync used to stop at the first 10,000 tracks a provider handed over, which for Navidrome is the start of the alphabet, so a large library only ever played records starting with a digit, an A or a B. A provider that keeps serving the same page is now caught on its second page and logged, rather than read two hundred times.
@@ -2104,7 +2108,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.104.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.0...HEAD
+[0.105.0]: https://github.com/robert-dean/deadair/compare/v0.104.3...v0.105.0
 [0.104.3]: https://github.com/robert-dean/deadair/compare/v0.104.2...v0.104.3
 [0.104.2]: https://github.com/robert-dean/deadair/compare/v0.104.1...v0.104.2
 [0.104.1]: https://github.com/robert-dean/deadair/compare/v0.104.0...v0.104.1

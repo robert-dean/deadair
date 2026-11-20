@@ -81,6 +81,11 @@ public sealed record NowPlayingShow
     [JsonPropertyName("hostArtUrl")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? HostArtUrl { get; init; }
+
+    /// <summary>What the show is, in a sentence or two, as the operator described its schedule slot for listeners. Absent for a show with no description, for one an operator put on air by hand under another name, and while a presenter has the live input. Never the presenter's brief</summary>
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
 }
 
 /// <summary>The words of whatever record is on air, and where it is in them</summary>

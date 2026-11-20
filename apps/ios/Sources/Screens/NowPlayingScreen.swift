@@ -376,6 +376,15 @@ struct NowPlayingScreen: View {
                 }
                 .padding(.top, 4)
             }
+            // What the show is, in the operator's words for listeners, quieter still and under the host.
+            if let description = ui.showDescription {
+                Text(description)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(alignment)
+                    .lineLimit(2)
+                    .padding(.top, 4)
+            }
             // Beside the cover there is room for the album; under it, the title and the credit are the
             // whole of it, and the album is one tap away on the record's page.
             if !centred, let album = ui.album {

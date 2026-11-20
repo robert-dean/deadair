@@ -83,6 +83,20 @@ struct WhatsOnUiStateTests {
         #expect(state.ahead.isEmpty)
     }
 
+    @Test func saysWhatAShowIsFromTheBlocksDescriptionAndNothingForABlankOne() throws {
+        var described = evening
+        described.description = "Soul for the small hours."
+        var blank = described
+        blank.start = "2026-09-07 20:00:00"
+        blank.end = "2026-09-07 22:00:00"
+        blank.description = " "
+        let state = whatsOn(ScheduleNow(now: now, upcoming: [described, blank]), slots: [slot("slot-1", brief: "nothing after 1985")], personas: [])
+
+        let on = try #require(live(state))
+        #expect(on.block.description == "Soul for the small hours.")
+        #expect(state.ahead.first?.block.description == nil)
+    }
+
     @Test func namesTheHostByTheNameTheyAreIntroducedUnder() throws {
         // Not the persona's label, which is what the operator filed them under. A listener knows
         // the voice.
@@ -94,7 +108,8 @@ struct WhatsOnUiStateTests {
 
         let on = try #require(live(state))
         #expect(on.block.host == "Cass")
-        #expect(on.block.brief == "slow records")
+        // The brief is the presenter's instruction and never a listener's line.
+        #expect(on.block.description == nil)
         #expect(on.block.hours == BlockHours(from: Clock(hour: 20, minute: 0), to: Clock(hour: 22, minute: 0), day: nil))
     }
 

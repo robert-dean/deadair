@@ -115,6 +115,36 @@ describe('SlotEditorForm', () => {
         expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ beds: false });
     });
 
+    it('opens a slot with its description, sends it as typed, and sends it empty to clear it', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot({ brief: 'Heavy metal', description: 'Loud records for the small hours.' }) }}
+                onCancel={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        const box = await screen.findByRole('textbox', { name: /Description for listeners/ });
+        expect(box).toHaveValue('Loud records for the small hours.');
+
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+        expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ brief: 'Heavy metal', description: 'Loud records for the small hours.' });
+
+        await user.clear(box);
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+        expect(onSubmit.mock.calls[1]?.[0]).toMatchObject({ description: '' });
+    });
+
     it('opens a dry show unticked, and says so out loud when its beds are turned back on', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

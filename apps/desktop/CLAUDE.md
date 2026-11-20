@@ -1704,7 +1704,9 @@ a slot's mood, a special's dates, its guest hosts and co-hosts, whether it resum
 artist cooldown and per-artist cap all ride through untouched in `SlotDraft.Kept`, because an edit
 here that dropped them would turn Halloween into a show every night and silence a countdown's host.
 **A new `ScheduleSlot` field the editor does not draw goes into `SlotPassthrough`, `From` and
-`ToInput` in the same change**, or saving from the desk resets it to the station's default. Specials are made and dated on the
+`ToInput` in the same change**, or saving from the desk resets it to the station's default. The
+listener `description` is drawn, beside the brief, and sent on every save, so an emptied box clears it
+(the station keeps one a write leaves out, for builds older than the box). Specials are made and dated on the
 web console's Specials tab; the list here says a special's dates where a weekly slot says its days
 (`SlotText.When`). Calls and
 mixing in go only when ON (absent is no calls, and absent leaves the station's own mixing setting

@@ -57,6 +57,7 @@ import { BreakRequestRepository } from '../../../src/modules/director/break.requ
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
 import { PersonaArtworkService } from '../../../src/modules/art/persona.artwork.service.js';
+import { ScheduleRepository } from '../../../src/modules/schedule/schedule.repository.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { BreakWriterRegistry } from '../../../src/modules/director/break.writer.registry.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
@@ -170,6 +171,10 @@ interface Options {
     personasFail?: boolean;
     /** Portraits by persona id, as `PersonaArtworkService.portraitUrl` answers them. */
     portraits?: Record<string, string>;
+    /** Slots' names and listener descriptions by id, as `ScheduleRepository.described` answers them. */
+    slotWords?: Record<string, { label: string; description?: string }>;
+    /** A schedule table that cannot be read, which must cost a listener the description and nothing else. */
+    slotWordsFail?: boolean;
     /**
      * Productions still being made, as `ProductionRepository.unfinished` answers them.
      *
@@ -468,6 +473,12 @@ function build(options: Options = {}) {
         ),
     };
     const portraits = { portraitUrl: vi.fn(async (personaId: string) => options.portraits?.[personaId]) };
+    const schedule = {
+        described: vi.fn(async (id: string) => {
+            if (options.slotWordsFail) throw new Error('the schedule table is gone');
+            return options.slotWords?.[id];
+        }),
+    };
 
     const scope = {
         get: vi.fn((token: unknown) =>
@@ -511,7 +522,9 @@ function build(options: Options = {}) {
                                                     ? asRun
                                                     : token === BreakWriterRegistry
                                                       ? writers
-                                                      : history,
+                                                      : token === ScheduleRepository
+                                                        ? schedule
+                                                        : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -2229,6 +2242,104 @@ describe('DirectorService telling the transport what is on', () => {
         await wake(rundown);
 
         expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Ray' });
+    });
+});
+
+// A slot's description is what a listener is told the show is. It is the slot's while the broadcast is the slot's
+// show, which the NAME decides: an operator's own `putOnAir` is stamped with the slot in force as well.
+describe('DirectorService telling the transport what the show is', () => {
+    const SLOT = '00000000-0000-4000-8000-0000000000bb';
+    const words = { [SLOT]: { label: 'Late night', description: 'Soul and funk for the small hours.' } };
+    const asScheduled = {
+        name: 'Late night',
+        mode: 'rotation' as const,
+        onEnd: 'extend' as const,
+        source: 'import',
+        placedBy: 'schedule' as const,
+        slotId: SLOT,
+    };
+
+    it("describes the slot's own show, by the clock or from the Desk", async () => {
+        const { director, rundown, seed } = build({ items: ['a'], slotWords: words });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'putOnAir', binding: asScheduled, tracks: [track('x'), track('y')] });
+        expect(rundown.broadcast()).toEqual({ name: 'Late night', description: 'Soul and funk for the small hours.' });
+
+        await director.post({ kind: 'putOnAir', binding: { ...asScheduled, placedBy: 'operator' }, tracks: [track('x'), track('y')] });
+        expect(rundown.broadcast()?.description).toBe('Soul and funk for the small hours.');
+    });
+
+    it("does not describe an operator's own programme with the slot it was stamped with", async () => {
+        const { director, rundown, seed } = build({ items: ['a'], slotWords: words });
+        await seed();
+        await director.start();
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { ...asScheduled, name: 'Something else', placedBy: 'operator' },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Something else' });
+    });
+
+    it('stops describing the show the moment it is renamed', async () => {
+        const { director, rundown, seed } = build({ items: ['a'], slotWords: words });
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: asScheduled, tracks: [track('x'), track('y')] });
+
+        await director.post({ kind: 'reprogramme', change: { name: 'Church' } });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Church' });
+    });
+
+    it('keeps describing the show when its slot is renamed while it is on, which leaves the show its old name', async () => {
+        const options: Options = { items: ['a', 'b', 'c'], slotWords: { [SLOT]: { ...words[SLOT] } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: asScheduled, tracks: [track('x'), track('y'), track('z')] });
+
+        options.slotWords = { [SLOT]: { label: 'Late Night', description: 'Soul and funk for the small hours.' } };
+        vi.setSystemTime(Date.now() + 61_000);
+        await wake(rundown);
+        expect(rundown.broadcast()).toMatchObject({ name: 'Late night', description: 'Soul and funk for the small hours.' });
+
+        // Applying the edit renames the broadcast to the new label, which is the slot's too.
+        await director.post({ kind: 'reprogramme', change: { name: 'Late Night' } });
+        expect(rundown.broadcast()?.description).toBe('Soul and funk for the small hours.');
+    });
+
+    it('describes nothing for a broadcast that belongs to no slot, or a slot with no description', async () => {
+        const { director, rundown, seed } = build({ items: ['a'], slotWords: { [SLOT]: { label: 'Late night' } } });
+        await seed();
+        await director.start();
+        expect(rundown.broadcast()).not.toHaveProperty('description');
+
+        await director.post({ kind: 'putOnAir', binding: asScheduled, tracks: [track('x'), track('y')] });
+        expect(rundown.broadcast()).not.toHaveProperty('description');
+    });
+
+    it('keeps the description through a reading that fails, and hears an edit within the minute', async () => {
+        const options: Options = { items: ['a', 'b', 'c'], slotWords: { [SLOT]: { ...words[SLOT] } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: asScheduled, tracks: [track('x'), track('y'), track('z')] });
+
+        options.slotWordsFail = true;
+        vi.setSystemTime(Date.now() + 61_000);
+        await wake(rundown);
+        expect(rundown.broadcast()?.description).toBe('Soul and funk for the small hours.');
+
+        options.slotWordsFail = false;
+        options.slotWords = { [SLOT]: { label: 'Late night', description: 'Funk, mostly.' } };
+        vi.setSystemTime(Date.now() + 61_000);
+        await wake(rundown);
+        expect(rundown.broadcast()?.description).toBe('Funk, mostly.');
     });
 });
 

@@ -51,6 +51,37 @@ describe('OnNowStrip', () => {
         expect(onEdit).toHaveBeenCalledWith(late);
     });
 
+    it("shows what listeners are told the show is, and names the brief as the presenter's", () => {
+        const late: ScheduleSlot = {
+            id: 'late',
+            label: 'LateNite',
+            startsAtMinutes: 22 * 60,
+            endsAtMinutes: 0,
+            days: [],
+            brief: 'nothing after 1985',
+            description: 'Soul for the small hours.',
+            mode: 'rotation',
+            onEnd: 'extend',
+        };
+        const current: ScheduleNow = {
+            now: '2026-01-05 12:00:00',
+            upcoming: [
+                {
+                    slotId: 'late',
+                    label: 'LateNite',
+                    start: '2026-01-05 22:00:00',
+                    end: '2026-01-06 00:00:00',
+                    description: 'Soul for the small hours.',
+                },
+            ],
+        };
+
+        render(<OnNowStrip current={current} slots={[late]} personas={PERSONAS} />);
+
+        expect(screen.getByText('Soul for the small hours.')).toBeInTheDocument();
+        expect(screen.getByText('Asked to play “nothing after 1985”')).toBeInTheDocument();
+    });
+
     it('offers no edit for a block whose slot the page has not got', () => {
         const current: ScheduleNow = {
             now: '2026-01-05 12:00:00',

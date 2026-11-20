@@ -271,9 +271,16 @@ function BlockName({
                 {hostLine ? <Text component="span" c="dimmed">{` · ${hostLine}`}</Text> : undefined}
             </Text>
 
+            {/* What listeners are told the show is, from the block itself, and then what the presenter is
+                asked for, named as that: the two are different readers' words and must not read as one. */}
+            {block.description ? (
+                <Text size="xs" lineClamp={2}>
+                    {block.description}
+                </Text>
+            ) : undefined}
             {slot?.brief ? (
                 <Text size="xs" c="dimmed" lineClamp={1}>
-                    {slot.brief}
+                    {t('onNow.asked', { brief: slot.brief })}
                 </Text>
             ) : undefined}
         </>
@@ -298,7 +305,7 @@ function slotOf(slots: readonly ScheduleSlot[], block: ScheduleOccurrence): Sche
 
 interface Props {
     current: ScheduleNow;
-    /** The stored slots, for the host and the brief an occurrence deliberately does not carry. */
+    /** The stored slots, for the host and the brief an occurrence deliberately does not carry. The description it does. */
     slots: readonly ScheduleSlot[];
     personas: readonly Persona[];
     /** Open a block's slot in the editor. Without it the strip is read-only. */

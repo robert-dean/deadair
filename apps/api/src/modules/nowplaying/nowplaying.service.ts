@@ -72,6 +72,7 @@ export class NowPlayingService {
             name: broadcast.name,
             ...(host === undefined ? {} : { host }),
             ...(broadcast.hostArtUrl === undefined ? {} : { hostArtUrl: broadcast.hostArtUrl }),
+            ...(broadcast.description === undefined ? {} : { description: broadcast.description }),
         };
     }
 

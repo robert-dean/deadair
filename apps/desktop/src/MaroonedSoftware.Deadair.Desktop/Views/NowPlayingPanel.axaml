@@ -55,6 +55,9 @@
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource DaTextDimmedBrush}" />
                 </Grid>
+                <TextBlock Text="{Binding Listener.ShowLine}" FontSize="11" TextWrapping="Wrap" MaxLines="2"
+                           TextTrimming="CharacterEllipsis" IsVisible="{Binding Listener.HasShowLine}"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
             </StackPanel>
 
             <!-- The words, when the station has them for the record being heard and somebody is

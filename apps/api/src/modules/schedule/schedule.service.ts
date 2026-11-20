@@ -445,7 +445,9 @@ export class ScheduleService {
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const stored = (await this.slots.list()).find(slot => slot.id === id);
-        const draft = draftOf(keepingMixFlow(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored), stored));
+        const draft = draftOf(
+            keepingDescription(keepingMixFlow(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored), stored), stored),
+        );
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
         await this.refuseFestival(draft);
@@ -613,6 +615,8 @@ export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
                 : { source: { pluginId: body.sourcePluginId, playlistId: body.sourcePlaylistId } }),
         ...(body.personaId?.trim() ? { personaId: body.personaId.trim() } : {}),
         ...(body.brief?.trim() ? { brief: body.brief.trim() } : {}),
+        // An empty one is how a client clears it, and is stored as none.
+        ...(body.description?.trim() ? { description: body.description.trim() } : {}),
         ...(body.eraFrom === undefined && body.eraTo === undefined
             ? {}
             : { era: { ...(body.eraFrom === undefined ? {} : { from: body.eraFrom }), ...(body.eraTo === undefined ? {} : { to: body.eraTo }) } }),
@@ -753,6 +757,17 @@ function refuseMixFlow(draft: ScheduleSlotDraft): void {
 }
 
 /**
+ * A body that says nothing about the description leaves it where it is.
+ *
+ * `keepingMixFlow`'s argument: a client built before the field existed (an older desktop app) rewrites the
+ * whole row without it, and reading that as "none" would wipe what listeners are told about a show
+ * because somebody dragged it to a new hour. A client that means to clear it sends an empty string.
+ */
+function keepingDescription(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
+    return body.description === undefined && stored?.description !== undefined ? { ...body, description: stored.description } : body;
+}
+
+/**
  * A body that says nothing about beds leaves the slot's answer where it is.
  *
  * `keepingSwitch`'s argument for a field absent means yes on: a client built before the field existed
@@ -864,6 +879,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
                 : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+        ...(slot.description === undefined ? {} : { description: slot.description }),
         ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         ...(slot.moods === undefined ? {} : { moods: slot.moods }),

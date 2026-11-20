@@ -86,8 +86,8 @@ private struct BlockCardView: View {
             if let line = hoursAndHost {
                 Text(line).font(.footnote).foregroundStyle(.secondary)
             }
-            if let brief = block.brief {
-                Text(brief).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+            if let description = block.description {
+                Text(description).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
             }
         }
         .accessibilityElement(children: .combine)

@@ -360,6 +360,19 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, hostPortraitUrl: S
                 )
             }
         }
+        // What the show is, in the operator's words for listeners, quieter still and under the host:
+        // the record is the news, and this is the programme it is part of.
+        state.showDescription?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = align,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         // Beside the cover there is room for the album; under it, the title and the credit are the
         // whole of it, and the album is one tap away on the record's page.
         if (!centred) {

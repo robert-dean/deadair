@@ -108,17 +108,21 @@ public struct NowPlayingShow: Codable, Equatable, Sendable {
     public var host: String?
     /// A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before
     public var hostArtUrl: String?
+    /// What the show is, in a sentence or two, as the operator described its schedule slot for listeners. Absent for a show with no description, for one an operator put on air by hand under another name, and while a presenter has the live input. Never the presenter's brief
+    public var description: String?
 
-    public init(name: String, host: String? = nil, hostArtUrl: String? = nil) {
+    public init(name: String, host: String? = nil, hostArtUrl: String? = nil, description: String? = nil) {
         self.name = name
         self.host = host
         self.hostArtUrl = hostArtUrl
+        self.description = description
     }
 
     private enum CodingKeys: String, CodingKey {
         case name = "name"
         case host = "host"
         case hostArtUrl = "hostArtUrl"
+        case description = "description"
     }
 
     public init(from decoder: Decoder) throws {
@@ -126,6 +130,7 @@ public struct NowPlayingShow: Codable, Equatable, Sendable {
         self.name = try container.decode(String.self, forKey: .name)
         self.host = try container.decodeIfPresent(String.self, forKey: .host)
         self.hostArtUrl = try container.decodeIfPresent(String.self, forKey: .hostArtUrl)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -133,6 +138,7 @@ public struct NowPlayingShow: Codable, Equatable, Sendable {
         try container.encode(self.name, forKey: .name)
         try container.encodeIfPresent(self.host, forKey: .host)
         try container.encodeIfPresent(self.hostArtUrl, forKey: .hostArtUrl)
+        try container.encodeIfPresent(self.description, forKey: .description)
     }
 }
 

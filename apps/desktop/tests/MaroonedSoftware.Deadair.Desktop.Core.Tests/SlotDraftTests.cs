@@ -107,6 +107,18 @@ public class SlotDraftTests
     }
 
     [Fact]
+    public void ADescriptionIsAtMostThreeHundredCharacters() =>
+        Assert.NotNull((Valid with { Description = new string('a', 301) }).Problem());
+
+    [Fact]
+    public void ADescriptionIsAlwaysSentSoAnEmptiedBoxClearsIt()
+    {
+        Assert.Equal("Records for the drive in.", (Valid with { Description = "  Records for the drive in. " }).ToInput()!.Description);
+        Assert.Equal(string.Empty, (Valid with { Description = "  " }).ToInput()!.Description);
+        Assert.Equal("Bright.", SlotDraft.From(Slot() with { Description = "Bright." }).Description);
+    }
+
+    [Fact]
     public void AStoredSlotRoundTripsThroughTheEditor()
     {
         var stored = Slot() with

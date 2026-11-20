@@ -37,10 +37,15 @@ export interface CastMenuProps {
  * 101px, which "Speakers" and "2 speakers" fit in every theme, and the ellipsis is for whatever does
  * not (a longer word in another language, a count in double figures), whose full form the tooltip
  * and the open menu both carry.
+ *
+ * `textBox: 'normal'` is what keeps the ellipsis from cutting the tops off the letters. Mantine sets
+ * the label `text-box: cap alphabetic`, which trims its box to the cap height, and is harmless there
+ * only because its label is `height: 100%`. With the height left to the text and `overflow: hidden`
+ * for the ellipsis, the trimmed box was the clip: 10px of a 14px line, and "SPEAKERS" lost its top.
  */
 const BLOCK_STYLES = {
     root: { paddingInline: 12 },
-    label: { display: 'block', height: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+    label: { display: 'block', height: 'auto', textBox: 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 } as const;
 
 export function CastMenu({ onStart, onStop, busy, block = false }: CastMenuProps) {

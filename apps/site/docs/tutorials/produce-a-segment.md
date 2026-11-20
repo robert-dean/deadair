@@ -58,7 +58,7 @@ When every beat has been spoken it goes into the running order and shows **in th
 
 **To make them regularly,** add a band to the format clock instead (Programme → Today → **New band**)
 with `podcast` as the **Sort of break**. One is commissioned ahead of every time the band comes round.
-See [Make a show](./make-a-show.md#3-give-the-hour-a-shape-optional).
+See [Make a show](./make-a-show.md#4-give-the-hour-a-shape-optional).
 
 ## Make a show of your own
 

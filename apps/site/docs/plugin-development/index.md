@@ -28,7 +28,7 @@ A plugin declares one or more capabilities, and implements the methods each one 
 - **`enrichment`**: supply facts about a record, and the prose the station reads its facts out of.
 - **`speech`**: say something out loud. Text in, audio out.
 - **`llm`**: produce words. A conversation in, text out.
-- **`analysis`**: measure a record's audio for its cue points and loudness.
+- **`analysis`**: measure a record's audio for its cue points, loudness, tempo and brightness.
 - **`mixer`**: make one piece of audio out of several.
 - **`charts`**: say what is popular, as a ranked list of names.
 - **`similarity`**: say which artists and records sound like which.

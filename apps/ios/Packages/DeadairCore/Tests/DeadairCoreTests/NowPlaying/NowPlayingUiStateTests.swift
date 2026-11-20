@@ -65,6 +65,19 @@ struct NowPlayingUiStateTests {
         #expect(state(.onAir(track), show: NowPlayingShow(name: "Late Static", host: "Cass")).hostLine == .withHost("Cass"))
     }
 
+    @Test func saysWhatTheShowIsInTheWordsTheOperatorWroteForListeners() {
+        let show = NowPlayingShow(name: "Late Static", host: "Cass", description: "Soul for the small hours.")
+        #expect(state(.onAir(track), show: show).showDescription == "Soul for the small hours.")
+    }
+
+    @Test func describesNothingDuringABreakOffAirOrForAShowWithNoDescription() {
+        let show = NowPlayingShow(name: "Late Static", host: "Cass", description: "Soul for the small hours.")
+        #expect(state(.onAir(spoken), show: show).showDescription == nil)
+        #expect(state(.unreachable, stale: true, show: show).showDescription == nil)
+        #expect(state(.onAir(track), show: NowPlayingShow(name: "Late Static", description: " ")).showDescription == nil)
+        #expect(state(.onAir(track), show: NowPlayingShow(name: "Late Static")).showDescription == nil)
+    }
+
     @Test func neverDrawsTheShowsNameWhichIsTheOperatorsLabelAndMayBeTheStationsMadeUpOne() {
         #expect(state(.onAir(track), show: NowPlayingShow(name: "From Spotify")).hostLine == nil)
     }

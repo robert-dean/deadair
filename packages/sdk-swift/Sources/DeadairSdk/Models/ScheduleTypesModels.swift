@@ -196,13 +196,16 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
     public var end: String
     /// Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no
     public var live: Bool?
+    /// What the show is, for the people listening, as its slot describes it. Absent when the slot has none, and nothing stands in for it: never the slot's brief, which is the presenter's
+    public var description: String?
 
-    public init(slotId: String, label: String, start: String, end: String, live: Bool? = nil) {
+    public init(slotId: String, label: String, start: String, end: String, live: Bool? = nil, description: String? = nil) {
         self.slotId = slotId
         self.label = label
         self.start = start
         self.end = end
         self.live = live
+        self.description = description
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -211,6 +214,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         case start = "start"
         case end = "end"
         case live = "live"
+        case description = "description"
     }
 
     public init(from decoder: Decoder) throws {
@@ -220,6 +224,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         self.start = try container.decode(String.self, forKey: .start)
         self.end = try container.decode(String.self, forKey: .end)
         self.live = try container.decodeIfPresent(Bool.self, forKey: .live)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -229,6 +234,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         try container.encode(self.start, forKey: .start)
         try container.encode(self.end, forKey: .end)
         try container.encodeIfPresent(self.live, forKey: .live)
+        try container.encodeIfPresent(self.description, forKey: .description)
     }
 }
 

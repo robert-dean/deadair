@@ -62,6 +62,16 @@ describe('project', () => {
         expect(blocks[2]?.start).toBe('2026-08-21 06:00:00');
     });
 
+    it("carries the slot's description onto each block, and never its brief", () => {
+        const described = { ...slot('late', at(22), at(2)), brief: 'nothing after 1985', description: 'Soul for the small hours.' };
+        const blocks = project(WEDNESDAY, 1, [described, { ...slot('day', at(9), at(17)), brief: 'bright pop' }]);
+
+        expect(blocks.filter(block => block.slotId === 'late').every(block => block.description === 'Soul for the small hours.')).toBe(true);
+        expect(blocks.find(block => block.slotId === 'day')).not.toHaveProperty('description');
+        expect(JSON.stringify(blocks)).not.toContain('1985');
+        expect(JSON.stringify(blocks)).not.toContain('bright pop');
+    });
+
     it('leaves the hours nothing claims empty', () => {
         // The whole of what changed. There is no block between ten and four, and the answer simply
         // has nothing there rather than stretching breakfast across it.

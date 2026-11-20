@@ -77,6 +77,8 @@ data class ScheduleOccurrence(
     val end: String,
     /** Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no */
     val live: Boolean? = null,
+    /** What the show is, for the people listening, as its slot describes it. Absent when the slot has none, and nothing stands in for it: never the slot's brief, which is the presenter's */
+    val description: String? = null,
 )
 
 /**

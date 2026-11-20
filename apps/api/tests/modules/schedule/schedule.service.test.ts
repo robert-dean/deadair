@@ -143,6 +143,17 @@ describe('ScheduleService.current', () => {
         ]);
     });
 
+    it("tells a listener what the coming shows are, from each slot's description", async () => {
+        const service = build({
+            slots: [{ ...slot('evening', 18 * 60, 20 * 60), brief: 'nothing loud', description: 'Quiet records for the drive home.' }],
+        });
+
+        const { upcoming } = await service.current();
+
+        expect(upcoming[0]).toMatchObject({ slotId: 'evening', description: 'Quiet records for the drive home.' });
+        expect(upcoming[0]).not.toHaveProperty('brief');
+    });
+
     it('leaves a gap absent rather than filling it', async () => {
         // Nothing is on at one in the afternoon and the next block starts at six. The answer is the
         // six o'clock block with no slot in force — what plays in between is the sustaining source,

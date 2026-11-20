@@ -568,7 +568,11 @@ its requests — audio, API and artwork — or it will be counted as several lis
 station speaks on its own) are the only things `/nowplaying` says beyond the record. The director
 pushes the show into the rundown when it attaches an order, on a recast and on its commit passes,
 because the host is a persona row and this route answers with no database; the station-wide presenter
-name is the setting it falls back to per call. A presenter talking over the start of a record is
+name is the setting it falls back to per call. `show.description` rides with it: the listener description
+of the slot the order is stamped with, read beside the host on the host's minute (`ScheduleRepository.described`,
+narrow so the poll-side cost stays one small row), and told only while the broadcast's name is the slot's
+label, because an operator's own `putOnAir` is stamped with the slot in force too and their programme is not
+what the slot's words describe. Never the brief, and nothing while a presenter has the live input. A presenter talking over the start of a record is
 deliberately NOT reported: the voice rides the record, has no end time anything could report, and the
 record is what the listener hears for all but a few seconds of it.
 

@@ -235,6 +235,20 @@ describe("a slot's description", () => {
     });
 });
 
+describe('ScheduleRepository.described', () => {
+    it("answers a slot's name and description, trimmed, and no description for a blank one", async () => {
+        const read = (stored: Record<string, string | null>) =>
+            new ScheduleRepository(fakeDb(storedRow(stored), storedRow({}), []), new StationIdentity()).described(SLOT);
+
+        expect(await read({ description: '  Soul for the small hours. ' })).toEqual({
+            label: 'Late night',
+            description: 'Soul for the small hours.',
+        });
+        expect(await read({ description: '   ' })).toEqual({ label: 'Late night' });
+        expect(await read({})).toEqual({ label: 'Late night' });
+    });
+});
+
 describe('which writer a slot asks first', () => {
     it('writes the order to its own column, and reads a null back as the station’s own', async () => {
         const statements: string[] = [];

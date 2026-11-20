@@ -60,6 +60,7 @@ import { PlayHistoryRepository } from './play.history.repository.js';
 import { AsRunRepository } from './as.run.repository.js';
 import { playlistKeyOf } from './playlist.resume.js';
 import { PlaylistPositionRepository } from '#modules/schedule/playlist.position.repository.js';
+import { ScheduleRepository } from '#modules/schedule/schedule.repository.js';
 import { DEFAULT_OVERRUN_MINUTES, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from '#modules/schedule/changeover.overrun.js';
 import { spacingLengthOf } from './air.estimate.js';
 import { overdueCountdown } from './chart.airtime.js';
@@ -368,6 +369,13 @@ export class DirectorService {
     private quietRecords = 0;
     /** When the host's name was last read for the transport. See {@link HOST_TTL_MS}. */
     private hostReadAt = 0;
+    /**
+     * The name and listener description of the slot the order on air was stamped with, as last read,
+     * for `/nowplaying`. Re-read with the host, on the host's minute, and kept through a read that
+     * fails, on the host's argument. Which description is TOLD is worked out per telling, by
+     * {@link descriptionFor}, so a rename or a new order never carries the last one's words.
+     */
+    private slotWords?: { slotId: string; label: string; description?: string };
     private active = false;
     /**
      * What puts the station on air, as the setting currently stands.
@@ -1958,7 +1966,7 @@ export class DirectorService {
      */
     private async announceBroadcast(lineup: StationLineup): Promise<void> {
         this.hostReadAt = Date.now();
-        const incoming = await this.presenting(lineup.personaId);
+        const [incoming] = await Promise.all([this.presenting(lineup.personaId), this.readSlotWords(lineup.slotId)]);
         // A pass that awaited the read may find a different order attached by the time it returns.
         if (this.lineup !== lineup) return;
         // A read that FAILED keeps the host the transport already holds: nothing said the host
@@ -1977,11 +1985,48 @@ export class DirectorService {
      * listener is never told it.
      */
     private tellTransport(lineup: StationLineup, host: { name?: string; art?: string }): void {
+        const description = this.descriptionFor(lineup);
         this.rundown.setBroadcast({
             name: lineup.name,
             ...(host.name === undefined ? {} : { host: host.name }),
             ...(host.art === undefined ? {} : { hostArtUrl: host.art }),
+            ...(description === undefined ? {} : { description }),
         });
+    }
+
+    /**
+     * What listeners are told the show on air is: its slot's description, while the broadcast is that
+     * slot's show.
+     *
+     * An operator's own `putOnAir` stamps the slot in force too (see `StationLineup.slotId`), so a
+     * stamp alone does not make the broadcast the slot's. The NAME does: a slot aired by the clock or
+     * from the Desk goes on under its label, and an operator's own programme under whatever they called
+     * it, which the slot's words do not describe. A rename on air is the same test, told at once.
+     */
+    private descriptionFor(lineup: StationLineup): string | undefined {
+        const words = this.slotWords;
+        if (words === undefined || lineup.slotId !== words.slotId) return undefined;
+        return words.label.trim() === lineup.name.trim() ? words.description : undefined;
+    }
+
+    /**
+     * Read the stamped slot's name and description into {@link slotWords}.
+     *
+     * Its own failure, kept apart from the host's: a description that could not be read costs a
+     * listener a sentence, never the station its knowledge of who is talking. A failed read keeps what
+     * was held, which {@link descriptionFor} only tells while it is still this order's slot.
+     */
+    private async readSlotWords(slotId: string | undefined): Promise<void> {
+        if (slotId === undefined) {
+            this.slotWords = undefined;
+            return;
+        }
+        try {
+            const slot = await inScope(this.container, async scope => scope.get(ScheduleRepository).described(slotId));
+            this.slotWords = slot === undefined ? undefined : { slotId, ...slot };
+        } catch (error) {
+            this.logger.warn(`director: could not read the show's description (${errorText(error)})`);
+        }
     }
 
     /** The host the transport already holds, name and picture, for a pass that has nothing newer. */

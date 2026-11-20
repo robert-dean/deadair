@@ -12655,6 +12655,10 @@ components:
                     type: string
                     maxLength: 2000
                     description: "A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before"
+                description:
+                    type: string
+                    maxLength: 300
+                    description: "What the show is, in a sentence or two, as the operator described its schedule slot for listeners. Absent for a show with no description, for one an operator put on air by hand under another name, and while a presenter has the live input. Never the presenter's brief"
             required: [name]
             description: 'The programme on air, as a listener would be told it'
         NowPlaying:

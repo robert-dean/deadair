@@ -65,6 +65,24 @@ export class ScheduleRepository extends DataRepository {
         return this.withPeople(rows.map(toSlot));
     }
 
+    /**
+     * A slot's name and its description for listeners, and nothing else, for `/nowplaying`.
+     *
+     * Narrow on purpose: the director reads this once a minute while a show is on, and the whole slot
+     * would cost its co-hosts and guests as well. `undefined` for a slot that has gone.
+     */
+    async described(id: string): Promise<{ label: string; description?: string } | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.scheduleSlots')
+            .select(['label', 'description'])
+            .where('stationKey', '=', this.station.stationKey)
+            .where('id', '=', id)
+            .executeTakeFirst();
+        if (row === undefined) return undefined;
+        const description = row.description == null ? '' : row.description.trim();
+        return { label: row.label, ...(description === '' ? {} : { description }) };
+    }
+
     async create(draft: ScheduleSlotDraft): Promise<ScheduleSlot> {
         const row = await this.db
             .insertInto('deadair.scheduleSlots')

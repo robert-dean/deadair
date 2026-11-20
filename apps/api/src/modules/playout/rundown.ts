@@ -456,6 +456,8 @@ export interface RundownBroadcast {
     host?: string;
     /** Where the host's portrait is served, as a path under the API root. Absent when their persona has none. */
     hostArtUrl?: string;
+    /** What the show is, for listeners, from its schedule slot. Absent when there is none to give. */
+    description?: string;
 }
 
 /** The fields of a rundown item that come from a plugin's catalog. */

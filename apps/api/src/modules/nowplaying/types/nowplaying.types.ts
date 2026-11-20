@@ -88,6 +88,13 @@ export const NowPlayingShow = z.strictObject({
         .describe(
             "A picture of whoever is presenting, when the operator gave their persona one. A path under the API root, like a cover's. Absent for a persona with no picture, which a player answers by showing the record's cover as before",
         ),
+    description: z
+        .string()
+        .max(300)
+        .optional()
+        .describe(
+            "What the show is, in a sentence or two, as the operator described its schedule slot for listeners. Absent for a show with no description, for one an operator put on air by hand under another name, and while a presenter has the live input. Never the presenter's brief",
+        ),
 });
 export type NowPlayingShow = z.infer<typeof NowPlayingShow>;
 

@@ -53,7 +53,7 @@ from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 from tags import gain_tags
 
-ANALYZER = "deadair-analysis/0.2.0"
+ANALYZER = "deadair-analysis/0.3.0"
 
 _log = logging.getLogger("uvicorn.error")
 

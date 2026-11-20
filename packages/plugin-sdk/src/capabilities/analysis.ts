@@ -73,11 +73,21 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
  * something the station degrades over anyway. `tagGainDb` and friends arrived
  * exactly this way.
  *
+ * **Version 2 is the one deliberate exception, and it is a re-measure rather
+ * than a change of shape.** The beat fields and `brightnessHz` arrived as
+ * optional fields on version 1, so new records got them and the library's
+ * existing rows never would: nothing else re-measures a row that works. Raising
+ * this to 2 is how the whole library is measured once more, last and behind
+ * every new record, for both at once. No field changed meaning, which is why
+ * {@link ANALYSIS_READABLE_SINCE_VERSION} stays at 1 and nothing a version-1 row
+ * carries stops being read. A version 2 row is one measured by an analyzer that
+ * reports the tempo and the brightness when it can.
+ *
  * The host compares this against what it stored, so a plugin must report the
  * version it actually produced rather than this constant, in case the two have
  * drifted apart across an upgrade.
  */
-export const ANALYSIS_SCHEMA_VERSION = 1;
+export const ANALYSIS_SCHEMA_VERSION = 2;
 
 /**
  * The oldest {@link ANALYSIS_SCHEMA_VERSION} whose measurements a READER still uses.

@@ -80,7 +80,7 @@ consumer leans on is chosen from its output on this library. Its docstring has t
 Cheap. Does no work, decodes nothing.
 
 ```json
-{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.2.0", "maxConcurrent": 4, "rssMb": 118.4 }
+{ "status": "ok", "schemaVersion": 2, "analyzer": "deadair-analysis/0.3.0", "maxConcurrent": 4, "rssMb": 118.4 }
 ```
 
 Two callers, two purposes. The plugin's connection test uses it so the console can say "not
@@ -113,8 +113,8 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
 ```jsonc
 // response, 200
 {
-  "schemaVersion": 1,
-  "analyzer": "deadair-analysis/0.2.0",
+  "schemaVersion": 2,
+  "analyzer": "deadair-analysis/0.3.0",
   "complete": true,
   "durationMs": 213880,
   "data": {
@@ -164,6 +164,14 @@ answer for one being absent, so a row written before the field existed is a corr
 version rather than a stale one. The `tag*` fields arrived exactly that way. A row measured before
 them keeps its measured loudness, and re-measuring the catalog is how it picks them up.
 
+**Version 2 is that re-measure, and the one bump that changed no shape.** The beat fields and
+`brightnessHz` arrived as optional fields on version 1, so they reached new records and nothing else.
+Raising the version is what makes the station's walk measure every existing record once more: last,
+behind any new record, a day apart after a failed try, and with nothing a version-1 row carries going
+unread meanwhile, because the station reads from version 1 (`ANALYSIS_READABLE_SINCE_VERSION`) and
+only the walk asks for the current one. On a library of about 7,300 records the beat tracker makes it
+about two weeks of background work; everything else in a measurement is seconds a record.
+
 The three beat fields are **optional and arrive together or not at all**. They are absent for a record
 with no pulse to report, for a tempo outside 40 to 220 BPM, for a record longer than
 `ANALYSIS_BEATS_MAX_SECONDS` (900), and whenever the tracker failed, which never fails the measurement. The tracker runs one record at a time on `ANALYSIS_BEAT_THREADS` threads
@@ -171,9 +179,9 @@ with no pulse to report, for a tempo outside 40 to 220 BPM, for a record longer 
 leaves it out altogether, torch included, for a machine short of memory.
 
 `brightnessHz` is **optional** on the same terms: absent for a record with under 20 seconds sounding,
-and whenever its pass failed, which never fails the measurement. It arrived without a schema bump, as
-the `tag*` fields did, so a row measured before it is a correct row with no brightness, and the
-station ranks such a record's energy on its loudness alone until a re-measure brings the field. It is
+and whenever its pass failed, which never fails the measurement. A row measured before it is a correct
+row with no brightness, and the station ranks such a record's energy on its loudness alone until the
+version-2 re-measure above reaches it. It is
 measured whatever `ANALYSIS_BEATS` says and whatever the record's length, because it costs a fraction
 of a second; see "How brightness is measured".
 

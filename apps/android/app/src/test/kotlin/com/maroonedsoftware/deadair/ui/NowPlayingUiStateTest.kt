@@ -111,6 +111,21 @@ class NowPlayingUiStateTest {
     }
 
     @Test
+    fun `says what the show is, in the words the operator wrote for listeners`() {
+        val show = NowPlayingShow(name = "Late Static", host = "Cass", description = "Soul for the small hours.")
+        assertEquals("Soul for the small hours.", state(AirState.OnAir(track), show = show).showDescription)
+    }
+
+    @Test
+    fun `describes nothing during a break, off air, or for a show with no description`() {
+        val show = NowPlayingShow(name = "Late Static", host = "Cass", description = "Soul for the small hours.")
+        assertNull(state(AirState.OnAir(spoken), show = show).showDescription)
+        assertNull(state(AirState.Unreachable, stale = true, show = show).showDescription)
+        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "Late Static", description = " ")).showDescription)
+        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "Late Static")).showDescription)
+    }
+
+    @Test
     fun `puts the presenter's portrait beside the host line, and nowhere the line is not`() {
         val cass = NowPlayingShow(name = "Late Static", host = "Cass", hostArtUrl = "art/cass")
 

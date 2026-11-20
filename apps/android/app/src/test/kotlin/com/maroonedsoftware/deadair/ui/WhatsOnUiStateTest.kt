@@ -31,8 +31,8 @@ import org.junit.Test
 class WhatsOnUiStateTest {
     private val now = "2026-09-06 20:30:00"
 
-    private fun block(slotId: String, label: String, start: String, end: String) =
-        ScheduleOccurrence(slotId = slotId, label = label, start = start, end = end)
+    private fun block(slotId: String, label: String, start: String, end: String, description: String? = null) =
+        ScheduleOccurrence(slotId = slotId, label = label, start = start, end = end, description = description)
 
     private fun slot(id: String, personaId: String? = null, brief: String? = null) =
         ScheduleSlot(
@@ -135,8 +135,23 @@ class WhatsOnUiStateTest {
 
         val live = state.onNow as OnNow.Live
         assertEquals("Cass", live.block.host)
-        assertEquals("slow records", live.block.brief)
+        // The brief is the presenter's instruction and never a listener's line.
+        assertNull(live.block.description)
         assertEquals(Message.BlockHours(Clock(20, 0), Clock(22, 0), day = null), live.block.hours)
+    }
+
+    @Test
+    fun `says what a show is from the block's description, and nothing for a blank one`() {
+        val described = evening.copy(description = "Soul for the small hours.")
+        val state =
+            whatsOn(
+                ScheduleNow(now = now, upcoming = listOf(described, described.copy(start = "2026-09-07 20:00:00", end = "2026-09-07 22:00:00", description = " "))),
+                listOf(slot("slot-1", brief = "nothing after 1985")),
+                emptyList(),
+            )
+
+        assertEquals("Soul for the small hours.", (state.onNow as OnNow.Live).block.description)
+        assertNull(state.ahead.single().block.description)
     }
 
     @Test

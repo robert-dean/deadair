@@ -63,19 +63,22 @@ private fun StalePreview() = Framed(ScheduleState.Unreachable(reading(liveNow), 
 
 @PreviewLightDark
 @Composable
-private fun LongBriefPreview() =
+private fun LongDescriptionPreview() =
     Framed(
         ScheduleState.Answered(
             ScheduleReading(
-                now = liveNow,
-                slots =
-                    slots.map {
-                        it.copy(
-                            brief =
-                                "Slow records for the hour after midnight: late soul, ambient and the quieter end of jazz, nothing with a " +
-                                    "drum kit until the second half, and a back-announce after every third record so nobody tuning in is lost.",
-                        )
-                    },
+                now =
+                    liveNow.copy(
+                        upcoming =
+                            liveNow.upcoming.map {
+                                it.copy(
+                                    description =
+                                        "Slow records for the hour after midnight: late soul, ambient and the quieter end of jazz, and a " +
+                                            "back-announce after every third record so nobody tuning in is lost.",
+                                )
+                            },
+                    ),
+                slots = slots,
                 personas = personas,
             ),
         ),

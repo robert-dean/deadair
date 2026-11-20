@@ -1,6 +1,6 @@
 ---
 title: Make a show
-description: Put a show on the timetable, with a host, a brief in your own words for the model that picks its records, and a shape for its hour.
+description: Put a show on the timetable, with a host, a brief in your own words for the model that picks its records, the energy it builds or winds down through, and a shape for its hour.
 ---
 
 # Make a show
@@ -47,7 +47,33 @@ but cannot fence it in: if records outside a set must never air, give the show a
 
 Saving changes nothing on air now. The station moves when the slot next begins.
 
-### 3. Give the hour a shape (optional)
+### 3. Let it build up or wind down (optional)
+
+A show can move through its hours: livelier while it opens and calmer by its close, or the other way
+round. The station measures each record's energy from its audio, how loud and how bright it sounds,
+so this needs no model.
+
+1. On the show's page, open the **Music** part and find **Energy**.
+2. In the first box choose **Middle**. A second box appears under it: choose **Calmer**.
+3. Save.
+
+After Hours now leans toward its middling records from ten until midnight and its calmer ones from
+midnight until two: each stage has an equal share of the show's time, up to four of them, and a stage
+can repeat to hold a feel for longer. **Calmer**, **Middle** and **More energetic** are thirds of the
+records the show is choosing between, not of your whole library, so a show of slow soul still has a
+calmer and a livelier end of its own. It is a lean, never a rule: a record in the stage's third is
+twice as likely to be picked, and nothing is kept off the air for it. A stage leans nowhere until the
+station has measured at least 500 records, nor when the show has fewer than six measured records to
+choose between.
+
+**For a rule instead of a lean**, draw a [mix flow](../features/programme.md#a-shows-mix-flow) from the
+same **Music** part. Add a **Split**, set **Split by** to **measured energy** and choose **liveliest
+third** on its branch, then wire that branch through a **Limit count** of `2` each **hour** to **On
+air**, and **everything else** straight on. The show then airs at most two of your library's liveliest
+records an hour. A split goes by thirds of the whole library rather than the show's own records, and a
+record not measured yet goes down **everything else**.
+
+### 4. Give the hour a shape (optional)
 
 The format clock is what the station says inside every hour, whatever show is on. It belongs to the
 station, so a band added here applies to every show.
@@ -62,7 +88,7 @@ A band waits for the record playing at that time to finish, so nothing is cut of
 ![Programme, Today: the day hour by hour, what is on now, and this hour against the format clock](/img/console/schedule.today.webp)
 *Fig. 1. Programme → Today: the day hour by hour, what is on now, and this hour against the format clock.*
 
-### 4. Check it
+### 5. Check it
 
 **Programme → Today** shows the block on air now and what is coming. When the show's hour comes, the
 Desk shows it on air with its host, and the running order fills with records chosen against the
@@ -120,6 +146,11 @@ Then check the result on **Programme → Timetable**, as above.
 - **The presenter never mentions a concert.** Check that **Test connection** on the Ticketmaster
   plugin passes, **Where the station is** is set, the block has **Mention upcoming local shows**
   ticked, and a model is writing the breaks. An artist with no listing nearby has nothing to mention.
+- **The show does not seem to build up or wind down.** The stages need at least 500 measured records,
+  and a record is measured once its audio has been fetched, so a new station takes a while. A record's
+  page shows its **Energy** under **Measurement**; **from loudness only** there means its brightness is
+  not measured yet, which is normal for a while after an upgrade. On a show with a brief, the model choosing records
+  is told which way the stretch leans and may still pick against it when the brief asks.
 - **The playlist show is skipped.** A playlist with nothing the station may play is not aired, and the
   activity feed says so.
 

@@ -62,7 +62,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 
 **Measurement**
 
-- **Audio analyzer.** Measures each record's cue points and loudness, and joins several pieces of audio into one, so a [phone-in](./phone-ins.md) airs as a single item.
+- **Audio analyzer.** Measures each record's cue points, loudness, tempo and brightness, and joins several pieces of audio into one, so a [phone-in](./phone-ins.md) airs as a single item.
 
 ## One capability nothing bundled fills
 

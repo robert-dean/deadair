@@ -52,7 +52,7 @@ docker compose up -d
 | `redis` | `localhost:6379` | Sessions and the job queue |
 | `mailpit` | SMTP `1025`, inbox `http://localhost:8025` | Accepts every message and delivers none, so sign-in mail and email factors can be walked end to end |
 | `kokoro` | `localhost:8880` | A speech server, so the station has a voice |
-| `analysis` | `127.0.0.1:9321` | The measurement sidecar: cue points and loudness |
+| `analysis` | `127.0.0.1:9321` | The measurement sidecar: cue points, loudness, tempo and brightness |
 | `icecast` | `127.0.0.1:8000` | The stream server |
 | `liquidsoap` | `127.0.0.1:3679`, harbor `8005` | The mixing chain |
 

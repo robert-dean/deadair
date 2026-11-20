@@ -16,7 +16,7 @@ A plugin extends deadair by declaring capabilities:
 | `enrichment` | supply facts about a track: year, genre, label, trivia, prose  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
-| `analysis`   | measure a track's audio: bytes in, cue points and loudness out  |
+| `analysis`   | measure a track's audio: bytes in, cue points, loudness, tempo and brightness out |
 | `mixer`      | make one piece of audio out of several: parts in, audio out    |
 | `transcode`  | make a small copy of some audio to share: audio in, audio out  |
 | `charts`     | say what is popular: a chart id in, ranked names out           |

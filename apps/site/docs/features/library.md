@@ -38,7 +38,7 @@ The cookie is for search and your library only. The audio is found by a small pr
 A record's page shows its title, artist, album, year and duration, and then:
 
 - **Copies**: each provider's copy, whether it is on this machine, its format and size. A clean edit and the explicit original are one record with two copies, and the explicit label rides on the copy.
-- **Measurement**: its cue points and loudness, when they were taken and by what.
+- **Measurement**: its cue points, loudness, tempo (with how sure the station is of it) and brightness, when they were taken and by what, and its **energy**: from 0 to 100, how energetic it is beside the rest of your library. It says **from loudness only** until the record's brightness is measured.
 - **Airings**: when it has played.
 - **What the sources say**: genres, moods, label, and facts drawn from articles, each with the sentence that supports it. See [claims](./claims.md).
 - **Your rating**: liked, neutral or disliked, which can also be set on the artist and the album. A dislike anywhere wins outright. See [the programme](./programme.md).
@@ -53,6 +53,10 @@ Once anything has been measured, a second line filters by the measurement itself
 ## Measuring each record
 
 Records rarely start and stop where the file does. A measurement program beside the station decodes each record and answers with four points (where the sound starts, where the intro ends, where the ending begins, where the sound stops) and its loudness to the EBU R128 standard. With them the station trims the silence at head and tail, knows how long a presenter may talk over an intro, sizes each blend from what both records do, and sets every record to one target loudness, so a quiet 1970s pressing and a loud modern master arrive level.
+
+It also measures each record's **tempo**, how far to trust it and where each bar starts, and its **brightness**, where the weight of its sound sits, from dark and bass-led to bright and cymbal-heavy. Brightness and loudness together are the record's **energy**, each ranked against your own library and averaged, so energy says how a record compares with what you hold rather than with some fixed scale. A show can lean on it to build up or wind down ([the programme](./programme.md#the-brief-and-the-period)), and a mix flow can split by it. Brightness costs a fraction of a second a record; the tempo is the slow part, about 14 seconds for each minute of audio on a small home server.
+
+**When the station starts measuring something new, it measures your whole library again**, in the background, so every record gets it and not only the ones added since. That happened when tempo and brightness arrived. New records still go first, every record keeps its cue points and level while it waits its turn, and the measurement runs at low priority; on a library of about 7,000 records it takes around two weeks, most of it the tempo. Until a record is measured again its energy comes from its loudness alone. If you run the analysis program as its own container rather than inside the station's image, update it as well: its connection test under **Settings → Plugins** says when it measures an older version, and until it is updated the station keeps measuring the same records again.
 
 It is a separate program because the station's own server decodes no audio, and it is reached over HTTP, so moving it to a bigger machine is one address in the analyzer plugin's settings. A download that arrived cut short is reported as incomplete rather than measured, because a truncated file measures confidently and wrongly.
 

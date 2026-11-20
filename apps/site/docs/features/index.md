@@ -31,7 +31,7 @@ Three of the things it airs are not records and not breaks, and they differ in w
 
 ## It measures what it plays
 
-A measurement program running beside the station decodes each record and reports its cue points and its loudness. The silence at the head and tail of a record is trimmed before the player sees it, a quiet master and a loud one arrive at the same level, and the gaps between records are sized from what the music actually does. It is a separate program because the station itself decodes no audio. An unmeasured record still plays. Each record's measurements are on its page in [the library](./library.md).
+A measurement program running beside the station decodes each record and reports its cue points, its loudness, its tempo and its brightness; loudness and brightness together give it an energy a show can build up or wind down through. The silence at the head and tail of a record is trimmed before the player sees it, a quiet master and a loud one arrive at the same level, and the gaps between records are sized from what the music actually does. It is a separate program because the station itself decodes no audio. An unmeasured record still plays. Each record's measurements are on its page in [the library](./library.md).
 
 ## It says why it is quiet
 

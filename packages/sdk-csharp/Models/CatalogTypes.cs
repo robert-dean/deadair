@@ -1089,6 +1089,21 @@ public sealed record TrackAnalysis
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? BeatConfidence { get; init; }
 
+    /// <summary>Where the weight of the record's sound sits, in hertz: the median spectral centroid of its sounding audio. About 130 for a dark, bass-led record to 1,500 for a bright, cymbal-heavy one. Absent where it has not been measured yet</summary>
+    [JsonPropertyName("brightnessHz")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? BrightnessHz { get; init; }
+
+    /// <summary>How energetic the record is against the rest of this library, 0 the calmest and 100 the most energetic: its loudness and its brightness, each ranked here and averaged. Absent for a record with no trustworthy measurement, or while too little of the library is measured to rank against</summary>
+    [JsonPropertyName("energyPercentile")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? EnergyPercentile { get; init; }
+
+    /// <summary>Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is</summary>
+    [JsonPropertyName("energyFrom")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TrackAnalysisEnergyFrom? EnergyFrom { get; init; }
+
     /// <summary>Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is</summary>
     [JsonPropertyName("failureCode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -2132,6 +2147,63 @@ public sealed record AlbumEnrichmentDetailInput
 
     [JsonPropertyName("claims")]
     public required List<FactClaimInput> Claims { get; init; }
+}
+
+/// <summary>Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is</summary>
+[JsonConverter(typeof(TrackAnalysisEnergyFromConverter))]
+public enum TrackAnalysisEnergyFrom
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("loudness")]
+    Loudness,
+
+    [JsonStringEnumMemberName("loudnessAndBrightness")]
+    LoudnessAndBrightness,
+}
+
+/// <summary>
+/// Reads and writes <see cref="TrackAnalysisEnergyFrom"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="TrackAnalysisEnergyFrom.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class TrackAnalysisEnergyFromConverter : JsonConverter<TrackAnalysisEnergyFrom>
+{
+    public override TrackAnalysisEnergyFrom Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for TrackAnalysisEnergyFrom, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, TrackAnalysisEnergyFrom value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override TrackAnalysisEnergyFrom ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, TrackAnalysisEnergyFrom value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static TrackAnalysisEnergyFrom FromWire(string? text) => text switch
+    {
+        "loudness" => TrackAnalysisEnergyFrom.Loudness,
+        "loudnessAndBrightness" => TrackAnalysisEnergyFrom.LoudnessAndBrightness,
+        _ => TrackAnalysisEnergyFrom.Unknown,
+    };
+
+    private static string ToWire(TrackAnalysisEnergyFrom value) => value switch
+    {
+        TrackAnalysisEnergyFrom.Loudness => "loudness",
+        TrackAnalysisEnergyFrom.LoudnessAndBrightness => "loudnessAndBrightness",
+        _ => throw new JsonException($"TrackAnalysisEnergyFrom.{value} has no wire spelling, so it cannot be sent."),
+    };
 }
 
 /// <summary>Nobody sings on it; where the singing is; or nothing to go on</summary>

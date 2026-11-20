@@ -611,6 +611,12 @@ data class TrackAnalysis(
     val bpm: Double? = null,
     /** How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel */
     val beatConfidence: Double? = null,
+    /** Where the weight of the record's sound sits, in hertz: the median spectral centroid of its sounding audio. About 130 for a dark, bass-led record to 1,500 for a bright, cymbal-heavy one. Absent where it has not been measured yet */
+    val brightnessHz: Double? = null,
+    /** How energetic the record is against the rest of this library, 0 the calmest and 100 the most energetic: its loudness and its brightness, each ranked here and averaged. Absent for a record with no trustworthy measurement, or while too little of the library is measured to rank against */
+    val energyPercentile: Double? = null,
+    /** Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is */
+    val energyFrom: TrackAnalysisEnergyFrom? = null,
     /** Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is */
     val failureCode: MeasureFailure? = null,
 )
@@ -1185,6 +1191,27 @@ data class AlbumEnrichmentDetailInput(
     val merged: AlbumEnrichmentData,
     val sources: List<AlbumEnrichmentSourceInput>,
     val claims: List<FactClaimInput>,
+)
+
+/** Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is */
+@Serializable(with = TrackAnalysisEnergyFromSerializer::class)
+enum class TrackAnalysisEnergyFrom {
+    LOUDNESS,
+    LOUDNESS_AND_BRIGHTNESS,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [TrackAnalysisEnergyFrom] by its wire spelling. A spelling it does not know reads as [TrackAnalysisEnergyFrom.UNKNOWN]. */
+object TrackAnalysisEnergyFromSerializer : SdkEnumSerializer<TrackAnalysisEnergyFrom>(
+    "TrackAnalysisEnergyFrom",
+    TrackAnalysisEnergyFrom.UNKNOWN,
+    TrackAnalysisEnergyFrom.LOUDNESS to "loudness",
+    TrackAnalysisEnergyFrom.LOUDNESS_AND_BRIGHTNESS to "loudnessAndBrightness",
 )
 
 /** Nobody sings on it; where the singing is; or nothing to go on */

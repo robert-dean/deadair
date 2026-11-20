@@ -205,6 +205,14 @@ describe('AnalysisRepository.stateFor', () => {
         expect(older).not.toHaveProperty('beatConfidence');
     });
 
+    it('carries the brightness where the row has one, and leaves it out where it has not', async () => {
+        const measured = await stateFor({ schemaVersion: 1, complete: true, analyzedAt: new Date(), brightnessHz: 812.4 });
+        const older = await stateFor({ schemaVersion: 1, complete: true, analyzedAt: new Date(), brightnessHz: null });
+
+        expect(measured).toMatchObject({ brightnessHz: 812.4 });
+        expect(older).not.toHaveProperty('brightnessHz');
+    });
+
     it('reports the kind of a failure the walk stored', async () => {
         const state = await stateFor({ schemaVersion: 1, complete: false, failedAt: '2026-10-23T03:12:00Z', failureCode: 'unfetchable' });
 

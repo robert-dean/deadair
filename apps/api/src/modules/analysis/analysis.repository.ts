@@ -360,13 +360,19 @@ export class AnalysisRepository extends DataRepository {
             .select([
                 sql<number | null>`(data ->> 'bpm')::double precision`.as('bpm'),
                 sql<number | null>`(data ->> 'beatConfidence')::double precision`.as('beatConfidence'),
+                sql<number | null>`(data ->> 'brightnessHz')::double precision`.as('brightnessHz'),
             ])
             .where('trackId', '=', trackId)
             .executeTakeFirst();
         if (row === undefined) return undefined;
 
-        const { failureCode, bpm, beatConfidence, ...measured } = row;
-        const rest = { ...measured, ...(bpm == null ? {} : { bpm }), ...(beatConfidence == null ? {} : { beatConfidence }) };
+        const { failureCode, bpm, beatConfidence, brightnessHz, ...measured } = row;
+        const rest = {
+            ...measured,
+            ...(bpm == null ? {} : { bpm }),
+            ...(beatConfidence == null ? {} : { beatConfidence }),
+            ...(brightnessHz == null ? {} : { brightnessHz }),
+        };
         // A failure written before 0086 has no code and is retried as `undecodable` is, so it is
         // reported as one. A row that did not fail carries none at all.
         if (row.failedAt == null) return rest;

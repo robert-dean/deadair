@@ -73,11 +73,21 @@ export class TracksService {
         const row = await this.tracksRepository.findTrack(id);
         if (row === undefined) throw httpError(404).withDetails({ message: `track "${id}" is not in the catalog` });
 
-        const [bindings, analysis, history] = await Promise.all([
+        const [bindings, analysis, history, energy] = await Promise.all([
             this.audio.bindingsForTrack(id),
             this.analysis.stateFor(id),
             this.history.forTrack(id, RECENT_PLAYS),
+            // How this record ranks against the library. A failed read costs the figure and never
+            // the page, and a record the ranking cannot judge simply has none.
+            this.analysis
+                .energiesFor([id], ANALYSIS_READABLE_SINCE_VERSION)
+                .then(energies => energies.get(id))
+                .catch(() => undefined),
         ]);
+        const measured =
+            analysis === undefined || energy === undefined
+                ? analysis
+                : { ...analysis, energyPercentile: Math.round(energy.percentile * 10) / 10, energyFrom: energy.from };
 
         return parseAndValidate(
             {
@@ -85,7 +95,7 @@ export class TracksService {
                 bindings,
                 // `complete` and `analyzedAt` travel separately all the way to the wire; see the
                 // contract's note and `0005_music.sql`.
-                ...(analysis === undefined ? {} : { analysis }),
+                ...(measured === undefined ? {} : { analysis: measured }),
                 plays: history.plays,
                 playCount: history.total,
             },

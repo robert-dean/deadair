@@ -270,6 +270,30 @@ export function MeasurementCard({ detail }: { detail: TrackDetail }) {
                                 </span>
                             </Figure>
                         )}
+                        {/* Energy is a rank against this library, never an absolute level, so it is said as
+                            one: how far up the library the record sits, with what it was ranked from. */}
+                        {analysis.energyPercentile === undefined ? undefined : (
+                            <Figure label={t('track.measurement.energy')}>
+                                <Tooltip label={t('track.measurement.energyHelp')} multiline w={280} withArrow>
+                                    <span className="da-num">
+                                        {t('track.measurement.energyValue', { value: Math.round(analysis.energyPercentile) })}
+                                    </span>
+                                </Tooltip>
+                                {analysis.energyFrom === 'loudness' ? (
+                                    <Text component="span" size="xs" c="dimmed">
+                                        {' '}
+                                        {t('track.measurement.energyFromLoudness')}
+                                    </Text>
+                                ) : undefined}
+                            </Figure>
+                        )}
+                        {analysis.brightnessHz === undefined ? undefined : (
+                            <Figure label={t('track.measurement.brightness')}>
+                                <span className="da-num">
+                                    {t('track.measurement.brightnessValue', { hz: formatCount(Math.round(analysis.brightnessHz)) })}
+                                </span>
+                            </Figure>
+                        )}
                         {/* The kind before the sentence: it is what decides when the walk tries again. */}
                         {analysis.failureCode === undefined ? undefined : (
                             <Figure label={t('track.measurement.kind')}>{t(`track.measurement.kinds.${analysis.failureCode}`)}</Figure>

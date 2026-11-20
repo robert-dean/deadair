@@ -177,6 +177,58 @@ describe('TrackDetailPage', () => {
         expect(screen.queryByText('Tempo')).not.toBeInTheDocument();
     });
 
+    it('says how energetic the record is against the library, and how bright', async () => {
+        getTrack.mockResolvedValue(
+            detail({
+                analysis: {
+                    schemaVersion: 1,
+                    complete: true,
+                    analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z'),
+                    brightnessHz: 812.4,
+                    energyPercentile: 81.9,
+                    energyFrom: 'loudnessAndBrightness',
+                },
+            }),
+        );
+
+        render(<TrackDetailPage trackId={TRACK_ID} />);
+
+        expect(await screen.findByText('82 of 100')).toBeInTheDocument();
+        expect(screen.getByText('812 Hz')).toBeInTheDocument();
+        expect(screen.queryByText('from loudness only')).not.toBeInTheDocument();
+    });
+
+    it('says when an energy rests on the loudness alone', async () => {
+        getTrack.mockResolvedValue(
+            detail({
+                analysis: {
+                    schemaVersion: 1,
+                    complete: true,
+                    analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z'),
+                    energyPercentile: 40,
+                    energyFrom: 'loudness',
+                },
+            }),
+        );
+
+        render(<TrackDetailPage trackId={TRACK_ID} />);
+
+        expect(await screen.findByText('40 of 100')).toBeInTheDocument();
+        expect(screen.getByText('from loudness only')).toBeInTheDocument();
+        expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
+    });
+
+    it('offers no energy for a record the library cannot rank', async () => {
+        getTrack.mockResolvedValue(
+            detail({ analysis: { schemaVersion: 1, complete: true, analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z') } }),
+        );
+
+        render(<TrackDetailPage trackId={TRACK_ID} />);
+
+        expect(await screen.findByText('Measured')).toBeInTheDocument();
+        expect(screen.queryByText('Energy')).not.toBeInTheDocument();
+    });
+
     it('tells an incomplete measurement from a finished one', async () => {
         getTrack.mockResolvedValue(
             detail({

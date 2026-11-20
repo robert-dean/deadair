@@ -2,6 +2,7 @@ import { Container, Injectable } from 'injectkit';
 import { OccasionService } from '#modules/schedule/occasion.service.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { refillMood } from './mood.stage.js';
+import { refillEnergy } from './energy.stage.js';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -156,6 +157,15 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
             this.config,
         );
 
+        // And the stage of its energy, from the same place.
+        const energy = await refillEnergy(
+            lineup,
+            lineup.all().filter(item => item.state === 'handed'),
+            count,
+            this.schedule,
+            this.config,
+        );
+
         // What the show's mix flow allows, counted over what aired and what will still air in front of
         // this batch. Requests are left out of both. Absent for a show with no flow.
         const mix = await this.mixFlow.read(
@@ -179,6 +189,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 ...(mood === undefined ? {} : { mood }),
                 // Not staged: an avoided mood holds for the whole broadcast.
                 ...(lineup.avoidMoods === undefined ? {} : { avoidMoods: lineup.avoidMoods }),
+                ...(energy === undefined ? {} : { energy }),
                 // Off the order's rules, for the brief's reason: every refill of the show reads it.
                 ...(lineup.rules.festivalId === undefined ? {} : { festivalId: lineup.rules.festivalId }),
                 ...(mix === undefined ? {} : { mix }),

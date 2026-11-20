@@ -314,6 +314,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             { moodsForTracks: async () => new Map() } as never,
             { holding: async () => [], blockedUnder: async () => new Map() } as never,
             { lastSkippedSince: async () => new Map() } as never,
+            { energiesFor: async () => new Map() } as never,
         );
     }
 

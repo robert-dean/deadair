@@ -1,5 +1,9 @@
 import { LyricLabelsRepository } from '#modules/lyrics/lyric.labels.repository.js';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
+import { inEnergyStage } from './energy.lean.js';
 import { inAvoidedMood, moodFits } from './mood.lean.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -98,6 +102,8 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly neverPlay: NeverPlay,
         /** What the operator cut short with Skip, for the skip lean. */
         private readonly skips: TrackSkipsRepository,
+        /** Each sampled record's measured energy, for a broadcast that leans to an energy stage. */
+        private readonly analysis: AnalysisRepository,
     ) {
         super();
     }
@@ -129,6 +135,20 @@ export class CatalogSetGenerator extends SetGenerator {
             };
         } catch {
             return { fitting: new Set(), avoiding: new Set() };
+        }
+    }
+
+    /**
+     * The sampled records in the third of the sample the energy stage leans toward. Empty with no stage,
+     * with too few measured records to split, or when nothing could be read: the lean is lost and never
+     * the batch.
+     */
+    private async inStage(trackIds: readonly string[], stage: EnergyThird | undefined): Promise<Set<string>> {
+        if (stage === undefined) return new Set();
+        try {
+            return inEnergyStage(await this.analysis.energiesFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION), stage);
+        } catch {
+            return new Set();
         }
     }
 
@@ -197,6 +217,13 @@ export class CatalogSetGenerator extends SetGenerator {
             inputs.mood,
             inputs.avoidMoods ?? [],
         );
+        // The energy stage, the mood's sibling: the third of THIS SAMPLE it leans toward, so a show whose
+        // whole draw sits low in the library still has a low, a middle and a high of its own. Read only
+        // when a stage is named.
+        const energised = await this.inStage(
+            sampled.map(track => track.trackId),
+            inputs.energy,
+        );
         // Which sampled albums the operator likes, asked only about records that could be a deep cut
         // at all, and only with the lean on. A failed read costs the lean and never the batch.
         const likedAlbums = deepCuts ? await this.likedAlbums(sampled) : new Set<string>();
@@ -217,6 +244,7 @@ export class CatalogSetGenerator extends SetGenerator {
                 ...(skipped === undefined ? {} : { skippedFor: freshnessOf(skipped, now, skipLean.days) }),
                 ...(fitting.has(track.trackId) ? { moodFit: true as const } : {}),
                 ...(avoiding.has(track.trackId) ? { moodAvoid: true as const } : {}),
+                ...(energised.has(track.trackId) ? { energyFit: true as const } : {}),
                 ...(leans?.has(track.trackId) ? { lean: STEER_LEAN } : {}),
                 ...(returning ? { returning: true as const } : {}),
             };

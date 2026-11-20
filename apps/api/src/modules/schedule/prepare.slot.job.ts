@@ -100,6 +100,8 @@ export class PrepareSlotJob extends PlainJob<PrepareSlotPayload> {
             ...(slot.brief ? { brief: slot.brief } : {}),
             ...(slot.era === undefined ? {} : { era: slot.era }),
             ...(slot.moods === undefined ? {} : { mood: slot.moods[0]! }),
+            // The opening airs in the first stretch of the slot, so its first energy stage.
+            ...(slot.energyStages === undefined ? {} : { energy: slot.energyStages[0]! }),
             ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
             // The show's mix flow with nothing counted yet: its opening is its start, in its first hour.
             ...(hasMixFlow(slot.mixFlow)

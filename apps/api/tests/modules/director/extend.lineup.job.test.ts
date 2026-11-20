@@ -81,6 +81,8 @@ interface Options {
     moods?: LyricMood[];
     /** The moods the broadcast steers away from. */
     avoidMoods?: LyricMood[];
+    /** The broadcast's energy stages, on its rules. */
+    energyStages?: ('low' | 'medium' | 'high')[];
     slotId?: string;
     /** The slot the schedule says is in force. */
     inForce?: ScheduleSlot;
@@ -97,7 +99,14 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
         onEnd: 'extend',
         source: 'director',
         ...(options.brief === undefined ? {} : { brief: options.brief }),
-        ...(options.festivalId === undefined ? {} : { rules: { festivalId: options.festivalId } }),
+        ...(options.festivalId === undefined && options.energyStages === undefined
+            ? {}
+            : {
+                  rules: {
+                      ...(options.festivalId === undefined ? {} : { festivalId: options.festivalId }),
+                      ...(options.energyStages === undefined ? {} : { energyStages: options.energyStages }),
+                  },
+              }),
         ...(options.moods === undefined ? {} : { moods: options.moods }),
         ...(options.avoidMoods === undefined ? {} : { avoidMoods: options.avoidMoods }),
         ...(options.slotId === undefined ? {} : { slotId: options.slotId }),
@@ -232,6 +241,20 @@ describe('ExtendLineupJob', () => {
         const none = build({});
         await none.job.run({ count: 5 });
         expect(none.generate.mock.calls[0]![0]).not.toHaveProperty('mood');
+    });
+
+    it("leans to the slot's energy stage off the order's rules, the first when the slot in force is not the broadcast's", async () => {
+        const single = build({ energyStages: ['high'], slotId: 'evening' });
+        await single.job.run({ count: 5 });
+        expect(single.generate.mock.calls[0]![0]!.energy).toBe('high');
+
+        const elsewhere = build({ energyStages: ['low', 'high'], slotId: 'evening', inForce: undefined });
+        await elsewhere.job.run({ count: 5 });
+        expect(elsewhere.generate.mock.calls[0]![0]!.energy).toBe('low');
+
+        const none = build({});
+        await none.job.run({ count: 5 });
+        expect(none.generate.mock.calls[0]![0]).not.toHaveProperty('energy');
     });
 
     it('steers every refill away from the moods the broadcast avoids, whatever the stage', async () => {

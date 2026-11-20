@@ -10,6 +10,7 @@
 
 import type { MixInForce } from './mix.flow.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickBroadcast, PickResolver } from './pick.resolver.js';
 import { estimateStartOffsets } from './air.estimate.js';
@@ -45,6 +46,8 @@ export interface PlanRequest {
     mood?: LyricMood;
     /** The moods the broadcast steers away from, read off the running order beside its mood. */
     avoidMoods?: readonly LyricMood[];
+    /** The energy stage the batch airs in, read off the order's rules. See `SetInputs.energy`. */
+    energy?: EnergyThird;
     /** The festival the broadcast is built around, read off the order's rules. See `SetInputs.festivalId`. */
     festivalId?: string;
     /** The show's mix flow and its counts so far. See `SetInputs.mix`. */
@@ -196,6 +199,7 @@ export const planRecords = async (
             ...(request.era === undefined ? {} : { era: request.era }),
             ...(request.mood === undefined ? {} : { mood: request.mood }),
             ...(request.avoidMoods === undefined || request.avoidMoods.length === 0 ? {} : { avoidMoods: request.avoidMoods }),
+            ...(request.energy === undefined ? {} : { energy: request.energy }),
             ...(request.festivalId === undefined ? {} : { festivalId: request.festivalId }),
             ...(request.mix === undefined ? {} : { mix: request.mix }),
             avoidSongKeys: request.avoidSongKeys,

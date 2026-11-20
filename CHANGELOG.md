@@ -9,6 +9,18 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.105.1] — 2026-11-20
+
+- An analyzer plugin can now report a record's `brightnessHz` (`TrackTimbre`), the median spectral centroid of its sounding audio. The station ranks it with the loudness as the record's energy; an analyzer that does not report it leaves that energy resting on loudness alone.
+- The **Speakers** button in the Desk's on-air card no longer cuts the tops off its letters. It showed most in the Neon Transmitter theme.
+- A show's editor has an Energy field: up to four stages the show moves through in order (calmer, middle, more energetic), shown in the summary beside the form. Clear the field and the show has no energy stages; dragging a show on the timetable keeps them.
+- A show can now build up or wind down. Give a show energy stages under Energy in its editor, such as calmer, middle, more energetic, and each stretch of the show leans toward the calmer, middle or more energetic third of the records it is choosing between, measured from their audio. It is a lean, never a filter: every record can still air.
+- A show's energy stages now reach the model too. On a show with a brief, the station tells the model which way the stretch leans and marks how energetic each record it is choosing between is, so a show built from its brief builds up or winds down as well as one the station fills itself. It is still a preference: the model is never told to refuse anything.
+- New records are now measured for how bright they sound, the second half of a record's energy (the first is the loudness the station already measures). It costs a fraction of a second a record.
+- A mix flow's Split can now split by measured energy: the calmest, middle or liveliest third of your library. Put a limit or a block behind a branch for a hard rule about energy, such as at most two of the liveliest records an hour. A record not measured yet goes down "everything else". If you run an older desktop app, update it before saving a show whose flow splits by energy.
+- The station now measures your whole library once more, in the background, so every record gets a tempo and a brightness rather than only the ones added since those arrived. New records still go first, and every record keeps its cue points and level while it waits its turn. Expect it to take about two weeks on a library of 7,000 records, most of it the tempo; the analyzer runs at low priority throughout. If you run the analysis sidecar as its own container rather than in the single image, update it too, or its connection test will say it measures an older version.
+- A record's page now shows how energetic it is against the rest of your library, from 0 to 100, beside its tempo, and how bright it sounds once that is measured. Until a record's brightness is measured its energy comes from its loudness alone, and the page says so.
+
 ## [0.105.0] — 2026-11-20
 
 - A show on the timetable can now have a description for listeners: a sentence or two saying what the show is, written in the block's editor beside its name. The timetable and now playing carry it, Programme's Today strip shows it, and a schedule exported to a file keeps it. It is never read to the presenter or the model, and it is separate from the brief, which stays the presenter's and is never shown to listeners. Now playing shows the description while the block's own show is on, and not for a show put on air by hand under another name.
@@ -2108,7 +2120,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.1...HEAD
+[0.105.1]: https://github.com/robert-dean/deadair/compare/v0.105.0...v0.105.1
 [0.105.0]: https://github.com/robert-dean/deadair/compare/v0.104.3...v0.105.0
 [0.104.3]: https://github.com/robert-dean/deadair/compare/v0.104.2...v0.104.3
 [0.104.2]: https://github.com/robert-dean/deadair/compare/v0.104.1...v0.104.2

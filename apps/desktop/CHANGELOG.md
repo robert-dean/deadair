@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.19.1] — 2026-11-20
+
+- The desktop app keeps a show's energy stages when it saves the show, so editing a show on the Desk no longer risks flattening how it builds or winds down.
+
 ## [0.19.0] — 2026-11-20
 
 - A show's description for listeners can now be written in the slot editor, beside the brief, and is kept when a slot is saved from here. Programme's Today strip shows each show's description and names the brief as what the show is asked to play. Now playing and Studio show the description of the show on air under the presenter's name.
@@ -216,7 +220,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.19.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.19.1...HEAD
+[0.19.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.19.0...desktop-v0.19.1
 [0.19.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.3...desktop-v0.19.0
 [0.18.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.2...desktop-v0.18.3
 [0.18.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.18.1...desktop-v0.18.2

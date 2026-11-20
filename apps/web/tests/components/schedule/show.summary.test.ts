@@ -26,6 +26,7 @@ const breakfast: ShowSummaryValues = {
     eraFrom: '',
     eraTo: '',
     moods: [],
+    energyStages: [],
     mixFlow: false,
     callins: false,
 };
@@ -52,6 +53,7 @@ describe('linesOf', () => {
                 eraFrom: 1970,
                 eraTo: 1989,
                 moods: ['comfort', 'happiness'],
+                energyStages: ['low', 'high'],
             },
             'Wayne',
         );
@@ -65,6 +67,7 @@ describe('linesOf', () => {
             'Asked to play “warm”',
             'Records from 1970 to 1989',
             'Leans toward Comfort → Happiness',
+            'Energy: Calmer → More energetic',
         ]);
     });
 

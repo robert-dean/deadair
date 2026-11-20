@@ -28,6 +28,21 @@ describe('dayStretchesOf', () => {
         ]);
     });
 
+    it("carries a block's description, for the tooltip, and none for a block without one", () => {
+        const stretches = dayStretchesOf(
+            [
+                { ...block('late', '2026-11-18 22:00:00', '2026-11-19 00:00:00'), description: 'Soul for the small hours.' },
+                block('day', '2026-11-18 09:00:00', '2026-11-18 17:00:00'),
+            ],
+            '2026-11-18',
+        );
+
+        expect(stretches.find(stretch => stretch.kind === 'block' && stretch.slotId === 'late')).toMatchObject({
+            description: 'Soul for the small hours.',
+        });
+        expect(stretches.find(stretch => stretch.kind === 'block' && stretch.slotId === 'day')).not.toHaveProperty('description');
+    });
+
     it('is one gap on a day with nothing scheduled, and leaves out a block that belongs to another day', () => {
         expect(dayStretchesOf([block('tomorrow', '2026-11-19 06:00:00', '2026-11-19 10:00:00')], '2026-11-18')).toEqual([
             { kind: 'gap', from: 0, to: 1440 },

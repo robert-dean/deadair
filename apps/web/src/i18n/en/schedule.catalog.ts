@@ -117,6 +117,7 @@ export const schedule = {
         open: 'Open {{name}}, {{span}}',
     },
     onNow: {
+        asked: 'Asked to play “{{brief}}”',
         upNext: 'Up next',
         afterThat: 'After that',
         dueNow: 'Due now',

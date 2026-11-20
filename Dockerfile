@@ -408,7 +408,7 @@ RUN python3 -m venv /opt/analysis/venv \
 # than repeating here.
 COPY analysis/requirements.nodeps.txt /opt/analysis/requirements.nodeps.txt
 RUN /opt/analysis/venv/bin/pip install --no-cache-dir --no-deps -r /opt/analysis/requirements.nodeps.txt
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/beats.py analysis/beat_model.py analysis/app.py /opt/analysis/
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/beats.py analysis/beat_model.py analysis/brightness.py analysis/app.py /opt/analysis/
 
 # The beat tracker's weights, for the reason `analysis/Dockerfile` gives, where `test_images.py` holds
 # this line to its twin.

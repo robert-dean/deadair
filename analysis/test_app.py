@@ -114,6 +114,71 @@ def test_switched_off_it_never_touches_the_model(monkeypatch: pytest.MonkeyPatch
     assert "bpm" not in _analyze("https://example.invalid/track.flac", None)["data"]
 
 
+def _a_sounding_record(monkeypatch: pytest.MonkeyPatch, hz: float = 440.0) -> None:
+    """Thirty seconds of a tone in both channels: long enough to have a brightness."""
+    monkeypatch.setattr(app, "_download", lambda url: ("/no/such/file", True))
+    monkeypatch.setattr(app, "_probe", lambda path: Probed(channels=2, tags={}))
+    t = np.arange(30 * app.SAMPLE_RATE) / app.SAMPLE_RATE
+    tone = (0.5 * np.sin(2 * np.pi * hz * t)).astype(np.float32)
+    decoded = Decoded(samples=np.stack([tone, tone], axis=1), duration_ms=30_000)
+    monkeypatch.setattr(app, "_decode", lambda path, channels: decoded)
+
+
+def test_a_brightness_joins_the_rest_of_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_sounding_record(monkeypatch, hz=440.0)
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert abs(data["brightnessHz"] - 440.0) < 5.0
+    assert "cueIn" in data and "integratedLufs" in data
+
+
+def test_a_brightness_is_measured_with_the_beat_tracker_switched_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The autouse fixture has switched it off; brightness reads the same signal and must not care.
+    _a_sounding_record(monkeypatch)
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: pytest.fail("the model ran"))
+
+    assert "brightnessHz" in _analyze("https://example.invalid/track.flac", None)["data"]
+
+
+def test_a_record_past_the_beat_limit_still_has_a_brightness(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_sounding_record(monkeypatch)
+    monkeypatch.setattr(app, "BEATS_ON", True)
+    monkeypatch.setattr(app, "BEATS_MAX_SECONDS", 0)
+    monkeypatch.setattr(app.beat_model, "track_signal", lambda signal: pytest.fail("the model ran"))
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert "brightnessHz" in data and "bpm" not in data
+
+
+def test_a_failing_brightness_pass_costs_the_brightness_and_nothing_else(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_sounding_record(monkeypatch)
+    monkeypatch.setattr(app, "brightness_hz", lambda signal: (_ for _ in ()).throw(RuntimeError("broken")))
+
+    result = _analyze("https://example.invalid/track.flac", 30_000)
+
+    assert result["complete"] is True
+    assert "cueIn" in result["data"] and "integratedLufs" in result["data"]
+    assert "brightnessHz" not in result["data"]
+
+
+def test_a_signal_that_cannot_be_prepared_costs_the_brightness_too_and_nothing_else(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_sounding_record(monkeypatch)
+    monkeypatch.setattr(app.beat_model, "model_signal", lambda samples: (_ for _ in ()).throw(MemoryError()))
+
+    data = _analyze("https://example.invalid/track.flac", None)["data"]
+
+    assert "cueIn" in data and "integratedLufs" in data
+    assert "brightnessHz" not in data
+
+
+def test_a_silent_record_has_no_brightness(monkeypatch: pytest.MonkeyPatch) -> None:
+    _a_record(monkeypatch)
+
+    assert "brightnessHz" not in _analyze("https://example.invalid/track.flac", None)["data"]
+
+
 def test_reads_the_resident_line_and_not_a_neighbour():
     # 121244 kB, and the neighbours above and below it are both larger figures
     # that a looser match would take instead.

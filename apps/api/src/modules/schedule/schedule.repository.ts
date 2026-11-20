@@ -66,6 +66,24 @@ export class ScheduleRepository extends DataRepository {
         return this.withPeople(rows.map(toSlot));
     }
 
+    /**
+     * A slot's name and its description for listeners, and nothing else, for `/nowplaying`.
+     *
+     * Narrow on purpose: the director reads this once a minute while a show is on, and the whole slot
+     * would cost its co-hosts and guests as well. `undefined` for a slot that has gone.
+     */
+    async described(id: string): Promise<{ label: string; description?: string } | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.scheduleSlots')
+            .select(['label', 'description'])
+            .where('stationKey', '=', this.station.stationKey)
+            .where('id', '=', id)
+            .executeTakeFirst();
+        if (row === undefined) return undefined;
+        const description = row.description == null ? '' : row.description.trim();
+        return { label: row.label, ...(description === '' ? {} : { description }) };
+    }
+
     async create(draft: ScheduleSlotDraft): Promise<ScheduleSlot> {
         const row = await this.db
             .insertInto('deadair.scheduleSlots')
@@ -203,6 +221,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         sourceStationPlaylistId: isStationPlaylistSource(draft.source) ? draft.source.stationPlaylistId : null,
         personaId: draft.personaId ?? null,
         brief: draft.brief ?? '',
+        description: draft.description ?? null,
         eraFrom: draft.era?.from ?? null,
         eraTo: draft.era?.to ?? null,
         moods: draft.moods === undefined || draft.moods.length === 0 ? null : draft.moods,
@@ -298,6 +317,7 @@ function toSlot(row: {
     sourceStationPlaylistId: string | null;
     personaId: string | null;
     brief: string;
+    description: string | null;
     eraFrom: number | null;
     eraTo: number | null;
     moods: string[] | null;
@@ -350,6 +370,7 @@ function toSlot(row: {
                 : { source: { pluginId: row.sourcePluginId, playlistId: row.sourcePlaylistId } }),
         ...(row.personaId == null ? {} : { personaId: row.personaId }),
         ...(row.brief.trim().length === 0 ? {} : { brief: row.brief }),
+        ...(row.description == null || row.description.trim().length === 0 ? {} : { description: row.description }),
         // Absent entirely when neither end is set, so a slot with no period and one that was never
         // asked about a period are the same thing to every reader.
         ...(row.eraFrom == null && row.eraTo == null

@@ -231,6 +231,9 @@
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource DaTextDimmedBrush}" />
                 </Grid>
+                <TextBlock Text="{Binding Listener.ShowLine}" FontSize="13" TextWrapping="Wrap" MaxLines="2"
+                           TextTrimming="CharacterEllipsis" IsVisible="{Binding Listener.HasShowLine}" TextAlignment="Center"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
                 <!-- The desk's sentence: off air is the resting state of an audience-gated station. -->
                 <TextBlock Text="The station is quiet. Press Listen and it wakes up." FontSize="14"
                            IsVisible="{Binding !Listener.OnAir}" TextAlignment="Center" TextWrapping="Wrap"

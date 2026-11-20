@@ -246,6 +246,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     public bool HasHostLine => HostLine is not null;
 
+    /// <summary>What the show on air is, in the operator's words for listeners. Null under a break or with none.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasShowLine))]
+    private string? _showLine;
+
+    public bool HasShowLine => ShowLine is not null;
+
     /// <summary>
     /// The presenter's picture beside their line, resolved against the station, or null for none.
     /// </summary>
@@ -778,6 +785,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Artist = track?.Artist;
         Album = track?.Album;
         HostLine = Core.NowPlaying.HostLine.For(track, now.Show);
+        ShowLine = Core.NowPlaying.ShowLine.For(track, now.Show);
         HostPortrait = _station.ArtUrl(Core.NowPlaying.HostPortrait.BesideLine(track, now.Show));
         HostInitial = First(now.Show?.Host?.Trim() ?? string.Empty);
         OnPropertyChanged(nameof(Initial));

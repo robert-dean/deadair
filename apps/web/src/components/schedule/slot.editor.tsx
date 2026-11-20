@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
-import { Box, Button, Chip, Divider, Group, SegmentedControl, Stack, Switch, Text, TextInput } from '@mantine/core';
+import { Box, Button, Chip, Divider, Group, SegmentedControl, Stack, Switch, Text, Textarea, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import type { MixFlow, ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
@@ -54,6 +54,9 @@ import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
 import { isSpecial } from './schedule.specials';
 import { useOccasions } from '../../api/occasions.queries';
 import { weekdayShort } from '../../i18n/format.locale';
+
+/** The ceiling the contract puts on a slot's description, so the box cannot promise more than the API takes. */
+export const DESCRIPTION_MAX = 300;
 
 /**
  * Writing one slot of the station's day.
@@ -157,6 +160,8 @@ export function SlotEditorForm({
                 endsAtMinutes,
                 ...when,
                 live: true,
+                // Always sent, so an emptied box clears it: a rewrite that leaves it out keeps it.
+                description: values.description.trim(),
                 mode: values.mode,
                 onEnd: values.onEnd,
             };
@@ -167,6 +172,8 @@ export function SlotEditorForm({
             startsAtMinutes,
             endsAtMinutes,
             ...when,
+            // Always sent, so an emptied box clears it: a rewrite that leaves it out keeps it.
+            description: values.description.trim(),
             ...(source === undefined
                 ? {}
                 : source.kind === 'chart'
@@ -383,6 +390,19 @@ export function SlotEditorForm({
                                 </Group>
                             ) : undefined}
                         </Stack>
+
+                        {/* What a listener is told the show is. Beside the name rather than among the
+                        programme fields, because a live booking has one too, and it is the name's
+                        companion rather than an instruction: the brief further down is the presenter's. */}
+                        <Textarea
+                            label={t('slot.descriptionLabel')}
+                            description={t('slot.descriptionHelp')}
+                            placeholder={t('slot.descriptionPlaceholder')}
+                            autosize
+                            minRows={2}
+                            maxLength={DESCRIPTION_MAX}
+                            {...form.getInputProps('description')}
+                        />
 
                         <Switch
                             label={t('slot.enabledLabel')}
@@ -704,6 +724,8 @@ interface FormValues {
     mixFlow: MixFlow | undefined;
     personaId: string;
     brief: string;
+    /** What a listener is told the show is. Empty is none. */
+    description: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
     eraFrom: number | string;
     eraTo: number | string;
@@ -782,6 +804,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         mixFlow: slot?.mixFlow,
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',
+        description: slot?.description ?? '',
         eraFrom: slot?.eraFrom ?? '',
         eraTo: slot?.eraTo ?? '',
         moods: slot?.moods ?? [],
@@ -838,6 +861,7 @@ function summaryOf(values: FormValues, special: boolean): ShowSummaryValues {
         coHostCount: values.coHosts.length,
         sourceKind: splitSource(values.source)?.kind,
         mode: values.mode,
+        description: values.description,
         brief: values.brief,
         eraFrom: values.eraFrom,
         eraTo: values.eraTo,

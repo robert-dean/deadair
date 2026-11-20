@@ -229,7 +229,7 @@ the time would refuse as many records wrongly as rightly, with nothing on air to
 the labels serves both halves.
 
 **A show's energy is a third lean on the draw, measured from the audio rather than judged, and it is ranked
-against the records being chosen between, never against the library.** A slot's `energyStages` (0147, up to
+against the records being chosen between, never against the library.** A slot's `energyStages` (0148, up to
 four of `low`, `medium` and `high`) are stages in order across the slot by the mood stages' own split
 (`stageAt`, generic now, so the two can never disagree about where in the slot the station is), carried on
 the broadcast's `rules` as the mix flow is, read per refill and per replan (`refillEnergy`) and for a

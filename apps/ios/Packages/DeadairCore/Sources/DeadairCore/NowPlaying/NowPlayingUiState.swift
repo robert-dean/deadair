@@ -84,6 +84,15 @@ public struct NowPlayingUiState: Equatable, Sendable {
         return nonBlank(show?.host).map(Message.withHost)
     }
 
+    /// What the show on air is, in the operator's words for listeners: under the host line, and only
+    /// where that could be drawn (on air, and not during a break). Unlike the show's NAME, which the
+    /// station makes up when nobody gave one, this is only ever text somebody wrote for listeners.
+    /// `apps/android`'s `showDescription`.
+    public var showDescription: String? {
+        guard case .onAir = air, spokenBreak == nil else { return nil }
+        return nonBlank(show?.description)
+    }
+
     /// Whether the subtitle is a credit that may scroll past, or a sentence that has to wrap.
     ///
     /// A long artist line scrolls the way it does on every player a listener has used. App copy

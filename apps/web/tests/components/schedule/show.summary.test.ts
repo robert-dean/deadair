@@ -22,6 +22,7 @@ const breakfast: ShowSummaryValues = {
     coHostCount: 0,
     sourceKind: undefined,
     mode: 'rotation',
+    description: '',
     brief: '',
     eraFrom: '',
     eraTo: '',
@@ -32,6 +33,13 @@ const breakfast: ShowSummaryValues = {
 };
 
 describe('linesOf', () => {
+    it('says what listeners are told the show is, right after its hours, and nothing for an empty one', () => {
+        const lines = linesOf(t, { ...breakfast, description: '  Records for the drive in.  ', brief: 'bright' }, undefined);
+
+        expect(lines.slice(0, 2)).toEqual(['06:00 until 10:00', 'Listeners read “Records for the drive in.”']);
+        expect(linesOf(t, { ...breakfast, description: '   ' }, undefined).some(line => line.startsWith('Listeners read'))).toBe(false);
+    });
+
     it('says when, who and from where, with the station standing in for anything not chosen', () => {
         expect(linesOf(t, breakfast, undefined)).toEqual([
             '06:00 until 10:00',

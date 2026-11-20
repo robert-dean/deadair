@@ -73,6 +73,7 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
         _chartOrder = ChartOrders.First(choice => choice.Value == draft.ChartOrder);
         _host = hosts.FirstOrDefault(choice => choice.Id == draft.PersonaId) ?? hosts[0];
         _brief = draft.Brief;
+        _description = draft.Description;
         _eraFrom = draft.EraFrom;
         _eraTo = draft.EraTo;
         _callins = draft.Callins;
@@ -137,6 +138,10 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
     [ObservableProperty]
     private string _brief;
 
+    /// <summary>What listeners are told the show is.</summary>
+    [ObservableProperty]
+    private string _description = string.Empty;
+
     [ObservableProperty]
     private string _eraFrom;
 
@@ -190,6 +195,7 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
         ChartOrder = ChartOrder.Value,
         PersonaId = Host.Id,
         Brief = Brief,
+        Description = Description,
         EraFrom = EraFrom,
         EraTo = EraTo,
         Callins = Callins,
@@ -206,6 +212,8 @@ public sealed partial class SlotDialogViewModel : DialogViewModel
     partial void OnEndsAtChanged(string value) => Changed();
 
     partial void OnBriefChanged(string value) => Changed();
+
+    partial void OnDescriptionChanged(string value) => Changed();
 
     partial void OnEraFromChanged(string value) => Changed();
 

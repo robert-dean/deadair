@@ -7,6 +7,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Programme;
 /// <param name="Aside">How long is left, or how long until it starts.</param>
 /// <param name="Name">The block's name, or "Nothing scheduled" between blocks.</param>
 /// <param name="When">Its weekday and hours, with the host after them when there is one.</param>
+/// <param name="Description">What listeners are told the show is, from the block itself.</param>
 /// <param name="Brief">What it is asked to play, when the stored slot says.</param>
 /// <param name="Progress">How far through, 0 to 1, for the block on now and nothing else.</param>
 /// <param name="Note">A sentence under the cell: why the station is airing something else, or what a gap plays.</param>
@@ -16,6 +17,7 @@ public sealed record OnNowCell(
     string Aside,
     string Name,
     string When,
+    string? Description,
     string? Brief,
     double? Progress,
     string? Note,
@@ -26,7 +28,12 @@ public sealed record OnNowCell(
     /// <summary>The progress as a bar takes it, which has no "none".</summary>
     public double ProgressValue => Progress ?? 0;
 
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
     public bool HasBrief => !string.IsNullOrWhiteSpace(Brief);
+
+    /// <summary>The brief, named as the presenter's so it never reads as the listeners' line beside it.</summary>
+    public string? BriefLine => HasBrief ? $"Asked to play “{Brief!.Trim()}”" : null;
 
     public bool HasNote => Note is not null;
 
@@ -82,6 +89,7 @@ public static class OnNow
                 string.Empty,
                 null,
                 null,
+                null,
                 blocks.Count == 0
                     ? "No block is due from here on, so the station stays on whatever it is set to sustain on."
                     : $"The station is on its sustaining source for the next {StationTime.Span(StationTime.MinutesBetween(current.Now, blocks[0].Start))}.",
@@ -98,6 +106,7 @@ public static class OnNow
                 $"{StationTime.Span(total - gone)} left",
                 Name(live),
                 When(live, slot, personas),
+                live.Description,
                 slot?.Brief,
                 total <= 0 ? 0 : Math.Clamp(gone / (double)total, 0, 1),
                 takenOver
@@ -115,6 +124,7 @@ public static class OnNow
                 $"in {StationTime.Span(StationTime.MinutesBetween(current.Now, block.Start))}",
                 Name(block),
                 When(block, slot, personas),
+                block.Description,
                 slot?.Brief,
                 null,
                 null,

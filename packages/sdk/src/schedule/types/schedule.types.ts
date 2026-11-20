@@ -79,6 +79,8 @@ export interface ScheduleOccurrence {
     end: string;
     /** Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no */
     live?: boolean;
+    /** What the show is, for the people listening, as its slot describes it. Absent when the slot has none, and nothing stands in for it: never the slot's brief, which is the presenter's */
+    description?: string;
 }
 
 /**
@@ -142,6 +144,8 @@ export interface ScheduleSlot {
     personaId?: string;
     /** What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console */
     brief?: string;
+    /** What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it */
+    description?: string;
     /** The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
@@ -228,6 +232,8 @@ export interface ScheduleSlotInput {
     personaId?: string;
     /** What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console */
     brief?: string;
+    /** What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it */
+    description?: string;
     /** The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */

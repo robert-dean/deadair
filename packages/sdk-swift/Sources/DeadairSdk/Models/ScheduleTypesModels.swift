@@ -196,13 +196,16 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
     public var end: String
     /// Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no
     public var live: Bool?
+    /// What the show is, for the people listening, as its slot describes it. Absent when the slot has none, and nothing stands in for it: never the slot's brief, which is the presenter's
+    public var description: String?
 
-    public init(slotId: String, label: String, start: String, end: String, live: Bool? = nil) {
+    public init(slotId: String, label: String, start: String, end: String, live: Bool? = nil, description: String? = nil) {
         self.slotId = slotId
         self.label = label
         self.start = start
         self.end = end
         self.live = live
+        self.description = description
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -211,6 +214,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         case start = "start"
         case end = "end"
         case live = "live"
+        case description = "description"
     }
 
     public init(from decoder: Decoder) throws {
@@ -220,6 +224,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         self.start = try container.decode(String.self, forKey: .start)
         self.end = try container.decode(String.self, forKey: .end)
         self.live = try container.decodeIfPresent(Bool.self, forKey: .live)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -229,6 +234,7 @@ public struct ScheduleOccurrence: Codable, Equatable, Sendable {
         try container.encode(self.start, forKey: .start)
         try container.encode(self.end, forKey: .end)
         try container.encodeIfPresent(self.live, forKey: .live)
+        try container.encodeIfPresent(self.description, forKey: .description)
     }
 }
 
@@ -407,6 +413,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var personaId: String?
     /// What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
     public var brief: String?
+    /// What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it
+    public var description: String?
     /// The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
     public var eraFrom: Int?
     /// The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
@@ -470,7 +478,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, energyStages: [ScheduleSlotEnergyStages]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, nextDate: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, description: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, energyStages: [ScheduleSlotEnergyStages]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, nextDate: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -483,6 +491,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.sourceStationPlaylistId = sourceStationPlaylistId
         self.personaId = personaId
         self.brief = brief
+        self.description = description
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
@@ -530,6 +539,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case sourceStationPlaylistId = "sourceStationPlaylistId"
         case personaId = "personaId"
         case brief = "brief"
+        case description = "description"
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
@@ -578,6 +588,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.sourceStationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .sourceStationPlaylistId)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([ScheduleSlotMoods].self, forKey: .moods)
@@ -626,6 +637,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.sourceStationPlaylistId, forKey: .sourceStationPlaylistId)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.brief, forKey: .brief)
+        try container.encodeIfPresent(self.description, forKey: .description)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)
@@ -684,6 +696,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var personaId: String?
     /// What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
     public var brief: String?
+    /// What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it
+    public var description: String?
     /// The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
     public var eraFrom: Int?
     /// The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
@@ -745,7 +759,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, energyStages: [ScheduleSlotEnergyStages]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, description: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, energyStages: [ScheduleSlotEnergyStages]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -757,6 +771,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.sourceStationPlaylistId = sourceStationPlaylistId
         self.personaId = personaId
         self.brief = brief
+        self.description = description
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
@@ -802,6 +817,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case sourceStationPlaylistId = "sourceStationPlaylistId"
         case personaId = "personaId"
         case brief = "brief"
+        case description = "description"
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
@@ -848,6 +864,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.sourceStationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .sourceStationPlaylistId)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([ScheduleSlotMoods].self, forKey: .moods)
@@ -894,6 +911,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.sourceStationPlaylistId, forKey: .sourceStationPlaylistId)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.brief, forKey: .brief)
+        try container.encodeIfPresent(self.description, forKey: .description)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)

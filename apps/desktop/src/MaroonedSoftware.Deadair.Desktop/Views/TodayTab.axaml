@@ -64,7 +64,9 @@
                                              IsVisible="{Binding HasProgress}" />
                                 <TextBlock Classes="mono" FontSize="11" Text="{Binding Aside}"
                                            Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                                <TextBlock Text="{Binding Brief}" Classes="dimmed" FontSize="11"
+                                <TextBlock Text="{Binding Description}" FontSize="11" TextWrapping="Wrap" MaxLines="2"
+                                           TextTrimming="CharacterEllipsis" IsVisible="{Binding HasDescription}" />
+                                <TextBlock Text="{Binding BriefLine}" Classes="dimmed" FontSize="11"
                                            TextTrimming="CharacterEllipsis" IsVisible="{Binding HasBrief}" />
                                 <TextBlock Text="{Binding Note}" Classes="dimmed" FontSize="11"
                                            TextWrapping="Wrap" IsVisible="{Binding HasNote}" />

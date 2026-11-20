@@ -355,6 +355,21 @@ describe('NowPlayingService', () => {
         expect(service.getNowPlaying().show).toEqual({ name: 'Afternoons', host: 'Ray', hostArtUrl: 'art/portrait-1/cover.png' });
     });
 
+    it('says what the show is when its slot describes it, and nothing when it does not', () => {
+        const item = { id: 'item-1', pluginId: 'p', externalId: 'e', title: 'A Record', artist: 'An Artist', artists: ['An Artist'] };
+        const described = build(
+            { item, startedAt: 1 },
+            'Station',
+            0,
+            {},
+            { name: 'Late night', host: 'Ray', description: 'Soul for the small hours.' },
+        );
+        expect(described.service.getNowPlaying().show).toEqual({ name: 'Late night', host: 'Ray', description: 'Soul for the small hours.' });
+
+        const bare = build({ item, startedAt: 1 }, 'Station', 0, {}, { name: 'Late night', host: 'Ray' });
+        expect(bare.service.getNowPlaying().show).not.toHaveProperty('description');
+    });
+
     describe("a record's cover", () => {
         // A Subsonic cover URL carries the operator's user and token, and this route is public. So
         // the field is the station's own cached copy or nothing, and a record committed before its

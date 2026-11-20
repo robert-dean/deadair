@@ -30,6 +30,7 @@ empty and the station's own host presents it.
 | Field | For a late-night soul show |
 | --- | --- |
 | **Name** | `After Hours` |
+| **Description for listeners** | Optional. What listeners are told the show is, on the timetable and on now playing: `Slow soul and late-night R&B, for the hours after midnight.` Never read to the model. |
 | **Starts at** / **Ends at** | `22:00` and `02:00`. Times are 24-hour on the station's clock, and an end before the start runs past midnight. |
 | Days | Pick the nights it runs. No day chosen means every day. |
 | **Playing from** | Leave it empty, so the station chooses records itself against the brief. Pick a playlist or chart instead to fence the show in to exactly those records. |

@@ -23,7 +23,11 @@ data class BlockCard(
      * beside nobody, and `null` for a host with no picture, which draws the name alone.
      */
     val hostPortraitPath: String? = null,
-    val brief: String?,
+    /**
+     * What the show is, as the station describes it for listeners. Never the slot's brief: that is
+     * the presenter's instruction, and this screen showed it before the station had anything else.
+     */
+    val description: String?,
 )
 
 /** The first cell: either the block on now, or the hours no block claims. */
@@ -132,6 +136,6 @@ private fun cardFor(block: ScheduleOccurrence, now: String, slots: List<Schedule
         // Keyed on the persona the slot names, and only once that persona is known: a slot naming
         // a persona the list does not hold has no name to stand beside.
         hostPortraitPath = host?.let { portraits.portraitPathOf(it.id) },
-        brief = slot?.brief?.takeIf(String::isNotBlank),
+        description = block.description?.takeIf(String::isNotBlank),
     )
 }

@@ -117,6 +117,7 @@ export const schedule = {
         open: 'Open {{name}}, {{span}}',
     },
     onNow: {
+        asked: 'Asked to play “{{brief}}”',
         upNext: 'Up next',
         afterThat: 'After that',
         dueNow: 'Due now',
@@ -177,6 +178,7 @@ export const schedule = {
                 chart: 'From a chart',
             },
             asked: 'Asked to play “{{brief}}”',
+            described: 'Listeners read “{{description}}”',
             period: 'Records from {{from}} to {{to}}',
             periodFrom: 'Records from {{from}} on',
             periodTo: 'Records up to {{to}}',
@@ -207,6 +209,10 @@ export const schedule = {
             none: 'No festival',
             nothing: 'No festival by that name',
         },
+        descriptionLabel: 'Description for listeners',
+        descriptionHelp:
+            'What the show is, in a sentence or two. Listeners see it on the timetable and on now playing. It is never read to the presenter or the model; the brief is for that.',
+        descriptionPlaceholder: 'Soul and funk for the small hours, with a few records you have not heard in years.',
         enabledLabel: 'On the schedule',
         enabledDescription: 'Turn this off to keep the slot without it going on the air.',
         editTitle: 'Edit slot',

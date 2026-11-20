@@ -87,3 +87,15 @@ describe('slotInput, for energy stages', () => {
         expect(rulesAskedFor({ energyStages: [] })).toEqual({});
     });
 });
+
+describe('slotInput, for a show with a description', () => {
+    it('leaves the description behind: it is for listeners, and never reaches the order or a prompt', () => {
+        const input = slotInput(slot({ brief: 'nothing after 1985', description: 'Soul and funk for the small hours.' }));
+
+        expect(input.brief).toBe('nothing after 1985');
+        expect(JSON.stringify(input)).not.toContain('Soul and funk');
+        expect(JSON.stringify(slotInput(slot({ description: 'Soul and funk for the small hours.' }), { withoutSource: true }))).not.toContain(
+            'Soul and funk',
+        );
+    });
+});

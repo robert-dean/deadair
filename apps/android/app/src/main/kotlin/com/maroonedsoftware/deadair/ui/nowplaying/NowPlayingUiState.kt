@@ -74,6 +74,15 @@ data class NowPlayingUiState(
         }
 
     /**
+     * What the show on air is, in the operator's words for listeners: under the host line, and only
+     * where that could be drawn (on air, and not during a break, whose title already says who is
+     * talking). Unlike the show's NAME, which the station makes up when nobody gave one, this is
+     * only ever text somebody wrote for listeners, so it reads as a programme rather than software.
+     */
+    val showDescription: String?
+        get() = if (air !is AirState.OnAir || spokenBreak != null) null else show?.description?.ifBlank { null }
+
+    /**
      * The presenter's portrait beside [hostLine], as the station's path (resolve it like a cover).
      * Only where the line itself is drawn, so a portrait never stands beside nobody. During a break
      * there is no line, and the portrait takes the cover's place instead (see `coverPath`).

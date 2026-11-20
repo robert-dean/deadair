@@ -479,6 +479,8 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.sourceStationPlaylistId === undefined ? {} : { sourceStationPlaylistId: slot.sourceStationPlaylistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+        // And what listeners are told it is, which the station would keep anyway.
+        ...(slot.description === undefined ? {} : { description: slot.description }),
         ...(slot.eraFrom === undefined ? {} : { eraFrom: slot.eraFrom }),
         ...(slot.eraTo === undefined ? {} : { eraTo: slot.eraTo }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),

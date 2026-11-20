@@ -123,6 +123,13 @@ export const ScheduleOccurrence = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe('Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no'),
+    description: z
+        .string()
+        .max(300)
+        .optional()
+        .describe(
+            "What the show is, for the people listening, as its slot describes it. Absent when the slot has none, and nothing stands in for it: never the slot's brief, which is the presenter's",
+        ),
 });
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
@@ -215,6 +222,13 @@ export const ScheduleSlot = z.strictObject({
         .optional()
         .describe(
             "What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console",
+        ),
+    description: z
+        .string()
+        .max(300)
+        .optional()
+        .describe(
+            "What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it",
         ),
     eraFrom: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1900).max(2100))
@@ -442,6 +456,13 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             "What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console",
+        ),
+    description: z
+        .string()
+        .max(300)
+        .optional()
+        .describe(
+            "What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it",
         ),
     eraFrom: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1900).max(2100))

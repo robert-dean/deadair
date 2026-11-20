@@ -8,6 +8,10 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-11-20
+
+- What's on now shows each show's description, the sentence the station writes for listeners, in place of the instructions the station gives its presenter, which it used to show because there was nothing else. A show with no description shows its name and hours alone. Now playing shows the description of the show on air under the presenter's name.
+
 ## [0.16.0] — 2026-11-01
 
 - Add an optional lock that asks for your fingerprint, face or screen lock before the operator's controls appear on the phone, and again after five minutes away. Listening is not affected.

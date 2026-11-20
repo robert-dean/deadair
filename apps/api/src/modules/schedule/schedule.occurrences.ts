@@ -52,6 +52,8 @@ export interface ScheduleOccurrence {
     end: string;
     /** A booked live show. Absent is no. */
     live?: boolean;
+    /** What the show is, for listeners, from the slot. Absent when it has none; never the brief. */
+    description?: string;
 }
 
 const MINUTES_IN_DAY = 24 * 60;
@@ -126,6 +128,7 @@ function one(slot: ScheduleSlot, date: StationDate, from: number, until: number,
         start: stamp(date, from),
         end: until >= MINUTES_IN_DAY ? stamp(next, 0) : stamp(date, until),
         ...(slot.live === true ? { live: true } : {}),
+        ...(slot.description === undefined ? {} : { description: slot.description }),
     };
 }
 

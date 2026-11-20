@@ -12,7 +12,8 @@ const DAY = 24 * 60;
 
 /** One stretch of the day: a block of the schedule, or the hours nothing claims, which the station sustains through. */
 export type DayStretch =
-    { kind: 'block'; slotId: string; label: string; live: boolean; from: number; to: number } | { kind: 'gap'; from: number; to: number };
+    | { kind: 'block'; slotId: string; label: string; description?: string; live: boolean; from: number; to: number }
+    | { kind: 'gap'; from: number; to: number };
 
 /**
  * Today's blocks as stretches across the whole day, gaps included, in minutes after midnight.
@@ -29,6 +30,7 @@ export function dayStretchesOf(occurrences: readonly ScheduleOccurrence[], date:
             kind: 'block' as const,
             slotId: block.slotId,
             label: block.label,
+            ...(block.description === undefined ? {} : { description: block.description }),
             live: block.live === true,
             from: minutesOf(block.start),
             to: block.end.slice(0, 10) > date ? DAY : minutesOf(block.end),
@@ -109,7 +111,21 @@ export function DayStrip({ now, slots, airingSlotId, onEdit }: DayStripProps) {
                         : stretch.label || t('untitled');
 
                     return (
-                        <Tooltip key={`${stretch.slotId}-${stretch.from}`} label={`${name} · ${span}`}>
+                        <Tooltip
+                            key={`${stretch.slotId}-${stretch.from}`}
+                            multiline
+                            maw={320}
+                            label={
+                                stretch.description === undefined ? (
+                                    `${name} · ${span}`
+                                ) : (
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={600}>{`${name} · ${span}`}</Text>
+                                        <Text size="xs">{stretch.description}</Text>
+                                    </Stack>
+                                )
+                            }
+                        >
                             <UnstyledButton
                                 aria-label={t('dayStrip.open', { name, span })}
                                 disabled={slot === undefined}

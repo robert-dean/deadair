@@ -8,7 +8,9 @@ public struct BlockCard: Equatable, Sendable {
     /// stamp that cannot be read.
     public let hours: BlockHours?
     public let host: String?
-    public let brief: String?
+    /// What the show is, as the station describes it for listeners. Never the slot's brief: that is
+    /// the presenter's instruction, and this screen showed it before the station had anything else.
+    public let description: String?
 }
 
 /// The first cell: either the block on now, or the hours no block claims.
@@ -98,6 +100,6 @@ private func cardFor(_ block: ScheduleOccurrence, now: String, slots: [ScheduleS
         // The name they are introduced by, falling back to the one the operator filed them under:
         // a listener knows the voice rather than the persona.
         host: host.map { nonBlank($0.djName) ?? $0.label },
-        brief: nonBlank(slot?.brief)
+        description: nonBlank(block.description)
     )
 }

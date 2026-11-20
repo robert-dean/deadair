@@ -93,6 +93,17 @@ describe('packOfSchedule', () => {
     });
 });
 
+describe("a slot's description in a file", () => {
+    it('travels out and back in, since it names nothing of this station', () => {
+        const words = 'Soul and funk for the small hours.';
+        const pack = packOfSchedule([wire({ description: words })], ground());
+        expect(pack.slots[0]).toMatchObject({ description: words });
+
+        const reading = planSchedulePack(fileOf(pack.slots), ground());
+        expect(reading.adding[0]).toMatchObject({ description: words });
+    });
+});
+
 describe('planSchedulePack', () => {
     it('lands everything switched off', () => {
         const reading = planSchedulePack(fileOf([row()]), ground());

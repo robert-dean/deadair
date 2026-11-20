@@ -161,7 +161,7 @@ private fun AheadCard(ahead: Ahead, artUrlFor: (String?) -> String?) {
 }
 
 /**
- * A block's card, which opens to the whole of its label and brief when either was cut short.
+ * A block's card, which opens to the whole of its label and description when either was cut short.
  *
  * Pressable only when there is more to read: a card that answered a tap by doing nothing would look
  * broken, and one that offered "Show more" over text already shown in full would be lying. Whether
@@ -218,7 +218,7 @@ private fun Heading(eyebrow: String, trailing: String) {
 private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?, expanded: Boolean, onTruncated: (Boolean) -> Unit) {
     // Either line being cut makes the card worth opening, so each reports its own and they are or'd.
     var labelCut by remember(block) { mutableStateOf(false) }
-    var briefCut by remember(block) { mutableStateOf(false) }
+    var descriptionCut by remember(block) { mutableStateOf(false) }
     val maxLines = if (expanded) Int.MAX_VALUE else 2
 
     Text(
@@ -228,7 +228,7 @@ private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?, expande
         overflow = TextOverflow.Ellipsis,
         onTextLayout = {
             labelCut = it.hasVisualOverflow
-            onTruncated(labelCut || briefCut)
+            onTruncated(labelCut || descriptionCut)
         },
     )
 
@@ -256,7 +256,7 @@ private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?, expande
         }
     }
 
-    block.brief?.let {
+    block.description?.let {
         Text(
             it,
             style = MaterialTheme.typography.bodySmall,
@@ -264,8 +264,8 @@ private fun BlockBody(block: BlockCard, artUrlFor: (String?) -> String?, expande
             maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
             onTextLayout = { layout ->
-                briefCut = layout.hasVisualOverflow
-                onTruncated(labelCut || briefCut)
+                descriptionCut = layout.hasVisualOverflow
+                onTruncated(labelCut || descriptionCut)
             },
         )
     }

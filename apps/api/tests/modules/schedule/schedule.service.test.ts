@@ -143,6 +143,17 @@ describe('ScheduleService.current', () => {
         ]);
     });
 
+    it("tells a listener what the coming shows are, from each slot's description", async () => {
+        const service = build({
+            slots: [{ ...slot('evening', 18 * 60, 20 * 60), brief: 'nothing loud', description: 'Quiet records for the drive home.' }],
+        });
+
+        const { upcoming } = await service.current();
+
+        expect(upcoming[0]).toMatchObject({ slotId: 'evening', description: 'Quiet records for the drive home.' });
+        expect(upcoming[0]).not.toHaveProperty('brief');
+    });
+
     it('leaves a gap absent rather than filling it', async () => {
         // Nothing is on at one in the afternoon and the next block starts at six. The answer is the
         // six o'clock block with no slot in force — what plays in between is the sustaining source,
@@ -829,6 +840,50 @@ describe("a slot's music beds", () => {
         const service = build({ slots: list });
         await service.update('a', input({ beds: true }));
         expect(list[0]).toMatchObject({ beds: true });
+    });
+});
+
+describe("a slot's description", () => {
+    const input = (over: Partial<ScheduleSlotInput> = {}): ScheduleSlotInput => ({
+        label: 'x',
+        startsAtMinutes: 600,
+        endsAtMinutes: 720,
+        days: [],
+        mode: 'rotation',
+        onEnd: 'extend',
+        ...over,
+    });
+
+    it('is trimmed on the way in, and a blank one is none', () => {
+        expect(draftOf(input({ description: '  Soul for the small hours.  ' }))).toMatchObject({ description: 'Soul for the small hours.' });
+        expect(draftOf(input({ description: '   ' }))).not.toHaveProperty('description');
+        expect(draftOf(input())).not.toHaveProperty('description');
+    });
+
+    it('goes out on the list beside the brief, and is never the brief', async () => {
+        const service = build({ slots: [{ ...slot('a', 600, 720), brief: 'nothing after 1985', description: 'Soul for the small hours.' }] });
+        const [listed] = (await service.list()).slots;
+        expect(listed).toMatchObject({ brief: 'nothing after 1985', description: 'Soul for the small hours.' });
+
+        const bare = build({ slots: [{ ...slot('a', 600, 720), brief: 'nothing after 1985' }] });
+        expect((await bare.list()).slots[0]).not.toHaveProperty('description');
+    });
+
+    it('survives an edit from a client that never heard of it', async () => {
+        const list = [{ ...slot('a', 600, 720), description: 'Soul for the small hours.' }];
+        const service = build({ slots: list });
+        await service.update('a', input({ label: 'renamed' }));
+        expect(list[0]).toMatchObject({ label: 'renamed', description: 'Soul for the small hours.' });
+    });
+
+    it('is replaced by an edit that sends one, and cleared by an empty one', async () => {
+        const list = [{ ...slot('a', 600, 720), description: 'Soul for the small hours.' }];
+        const service = build({ slots: list });
+        await service.update('a', input({ description: 'Funk, mostly.' }));
+        expect(list[0]).toMatchObject({ description: 'Funk, mostly.' });
+
+        await service.update('a', input({ description: '' }));
+        expect(list[0]).not.toHaveProperty('description');
     });
 });
 

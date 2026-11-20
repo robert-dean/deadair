@@ -18,6 +18,7 @@ contract ScheduleSlot: {
     sourceStationPlaylistId?: uuid # A playlist the station owns to play instead, read from the station's own library when the block starts rather than from a provider. An ALTERNATIVE to the playlist pair, which it wins over, and to `sourceChartId`, which wins over it
     personaId?: string(max=100) # Who hosts this stretch of the day. Absent means the station's own active persona
     brief?: string(max=500) # What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
+    description?: string(max=300) # What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it
     eraFrom?: int(min=1900, max=2100) # The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
     eraTo?: int(min=1900, max=2100) # The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     moods?: array(enum(love, happiness, comfort, sadness, loneliness, anger, fear), max=4) # The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean
@@ -106,6 +107,7 @@ contract ScheduleOccurrence: {
     start: string(min=19, max=19) # `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running
     end: string(min=19, max=19) # The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two
     live?: boolean # Whether the block is a booked live show, when a presenter is meant to take the air through the live input. Absent is no
+    description?: string(max=300) # What the show is, for the people listening, as its slot describes it. Absent when the slot has none, and nothing stands in for it: never the slot's brief, which is the presenter's
 }
 
 # Where a slot that resumes its playlist will pick it up. Empty when it would start from the top: the slot does not resume, has no playlist, has aired nothing from it yet, or the last record it aired is no longer on it

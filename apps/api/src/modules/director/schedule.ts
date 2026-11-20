@@ -187,6 +187,16 @@ export interface ScheduleSlot {
     personaId?: string;
     brief?: string;
     /**
+     * What the show is, for the people listening, in the operator's own words. The timetable and now
+     * playing show it.
+     *
+     * **Never copied onto the running order and never read into a prompt.** That is the whole of the
+     * difference from {@link brief}, which is the presenter's instruction and is no listener's business:
+     * `slotInput` names every field it carries, and this is deliberately not one of them. Absent is none,
+     * and nothing stands in for it, the brief least of all.
+     */
+    description?: string;
+    /**
      * The period this stretch of the day plays, inclusive, as four-digit years.
      *
      * Copied onto the running order at a changeover exactly as {@link brief} is, and the same shape

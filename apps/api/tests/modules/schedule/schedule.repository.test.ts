@@ -27,6 +27,7 @@ const storedRow = (source: Record<string, string | number | boolean | null>) => 
     sourceStationPlaylistId: null,
     personaId: null,
     brief: '',
+    description: null,
     eraFrom: null,
     eraTo: null,
     moods: null,
@@ -197,6 +198,40 @@ describe('the switch on a slot', () => {
         const { slot, written } = await write({ off: true }, { enabled: false });
         expect(written).toBe(false);
         expect(slot?.off).toBe(true);
+    });
+});
+
+describe("a slot's description", () => {
+    it('writes it to its own column and reads it back', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const words = 'Soul and funk for the small hours.';
+        const db = fakeDb(storedRow({}), storedRow({ description: words }), statements, parameters);
+        const slot = await new ScheduleRepository(db, new StationIdentity()).update(SLOT, { ...draft(undefined), description: words });
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        expect(statements[at]).toContain('"description" = $');
+        expect(parameters[at]).toContain(words);
+        expect(slot).toMatchObject({ description: words });
+    });
+
+    it('writes none as null, and reads a null or a blank back as none', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const slot = await new ScheduleRepository(fakeDb(storedRow({}), storedRow({}), statements, parameters), new StationIdentity()).update(
+            SLOT,
+            draft(undefined),
+        );
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        const placeholder = Number(/"description" = \$(\d+)/.exec(statements[at] ?? '')?.[1]);
+        expect(parameters[at]?.[placeholder - 1]).toBeNull();
+        expect(slot).not.toHaveProperty('description');
+
+        const blank = await new ScheduleRepository(fakeDb(storedRow({}), storedRow({ description: '  ' }), []), new StationIdentity()).update(
+            SLOT,
+            draft(undefined),
+        );
+        expect(blank).not.toHaveProperty('description');
     });
 });
 

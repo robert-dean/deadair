@@ -340,6 +340,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Brief { get; init; }
 
+    /// <summary>What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it</summary>
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
     /// <summary>The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period</summary>
     [JsonPropertyName("eraFrom")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -545,6 +550,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("brief")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Brief { get; init; }
+
+    /// <summary>What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it</summary>
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
 
     /// <summary>The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period</summary>
     [JsonPropertyName("eraFrom")]

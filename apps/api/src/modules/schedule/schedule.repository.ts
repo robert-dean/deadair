@@ -202,6 +202,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         sourceStationPlaylistId: isStationPlaylistSource(draft.source) ? draft.source.stationPlaylistId : null,
         personaId: draft.personaId ?? null,
         brief: draft.brief ?? '',
+        description: draft.description ?? null,
         eraFrom: draft.era?.from ?? null,
         eraTo: draft.era?.to ?? null,
         moods: draft.moods === undefined || draft.moods.length === 0 ? null : draft.moods,
@@ -296,6 +297,7 @@ function toSlot(row: {
     sourceStationPlaylistId: string | null;
     personaId: string | null;
     brief: string;
+    description: string | null;
     eraFrom: number | null;
     eraTo: number | null;
     moods: string[] | null;
@@ -347,6 +349,7 @@ function toSlot(row: {
                 : { source: { pluginId: row.sourcePluginId, playlistId: row.sourcePlaylistId } }),
         ...(row.personaId == null ? {} : { personaId: row.personaId }),
         ...(row.brief.trim().length === 0 ? {} : { brief: row.brief }),
+        ...(row.description == null || row.description.trim().length === 0 ? {} : { description: row.description }),
         // Absent entirely when neither end is set, so a slot with no period and one that was never
         // asked about a period are the same thing to every reader.
         ...(row.eraFrom == null && row.eraTo == null

@@ -171,6 +171,8 @@ data class ScheduleSlot(
     val personaId: String? = null,
     /** What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console */
     val brief: String? = null,
+    /** What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it */
+    val description: String? = null,
     /** The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
@@ -257,6 +259,8 @@ data class ScheduleSlotInput(
     val personaId: String? = null,
     /** What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console */
     val brief: String? = null,
+    /** What the show is, in a sentence or two, for the people listening: the timetable and now playing show it. Plain text, written by the operator, and never read into a prompt, which is what keeps it apart from `brief`, the presenter's own instruction that no listener is shown. Absent or empty is none, and nothing stands in for it. A rewrite that leaves it out keeps what the slot had; an empty string clears it */
+    val description: String? = null,
     /** The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */

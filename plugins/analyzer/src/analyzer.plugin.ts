@@ -143,6 +143,16 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
         // newer analyzer is not refused — the host stores what it is told and its
         // own staleness rule decides what to do — but silently writing rows
         // nothing can read is the outcome worth naming out loud.
+        //
+        // An OLDER analyzer is the commoner case and a different one: the host still reads what it writes,
+        // but every row it writes is due again on arrival, so the walk would re-measure the library for as
+        // long as it stays on that image. That is a sentence about updating it, not about rows ignored.
+        if (typeof version === 'number' && version < ANALYSIS_SCHEMA_VERSION) {
+            return {
+                ok: true,
+                message: `Connected to ${analyzer}, which measures schema v${version} where this station reads v${ANALYSIS_SCHEMA_VERSION}. Its measurements are used, but every record it measures stays due, so the station will keep measuring them again until the analyzer is updated.${ceiling}${resident}`,
+            };
+        }
         if (typeof version === 'number' && version !== ANALYSIS_SCHEMA_VERSION) {
             return {
                 ok: true,

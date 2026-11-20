@@ -101,6 +101,31 @@ describe('readMixInForce', () => {
         expect(plain.energies.energiesFor).not.toHaveBeenCalled();
     });
 
+    it('keeps the rest of the flow when only the energy read fails, reading every record as unmeasured', async () => {
+        const byEnergy: MixFlow = {
+            version: 1,
+            nodes: [
+                { id: 'picks', kind: 'picks' },
+                { id: 'energy', kind: 'split', splitBy: 'energy', branches: [{ values: ['high'] }] },
+                { id: 'merge', kind: 'merge' },
+                { id: 'air', kind: 'onAir' },
+            ],
+            links: [
+                { from: 'picks', out: 0, to: 'energy', in: 0 },
+                { from: 'energy', out: 0, to: 'merge', in: 0 },
+                { from: 'energy', out: 1, to: 'merge', in: 1 },
+                { from: 'merge', out: 0, to: 'air', in: 0 },
+            ],
+        };
+        const reads = readers({ energies: { energiesFor: vi.fn(async () => Promise.reject(new Error('the analysis table is gone'))) } });
+
+        const mix = await readMixInForce({ broadcastId: 'b1', rules: { mixFlow: byEnergy } }, [item('queued')], reads);
+
+        expect(mix?.flow).toBe(byEnergy);
+        expect(mix?.ctx.counted.every(record => record.energy === undefined)).toBe(true);
+        expect(reads.logger.warn).toHaveBeenCalled();
+    });
+
     it('plays the batch without its flow when a read fails, and says so', async () => {
         const reads = readers({ history: { countedDuringBroadcast: vi.fn(async () => Promise.reject(new Error('gone'))) } });
         expect(await readMixInForce({ broadcastId: 'b1', rules: { mixFlow: flow } }, [], reads)).toBeUndefined();

@@ -58,23 +58,27 @@
 import type { PluginLifecycle } from '../plugin.lifecycle.js';
 
 /**
- * The current shape of {@link TrackAnalysis.data}.
+ * The current shape of {@link TrackAnalysis.data}, and the version every stored row is
+ * measured against.
  *
- * Bumped whenever a detector's output changes shape, which is what lets a stored
- * row be recognised as STALE rather than read as missing or, worse, as current.
- * Reanalysis then falls out of an ordinary "needs work" query instead of needing
- * a migration.
+ * Bumped for one of two reasons, and only these. **A detector's output changes shape**,
+ * which is what lets a stored row be recognised as STALE rather than read as missing
+ * or, worse, as current. Or **the library is to be measured again** for fields older
+ * rows lack, because nothing else re-measures a row that works. Either way reanalysis
+ * falls out of an ordinary "needs work" query instead of needing a migration, and
+ * whether a READER still trusts an older row is {@link ANALYSIS_READABLE_SINCE_VERSION}'s
+ * question, not this one's.
  *
- * **An OPTIONAL field being added is not that**, and does not bump this. Every
+ * **An OPTIONAL field being added does not, on its own, bump this.** Every
  * consumer of `data` already has a defined answer for a field that is absent —
  * it has to, since an analyzer may not compute one — so a row written before the
  * field existed is still a correct row of this version rather than a stale one.
- * Bumping for it would mark the whole catalog for re-measurement to gain
- * something the station degrades over anyway. `tagGainDb` and friends arrived
- * exactly this way.
+ * Bumping marks the whole catalog for re-measurement, so it is worth doing only
+ * when a field is wanted on every record rather than on new ones, which is the
+ * second reason above. `tagGainDb` and friends arrived without one.
  *
- * **Version 2 is the one deliberate exception, and it is a re-measure rather
- * than a change of shape.** The beat fields and `brightnessHz` arrived as
+ * **Version 2 is the second reason, a re-measure rather than a change of
+ * shape.** The beat fields and `brightnessHz` arrived as
  * optional fields on version 1, so new records got them and the library's
  * existing rows never would: nothing else re-measures a row that works. Raising
  * this to 2 is how the whole library is measured once more, last and behind

@@ -451,8 +451,8 @@ music as calm** (the bottom third of that sample was mostly melodic techno and h
 carries the mastering era** (a seventies master is quieter than any modern one, felt or not).
 
 Not a model, because two cheap, explainable measurements already give this, and a model would bring
-weights into the licence rule above. Not onset density, the obvious candidate: it was the weakest of the
-rhythm features here, and the vocal detector discussion 45 records is the evidence of how rhythmic
+weights into the licence rule above. Not onset density, the obvious candidate: it agreed at only 0.46, well
+below brightness, and the vocal detector discussion 45 records is the evidence of how rhythmic
 popular music defeats features read off an envelope's movement.
 
 `energy.check.py` repeats the measurement on any records it is given, with an optional file of felt

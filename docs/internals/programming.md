@@ -627,7 +627,8 @@ answer to a question, or the record's measured energy. **An energy split reads a
 a rule the counts replay, so a record must go down the same branch every time the show's history is
 walked, and a third of whatever one batch held would move it. Read only for a flow that splits by energy
 (`splitsByEnergy`), in the resolver and the replay alike; a record not measured yet matches no energy
-branch, as a band with no genre matches no genre branch. A Time switch is a number rather than a record path: wired into a Limit share's input 1,
+branch, as a band with no genre matches no genre branch. A Time switch is a number rather than a record
+path: wired into a Limit share's input 1,
 it gives that limit one share before an hour and another from it, and wins over the node's own `percent`.
 Every node is a pure test on the record and the counts, so one function serves the resolver, the shortlist
 and the counts themselves. **A limit's group is whatever passed through

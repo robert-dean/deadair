@@ -75,8 +75,16 @@ export async function readMixInForce(
             readers.candidates.mainGenresFor(unique),
             questions.length === 0 ? Promise.resolve(new Map<string, Map<string, boolean>>()) : readers.judgements.answersFor(unique, questions),
             decades ? readers.candidates.yearsFor(unique) : Promise.resolve(new Map<string, number>()),
+            // Caught on its own, as the resolver catches it: a failed read reads every record as unmeasured,
+            // which goes down "everything else", and the rest of the flow (a Block, a genre limit) still holds.
             splitsByEnergy(flow)
-                ? readers.energies.energiesFor(unique, ANALYSIS_READABLE_SINCE_VERSION).then(energyBandsOf)
+                ? readers.energies
+                      .energiesFor(unique, ANALYSIS_READABLE_SINCE_VERSION)
+                      .then(energyBandsOf)
+                      .catch((error: unknown) => {
+                          readers.logger.warn('director: could not read measured energy for the mix flow counts', { error: errorText(error) });
+                          return new Map<string, 'low' | 'medium' | 'high'>();
+                      })
                 : Promise.resolve(new Map<string, 'low' | 'medium' | 'high'>()),
         ]);
         const show =

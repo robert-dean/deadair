@@ -376,6 +376,7 @@ describe('AnalyzerPlugin.testConnection', () => {
         expect(result.ok).toBe(true);
         expect(result.message).toMatch(/v9/);
         expect(result.message).toMatch(/stored and then ignored/);
+        expect(result.message).not.toMatch(/until the analyzer is updated/);
     });
 
     it('says so when a sidecar run on its own is still on the image before the station re-measured', async () => {
@@ -386,6 +387,9 @@ describe('AnalyzerPlugin.testConnection', () => {
 
         expect(ANALYSIS_SCHEMA_VERSION).toBeGreaterThan(1);
         expect(result.message).toMatch(/schema v1 where this station reads v2/);
+        // Its rows are read, not ignored, and they stay due: the operator has to update it to stop the loop.
+        expect(result.message).toMatch(/keep measuring them again until the analyzer is updated/);
+        expect(result.message).not.toMatch(/ignored/);
     });
 
     it('says nothing about a schema an analyzer shares with the station', async () => {

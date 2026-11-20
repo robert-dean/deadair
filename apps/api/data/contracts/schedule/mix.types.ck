@@ -24,7 +24,7 @@ contract MixNode: {
     id: string(min=1, max=40) # Unique in the flow
     kind: enum(picks, onAir, block, split, limitShare, limitCount, noRepeat, merge, require, timeSwitch) # `picks` is what the station proposes and `onAir` what may air. `block` keeps the named bands off. `split` sends each record down the first branch it matches. `limitShare` and `limitCount` hold records past an amount of what has passed through them. `noRepeat` holds a record when the last record aired also passed through it. `merge` joins wires. `require` adds a record when due. `timeSwitch` is a number that changes at an hour
     bands?: array(string(min=1, max=200), max=50) # `block`: the bands it keeps off, matched by name, ignoring case
-    splitBy?: enum(genre, artist, decade, hour, showProgress, lastGenre, judged) # `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
+    splitBy?: enum(genre, artist, decade, hour, showProgress, lastGenre, judged, energy) # `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
     branches?: array(MixBranch, max=8) # `split`: its outputs in order, before the last output, "everything else"
     question?: string(min=1, max=200) # `split` by `judged`: what the model is asked about each record, once
     percent?: number(min=0, max=100) # `limitShare`: at most this percent of the counted records in each `per` may pass through it. A number wired into its input 1 wins over this
@@ -45,7 +45,7 @@ contract MixNode: {
 
 # One output of a `split`
 contract MixBranch: {
-    values?: array(string(min=1, max=200), max=20) # What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`
+    values?: array(string(min=1, max=200), max=20) # What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980`
     min?: number(min=0, max=100) # The lowest it matches, for `hour` and `showProgress`, inclusive
     max?: number(min=0, max=100) # The highest, exclusive
 }

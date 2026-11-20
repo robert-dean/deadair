@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { ActionIcon, Badge, Button, Group, NumberInput, Select, TagsInput, Text, TextInput, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, MultiSelect, NumberInput, Select, TagsInput, Text, TextInput, Tooltip } from '@mantine/core';
 import { Handle, NodeToolbar, Position, type Node, type NodeProps } from '@xyflow/react';
 import { IconLock, IconPlugConnectedX, IconPower, IconTrash, IconX } from '@tabler/icons-react';
 import type { MixBranch, MixNode } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
-import { canBypass, SPLIT_BY_VALUES, socketsOf, songOf, songText, type FlowProblem, type SocketType } from './mix.kinds';
+import { canBypass, ENERGY_THIRDS, SPLIT_BY_VALUES, socketsOf, songOf, songText, type FlowProblem, type SocketType } from './mix.kinds';
 import classes from './mix.flow.module.css';
 
 /** What the canvas hands each node: the node itself, its problems, and how to change it. */
@@ -378,7 +378,7 @@ function SplitFields({
                 className={EDITABLE}
                 size="xs"
                 label={t('fields.splitBy')}
-                data={(['genre', 'artist', 'decade', 'hour', 'showProgress', 'lastGenre', 'judged'] as const).map(value => ({
+                data={(['genre', 'artist', 'decade', 'hour', 'showProgress', 'lastGenre', 'judged', 'energy'] as const).map(value => ({
                     value,
                     label: t(`splitBy.${value}`),
                 }))}
@@ -413,6 +413,17 @@ function SplitFields({
                             value={branch.values?.[0] ?? 'yes'}
                             onChange={value => setBranch(index, { values: [value === 'no' ? 'no' : 'yes'] })}
                             allowDeselect={false}
+                        />
+                    ) : node.splitBy === 'energy' ? (
+                        // Three thirds of the library and nothing else, so a choice from a list rather than free tags.
+                        <MultiSelect
+                            className={EDITABLE}
+                            size="xs"
+                            placeholder={(branch.values?.length ?? 0) === 0 ? t('fields.energyPlaceholder') : undefined}
+                            aria-label={t('fields.energyLevels')}
+                            data={ENERGY_THIRDS.map(level => ({ value: level, label: t(`energy.${level}`) }))}
+                            value={branch.values ?? []}
+                            onChange={values => setBranch(index, { values })}
                         />
                     ) : byValues ? (
                         <TagsInput

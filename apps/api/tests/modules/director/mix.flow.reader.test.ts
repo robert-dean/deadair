@@ -36,6 +36,7 @@ function readers(over: Partial<MixReaders> = {}): MixReaders {
             yearsFor: vi.fn(async () => new Map()),
         },
         judgements: { answersFor: vi.fn(async () => new Map()) },
+        energies: { energiesFor: vi.fn(async () => new Map()) },
         schedule: { inForce: vi.fn(async () => undefined) },
         config: { get: vi.fn((key: string, fallback?: unknown) => (key === 'station.timezone' ? 'UTC' : fallback)) } as never,
         logger: { warn: vi.fn() } as never,
@@ -61,6 +62,43 @@ describe('readMixInForce', () => {
             ['Aired', 'aired genre', 20],
             ['queued', 'queued genre', 21],
         ]);
+    });
+
+    it("reads each record's energy for a flow that splits by it, as a third of the library, and not otherwise", async () => {
+        const byEnergy: MixFlow = {
+            version: 1,
+            nodes: [
+                { id: 'picks', kind: 'picks' },
+                { id: 'energy', kind: 'split', splitBy: 'energy', branches: [{ values: ['high'] }] },
+                { id: 'merge', kind: 'merge' },
+                { id: 'air', kind: 'onAir' },
+            ],
+            links: [
+                { from: 'picks', out: 0, to: 'energy', in: 0 },
+                { from: 'energy', out: 0, to: 'merge', in: 0 },
+                { from: 'energy', out: 1, to: 'merge', in: 1 },
+                { from: 'merge', out: 0, to: 'air', in: 0 },
+            ],
+        };
+        const energies = {
+            energiesFor: vi.fn(
+                async () =>
+                    new Map([
+                        ['aired', { percentile: 91, from: 'loudnessAndBrightness' as const }],
+                        ['queued', { percentile: 12, from: 'loudness' as const }],
+                    ]),
+            ),
+        };
+
+        const mix = await readMixInForce({ broadcastId: 'b1', rules: { mixFlow: byEnergy } }, [item('queued')], readers({ energies }));
+        const plain = readers();
+        await readMixInForce({ broadcastId: 'b1', rules: { mixFlow: flow } }, [item('queued')], plain);
+
+        expect(mix?.ctx.counted.map(record => [record.title, record.energy])).toEqual([
+            ['Aired', 'high'],
+            ['queued', 'low'],
+        ]);
+        expect(plain.energies.energiesFor).not.toHaveBeenCalled();
     });
 
     it('plays the batch without its flow when a read fails, and says so', async () => {

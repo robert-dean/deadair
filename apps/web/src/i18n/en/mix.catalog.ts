@@ -145,6 +145,13 @@ export const mix = {
         elseValue: 'Before that',
         yes: 'yes',
         no: 'no',
+        energyLevels: 'Energy',
+        energyPlaceholder: 'Which thirds of the library',
+    },
+    energy: {
+        low: 'calmest third',
+        medium: 'middle third',
+        high: 'liveliest third',
     },
     splitBy: {
         genre: 'main genre',
@@ -154,6 +161,7 @@ export const mix = {
         showProgress: 'percent of the show',
         lastGenre: 'genre of the last record',
         judged: 'the model’s answer',
+        energy: 'measured energy',
     },
     picks: {
         brief: 'Asked to play “{{brief}}”',

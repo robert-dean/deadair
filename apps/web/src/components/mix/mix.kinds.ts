@@ -109,7 +109,10 @@ export function nextId(kind: MixKind, nodes: readonly Pick<MixNode, 'id'>[]): st
 }
 
 /** A split by these reads a branch's values; the others read its range. */
-export const SPLIT_BY_VALUES = new Set<NonNullable<MixNode['splitBy']>>(['genre', 'artist', 'decade', 'lastGenre', 'judged']);
+export const SPLIT_BY_VALUES = new Set<NonNullable<MixNode['splitBy']>>(['genre', 'artist', 'decade', 'lastGenre', 'judged', 'energy']);
+
+/** The thirds of the library a branch of an energy split may name, calmest first: the API's own three. */
+export const ENERGY_THIRDS = ['low', 'medium', 'high'] as const;
 
 /** Which part of a node each problem is about, so the canvas can mark the node. */
 export interface FlowProblem {

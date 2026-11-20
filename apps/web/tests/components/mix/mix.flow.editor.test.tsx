@@ -70,3 +70,33 @@ describe('MixFlowEditor', () => {
         expect(screen.getByRole('button', { name: 'Use this flow' })).toBeDisabled();
     });
 });
+
+describe('MixFlowEditor, a split by energy', () => {
+    const byEnergy: MixFlow = {
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks', x: 0, y: 0 },
+            { id: 'split-1', kind: 'split', splitBy: 'energy', branches: [{ values: ['high'] }], x: 300, y: 0 },
+            { id: 'merge-1', kind: 'merge', x: 600, y: 0 },
+            { id: 'air', kind: 'onAir', x: 900, y: 0 },
+        ],
+        links: [
+            { from: 'picks', out: 0, to: 'split-1', in: 0 },
+            { from: 'split-1', out: 0, to: 'merge-1', in: 0 },
+            { from: 'split-1', out: 1, to: 'merge-1', in: 1 },
+            { from: 'merge-1', out: 0, to: 'air', in: 0 },
+        ],
+    };
+
+    it('reads its basis as measured energy and its branch as a third of the library, and hands the flow back as drawn', async () => {
+        const onDone = vi.fn();
+        render(<MixFlowEditor opened flow={byEnergy} onDone={onDone} onClose={vi.fn()} />);
+
+        expect(await screen.findByDisplayValue('measured energy')).toBeInTheDocument();
+        expect(screen.getAllByText('liveliest third').length).toBeGreaterThan(0);
+        expect(screen.getByText('Every record has a way to On air.')).toBeInTheDocument();
+
+        await setupUser().click(screen.getByRole('button', { name: 'Use this flow' }));
+        expect(onDone).toHaveBeenCalledWith(byEnergy);
+    });
+});

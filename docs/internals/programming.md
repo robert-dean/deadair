@@ -621,8 +621,13 @@ Picks; a Split sends it down the first branch it matches, else "everything else"
 a Limit share or Limit count holds it when it would take the records that passed through that node past the
 node's amount, per show or per hour; No two in a row holds it when the last counted record passed through the
 same node; a Merge joins wires; reaching On air means it may air. A Split reads the band's main genre, the
-artist, the decade, the hour, how far through the show it is, the genre of the last record, or the model's
-answer to a question. A Time switch is a number rather than a record path: wired into a Limit share's input 1,
+artist, the decade, the hour, how far through the show it is, the genre of the last record, the model's
+answer to a question, or the record's measured energy. **An energy split reads a third of the LIBRARY**
+(`MixRecord.energy`, `libraryThird`), unlike the energy stages, which lean by thirds of the pool: a split is
+a rule the counts replay, so a record must go down the same branch every time the show's history is
+walked, and a third of whatever one batch held would move it. Read only for a flow that splits by energy
+(`splitsByEnergy`), in the resolver and the replay alike; a record not measured yet matches no energy
+branch, as a band with no genre matches no genre branch. A Time switch is a number rather than a record path: wired into a Limit share's input 1,
 it gives that limit one share before an hour and another from it, and wins over the node's own `percent`.
 Every node is a pure test on the record and the counts, so one function serves the resolver, the shortlist
 and the counts themselves. **A limit's group is whatever passed through

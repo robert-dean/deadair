@@ -120,6 +120,17 @@ describe('mixFlowProblems', () => {
         );
     });
 
+    it('splits by energy on the three thirds of the library, and nothing else', () => {
+        const energy = replacing(church(), 'split', { splitBy: 'energy', branches: [{ values: ['high'] }, { values: ['low', 'medium'] }] });
+        expect(mixFlowProblems(energy)).toEqual([]);
+        expect(mixFlowProblems(replacing(energy, 'split', { branches: [{ values: ['loud'] }, { values: ['low'] }] }))).toContain(
+            'Split "split" has a branch for an energy other than low, medium or high',
+        );
+        expect(mixFlowProblems(replacing(energy, 'split', { branches: [{ values: [] }, { values: ['low'] }] }))).toContain(
+            'Split "split" has a branch that matches nothing',
+        );
+    });
+
     it('lets a rule be bypassed with its wires still checked, and refuses bypassing Picks, On air or a Merge', () => {
         expect(mixFlowProblems(replacing(church(), 'share', { bypassed: true }))).toEqual([]);
         expect(mixFlowProblems(replacing(church(), 'merge', { bypassed: true }))).toContain('Merge "merge" cannot be bypassed');

@@ -103,7 +103,7 @@ A brief can say "black metal only now and then", but only the model reads it, an
 The flow is a canvas. Records enter at **Picks** and leave at **On air**, and you wire nodes between them by dragging from an output to an input:
 
 - **Block bands** keeps the named bands off the show.
-- **Split** sends each record down the first branch it matches: by its band's main genre, the artist, the decade, the hour, how far into the show it is, the genre of the record before it, or the model's yes-or-no answer to a question you write, such as "a sinful pop hit?". Anything that matches no branch goes down **everything else**.
+- **Split** sends each record down the first branch it matches: by its band's main genre, the artist, the decade, the hour, how far into the show it is, the genre of the record before it, the model's yes-or-no answer to a question you write, such as "a sinful pop hit?", or the record's **measured energy**, as the calmest, middle or liveliest third of your whole library. Anything that matches no branch goes down **everything else**, including a record whose energy is not measured yet. An energy split is a rule, so with a limit behind it, it can keep records off the air ("at most two of the liveliest records an hour"); the energy stages in a show's editor only lean.
 - **Limit share** lets at most a percent of what passes through it air in each hour or show, and **Limit count** at most a number.
 - **No two in a row** keeps two of what passes through it from playing back to back.
 - **Time switch** is a number that changes at an hour. Wire it into a Limit share to allow, say, 10% before 22:00 and 30% after.

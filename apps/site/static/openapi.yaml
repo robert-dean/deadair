@@ -17560,8 +17560,8 @@ components:
                     description: '`block`: the bands it keeps off, matched by name, ignoring case'
                 splitBy:
                     type: string
-                    enum: [genre, artist, decade, hour, showProgress, lastGenre, judged]
-                    description: '`split`: what it reads. `genre` is the band''s main genre, which matches a branch''s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch''s range. `judged` is the model''s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked'
+                    enum: [genre, artist, decade, hour, showProgress, lastGenre, judged, energy]
+                    description: '`split`: what it reads. `genre` is the band''s main genre, which matches a branch''s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch''s range. `energy` is the record''s measured energy as a third of the station''s library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model''s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked'
                 branches:
                     type: array
                     items:
@@ -17649,7 +17649,7 @@ components:
                         minLength: 1
                         maxLength: 200
                     maxItems: 20
-                    description: 'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`'
+                    description: 'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980`'
                 min:
                     type: number
                     minimum: 0

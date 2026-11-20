@@ -45,7 +45,7 @@ public struct MixLink: Codable, Equatable, Sendable {
 
 /// One output of a `split`
 public struct MixBranch: Codable, Equatable, Sendable {
-    /// What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`
+    /// What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980`
     public var values: [String]?
     /// The lowest it matches, for `hour` and `showProgress`, inclusive
     public var min: Double?
@@ -194,7 +194,7 @@ public struct MixNode: Codable, Equatable, Sendable {
     public var kind: MixNodeKind
     /// `block`: the bands it keeps off, matched by name, ignoring case
     public var bands: [String]?
-    /// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
+    /// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
     public var splitBy: MixNodeSplitBy?
     /// `split`: its outputs in order, before the last output, "everything else"
     public var branches: [MixBranch]?
@@ -495,7 +495,7 @@ public enum MixNodeKind: Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
+/// `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked
 public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
     case genre
     case artist
@@ -504,13 +504,14 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
     case showProgress
     case lastGenre
     case judged
+    case energy
 
     /// A value this SDK does not know, such as a member the service added after it was generated.
     /// Never sent: encoding it throws an `EncodingError`.
     case unknown
 
     /// The members the contract declares. `unknown` is not one of them.
-    public static let allCases: [MixNodeSplitBy] = [.genre, .artist, .decade, .hour, .showProgress, .lastGenre, .judged]
+    public static let allCases: [MixNodeSplitBy] = [.genre, .artist, .decade, .hour, .showProgress, .lastGenre, .judged, .energy]
 
     /// The wire spelling, or `nil` for `unknown`, which has none.
     public var rawValue: String? {
@@ -522,6 +523,7 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
         case .showProgress: return "showProgress"
         case .lastGenre: return "lastGenre"
         case .judged: return "judged"
+        case .energy: return "energy"
         case .unknown: return nil
         }
     }
@@ -536,6 +538,7 @@ public enum MixNodeSplitBy: Codable, CaseIterable, Hashable, Sendable {
         case "showProgress": self = .showProgress
         case "lastGenre": self = .lastGenre
         case "judged": self = .judged
+        case "energy": self = .energy
         default: return nil
         }
     }

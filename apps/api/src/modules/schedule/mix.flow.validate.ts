@@ -16,7 +16,10 @@ const NAMES: Record<MixNode['kind'], string> = {
 };
 
 /** Split bases that match a branch's `values`; the rest match its `min`/`max` range. */
-const BY_VALUES = new Set(['genre', 'artist', 'decade', 'lastGenre', 'judged']);
+const BY_VALUES = new Set(['genre', 'artist', 'decade', 'lastGenre', 'judged', 'energy']);
+
+/** What a branch of an energy split may name: a third of the library. */
+const ENERGY_VALUES = new Set(['low', 'medium', 'high']);
 
 /**
  * Every reason a flow cannot be saved, each naming the node it is about, or none.
@@ -123,6 +126,10 @@ function kindProblems(node: MixNode, inUsed: ReadonlySet<string>): string[] {
                 if (node.question === undefined || node.question.trim() === '') return ['asks the model nothing; give it a question'];
                 const answers = (node.branches ?? []).flatMap(branch => branch.values ?? []);
                 if (answers.some(answer => answer !== 'yes' && answer !== 'no')) return ['has a branch for an answer other than yes or no'];
+            }
+            if (node.splitBy === 'energy') {
+                const levels = (node.branches ?? []).flatMap(branch => branch.values ?? []);
+                if (levels.some(level => !ENERGY_VALUES.has(level))) return ['has a branch for an energy other than low, medium or high'];
             }
             const branches = node.branches ?? [];
             if (branches.length === 0) return ['has no branches'];

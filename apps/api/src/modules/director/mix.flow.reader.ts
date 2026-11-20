@@ -10,7 +10,9 @@ import { readClock } from './clock.bands.js';
 import { stationZone } from './clock.words.js';
 import { judgeQuestions, type MixInForce } from './mix.flow.js';
 import { MixJudgeRepository } from './mix.judge.repository.js';
-import { buildMixContext } from './mix.flow.context.js';
+import { buildMixContext, energyBandsOf, splitsByEnergy } from './mix.flow.context.js';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { minutesIntoSlot, minutesLeftInSlot } from './schedule.js';
 import { isTrackItem, type StationLineupItem } from './station.lineup.js';
@@ -26,6 +28,8 @@ export interface MixReaders {
     history: Pick<PlayHistoryRepository, 'countedDuringBroadcast'>;
     candidates: Pick<CandidatesRepository, 'mainGenresFor' | 'yearsFor'>;
     judgements: Pick<MixJudgeRepository, 'answersFor'>;
+    /** Each record's measured energy, read only for a flow that splits by it. */
+    energies: Pick<AnalysisRepository, 'energiesFor'>;
     schedule: Pick<ScheduleService, 'inForce'>;
     config: AppConfig;
     logger: Logger;
@@ -67,10 +71,13 @@ export async function readMixInForce(
         const unique = [...new Set(trackIds)];
         const questions = judgeQuestions(flow).map(question => question.key);
         const decades = flow.nodes.some(node => node.kind === 'split' && node.splitBy === 'decade');
-        const [genres, judged, years] = await Promise.all([
+        const [genres, judged, years, energies] = await Promise.all([
             readers.candidates.mainGenresFor(unique),
             questions.length === 0 ? Promise.resolve(new Map<string, Map<string, boolean>>()) : readers.judgements.answersFor(unique, questions),
             decades ? readers.candidates.yearsFor(unique) : Promise.resolve(new Map<string, number>()),
+            splitsByEnergy(flow)
+                ? readers.energies.energiesFor(unique, ANALYSIS_READABLE_SINCE_VERSION).then(energyBandsOf)
+                : Promise.resolve(new Map<string, 'low' | 'medium' | 'high'>()),
         ]);
         const show =
             slot !== undefined && slot.id === lineup.slotId
@@ -85,6 +92,7 @@ export async function readMixInForce(
                 genres,
                 judged,
                 years,
+                energies,
                 hourOf: ms => readClock(ms, zone).hour,
                 nowMs: now,
                 ...(show === undefined ? {} : { show }),
@@ -109,6 +117,7 @@ export class MixFlowReader {
         private readonly schedule: ScheduleService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly analysis: AnalysisRepository,
     ) {}
 
     async read(lineup: MixLineup, ahead: readonly StationLineupItem[]): Promise<MixInForce | undefined> {
@@ -116,6 +125,7 @@ export class MixFlowReader {
             history: this.history,
             candidates: this.candidates,
             judgements: this.judgements,
+            energies: this.analysis,
             schedule: this.schedule,
             config: this.config,
             logger: this.logger,

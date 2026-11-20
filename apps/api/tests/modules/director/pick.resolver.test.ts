@@ -50,6 +50,8 @@ const resolve = (resolver: PickResolver, picks: readonly TrackPick[], preference
     resolver.resolve(picks, OPEN_RULES, { preference });
 
 interface Options {
+    /** Each record's energy percentile against the library, by track id, for a split by energy. */
+    energies?: Record<string, number>;
     /** The station's never-play rules, as the repository answers them. None unless a case says so. */
     blockRules?: BlockRule[];
     /** Each track's genres, as `tagsFor` answers them. */
@@ -208,6 +210,16 @@ function build(options: Options = {}) {
             }
             return found;
         }),
+        energiesFor: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(
+                    ids.flatMap(id =>
+                        options.energies?.[id] === undefined
+                            ? []
+                            : [[id, { percentile: options.energies[id]!, from: 'loudnessAndBrightness' as const }] as const],
+                    ),
+                ),
+        ),
     } as unknown as AnalysisRepository;
 
     // The rung under the catalog: a provider that has the record under that exact name, and the
@@ -1857,6 +1869,47 @@ describe("PickResolver with a show's mix flow", () => {
         { title: 'I Am the Black Wizards', artist: 'Emperor', trackId: 'bm-2' },
         { title: 'Dunkelheit', artist: 'Burzum', trackId: 'burzum' },
     ];
+
+    it("holds by a record's measured energy, a third of the library, and asks for energy only for a flow that splits by it", async () => {
+        const byEnergy = {
+            version: 1,
+            nodes: [
+                { id: 'picks', kind: 'picks' as const },
+                { id: 'energy', kind: 'split' as const, splitBy: 'energy' as const, branches: [{ values: ['high'] }] },
+                { id: 'one', kind: 'limitCount' as const, count: 1 },
+                { id: 'merge', kind: 'merge' as const },
+                { id: 'air', kind: 'onAir' as const },
+            ],
+            links: [
+                { from: 'picks', out: 0, to: 'energy', in: 0 },
+                { from: 'energy', out: 0, to: 'one', in: 0 },
+                { from: 'one', out: 0, to: 'merge', in: 0 },
+                { from: 'energy', out: 1, to: 'merge', in: 1 },
+                { from: 'merge', out: 0, to: 'air', in: 0 },
+            ],
+        };
+        const { resolver, analysis } = build({
+            bindings: Object.fromEntries(ids.map(id => [id, binding(id)])),
+            metadata: {
+                'bm-1': { title: 'Freezing Moon', credit: 'Mayhem' },
+                heavy: { title: 'Holy Diver', credit: 'Dio' },
+                'bm-2': { title: 'I Am the Black Wizards', credit: 'Emperor' },
+                burzum: { title: 'Dunkelheit', credit: 'Burzum' },
+            },
+            // Three in the library's top third, one unmeasured.
+            energies: { 'bm-1': 90, heavy: 80, 'bm-2': 95 },
+        });
+
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { mix: { flow: byEnergy, ctx: { hour: 20, showProgress: 0, counted: [] } } });
+
+        // One energetic record through the limit, and the unmeasured one down "everything else".
+        expect(resolved.map(track => track.trackId).sort()).toEqual(['bm-1', 'burzum']);
+        expect(analysis.energiesFor).toHaveBeenCalled();
+
+        const { resolver: plain, analysis: untouched } = built();
+        await plain.resolve(picks, OPEN_RULES, { mix: { flow, ctx: { hour: 20, showProgress: 0, counted: [] } } });
+        expect(untouched.energiesFor).not.toHaveBeenCalled();
+    });
 
     it('leaves out what the flow holds, counting the batch as it goes', async () => {
         const { resolver } = built();

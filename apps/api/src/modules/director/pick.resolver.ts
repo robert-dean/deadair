@@ -1,6 +1,6 @@
 import { holdMixFlow, judgeKey, judgeQuestions, walkRecord, type MixInForce, type MixRecord } from './mix.flow.js';
 import { MixJudgeRepository } from './mix.judge.repository.js';
-import { mixRecordOf } from './mix.flow.context.js';
+import { energyBandsOf, mixRecordOf, splitsByEnergy, withEnergy } from './mix.flow.context.js';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
@@ -453,7 +453,7 @@ export class PickResolver {
     ): Promise<MixRecord[]> {
         const trackIds = items.flatMap(item => (item.trackId === undefined ? [] : [item.trackId]));
         const questions = judgeQuestions(mix.flow).map(question => question.key);
-        const [genres, judged] = await Promise.all([
+        const [genres, judged, energies] = await Promise.all([
             this.candidates.mainGenresFor(trackIds).catch(error => {
                 this.logger.warn('director: could not read main genres for the mix flow', { error: errorText(error) });
                 return new Map<string, string>();
@@ -464,8 +464,21 @@ export class PickResolver {
                       this.logger.warn("director: could not read the model's answers for the mix flow", { error: errorText(error) });
                       return new Map<string, Map<string, boolean>>();
                   }),
+            // Only for a flow that splits by energy. A failed read reads every record as unmeasured,
+            // which goes down "everything else", as a band with no genre matches no genre branch.
+            !splitsByEnergy(mix.flow) || trackIds.length === 0
+                ? Promise.resolve(new Map<string, 'low' | 'medium' | 'high'>())
+                : this.analysis
+                      .energiesFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION)
+                      .then(energyBandsOf)
+                      .catch(error => {
+                          this.logger.warn('director: could not read measured energy for the mix flow', { error: errorText(error) });
+                          return new Map<string, 'low' | 'medium' | 'high'>();
+                      }),
         ]);
-        return items.map(item => ({ ...mixRecordOf(item, genres, judged), ...(item.year === undefined ? {} : { year: item.year }) }));
+        return items.map(item =>
+            withEnergy({ ...mixRecordOf(item, genres, judged), ...(item.year === undefined ? {} : { year: item.year }) }, item, energies),
+        );
     }
 
     /** Write a pending question for each record held at a judge split for want of an answer, so `MixJudgeJob` asks. */

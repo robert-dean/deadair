@@ -1083,6 +1083,7 @@ export interface DeadairScheduleSlots {
   concerts: boolean | null;
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
+  description: string | null;
   enabled: Generated<boolean>;
   endsAtMinutes: number;
   endsOn: DateTime | null;

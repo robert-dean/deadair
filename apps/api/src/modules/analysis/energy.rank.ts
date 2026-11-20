@@ -156,3 +156,11 @@ export function thirdsOf<K>(energies: ReadonlyMap<K, number>): Map<K, EnergyThir
     }
     return thirds;
 }
+
+/**
+ * Which third of the LIBRARY a record's energy falls in. For a reader shown one record at a time, a
+ * search row, where there is no pool to take thirds of; a lean takes {@link thirdsOf} its pool instead.
+ */
+export function libraryThird(percentile: number): EnergyThird {
+    return percentile < 100 / 3 ? 'low' : percentile < 200 / 3 ? 'medium' : 'high';
+}

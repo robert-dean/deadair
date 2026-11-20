@@ -7,6 +7,7 @@ import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.
 import { artistCreditsOverlap, songKey } from '#modules/director/rotation.keys.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
+import { RefillEnergy, type EnergyBand } from '#modules/shared/refill.energy.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { NeverPlay } from '#modules/director/never.play.js';
@@ -166,6 +167,13 @@ interface MusicTrack {
      * refuses. What it buys is the choice between two records that fit equally well.
      */
     airedDaysAgo?: number;
+    /**
+     * How energetic the record is against the rest of the station's library, low, medium or high, from
+     * its measured loudness and brightness. Owned rows only, and only while the refill leans to an
+     * energy stage, which the prompt names: information for choosing between records that fit equally,
+     * never a veto. See `director/energy.lean.ts`.
+     */
+    energy?: EnergyBand;
     /** Everyone else on the record, shown and never copied. Provider rows only. */
     featuring?: string[];
     album?: string;
@@ -189,6 +197,8 @@ export class MusicSearchTool implements ToolSource {
         private readonly queued: QueuedRecords,
         // Read like `queued`, filled by the same refill. See `AiredRecords`.
         private readonly aired: AiredRecords,
+        // The refill's energy stage and how to read a record's band. See `RefillEnergy`.
+        private readonly energy: RefillEnergy,
         // Written to and never read here: this tool answers the model, and what a refill does with
         // the answer when the model stops talking is the refill's question. See `SearchedRecords`.
         private readonly searched: SearchedRecords,
@@ -372,7 +382,15 @@ export class MusicSearchTool implements ToolSource {
         const fromTags = tags.length > 0 && about === undefined ? await this.fromTags(tags, filters, versionRules, owned) : [];
         const shownByTags = new Set(fromTags.map(row => keyOf(row.title, row.artist)));
         const fromProviders = (await this.fromProviders(reached, owned)).filter(row => !shownByTags.has(keyOf(row.title, row.artist)));
-        const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromTags.length + fromProviders.length));
+        const shownOwned = owned.slice(0, ownedAllowance(limit, fromTags.length + fromProviders.length));
+        // Read only while the refill leans to an energy stage, and only for the rows that will be shown.
+        const bands =
+            this.energy.stage === undefined ? new Map<string, EnergyBand>() : await this.energy.bandsFor(shownOwned.map(row => row.trackId));
+        const fromLibrary = shownOwned.map(row => {
+            const marked = this.mark(toOwnedRow(row));
+            const band = bands.get(row.trackId);
+            return band === undefined ? marked : { ...marked, energy: band };
+        });
         const rows = [...fromLibrary, ...fromTags, ...fromProviders].slice(0, limit);
         // Kept in the order the answer carries, before it is serialized for the model. A refill
         // whose model never names anything uses these rather than nothing; see `SearchedRecords`

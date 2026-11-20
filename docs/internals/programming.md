@@ -249,9 +249,17 @@ and never the batch. Until a record's brightness is measured its energy is its l
 brightness is ranked at all only once 500 records carry it, which the schema-2 re-measure brings. A hard rule
 about energy is a mix flow's job, where it is drawn. Not built: ordering records inside a batch by energy (a
 stage is one refill, about an hour, as the mood stage is) and telling the break writers that a stretch is
-winding down. **The floor is only part of it on a briefed show**, where the model, its shortlist and the
-brief's named acts choose most records and the floor tops up: none of those is told the stage yet, so a
-briefed show leans only on the records the floor adds.
+winding down. **On a briefed show the floor only tops up**, so the model is TOLD the stage, smart shuffle's
+move: the shortlist marks each line `energy low|medium|high`, its third of THAT LIST (`Shortlist.withEnergy`,
+the floor's reason again), its own fallback draw (`drawFromShortlist`) doubles a line in the stage, and
+both prompts say which third the stretch leans to in one sentence (`energy.words.ts`), as a preference
+between records that suit the request equally and never an "only". A search row cannot be ranked against a
+pool, since one search's rows are not a set anybody is choosing between, so an owned row carries its band
+against the LIBRARY (`libraryThird`), handed to `MusicSearchTool` through the scoped `RefillEnergy` with the
+lookup beside it, so the `llm` module never reaches the measurements itself. All of it only while a stage is
+named: with none, the prompts, the list and the rows are word for word what they were, and a break writer,
+which shares the search tool, sets nothing. The brief's named acts, the festival and the similar walk name
+records and are not leaned.
 
 **Several similarity sources are asked in an order the operator sets, and the order matters to two of the three questions rather than all three.** `SimilarityService` pools every source for `similarTo` — two sources disagreeing about who resembles Portishead are two opinions, not a conflict — so the order there only decides whose ids survive when both name the same artist. `topTracks` and `similarTracks` take the FIRST usable answer and stop, so for those it decides whose judgement airs. Until `rotation.similarityOrder` that order was `record.id.localeCompare`, which on a station running all three bundled sources means `deadair.deezer`, then `deadair.lastfm`, then `deadair.musicbrainz`: an accident of spelling, and nothing an operator who trusted one source over another could change short of disabling the others. The setting is a `list` of plugin ids, and it is now one of six that share the same machinery: `plugins/plugin.order.ts` reads any of them with `pluginOrder` and sorts with `byOrderThen`, which puts the listed ones first in the order given and leaves everything else to the capability's own fallback — alphabetical here — so **an empty setting is exactly the old behaviour**. Which key belongs to which capability is one row of `plugins/plugin.providers.ts`, and `SimilarityService.plugins()` reaches its sources through `pluginsInOrder` over that row rather than composing the sort itself. It orders and never gates: an id that is listed but not installed is absent rather than an error, and a source left out is asked after the listed ones rather than switched off — a setting that could silently disable the only similarity plugin would turn a typo into a station with no discovery. `SimilarityService` is scoped, so the setting is read once per refill and a change applies at the next one; the day-long cache holds merged neighbours rather than the order, so nothing needs invalidating.
 

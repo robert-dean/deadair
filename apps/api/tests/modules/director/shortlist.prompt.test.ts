@@ -170,3 +170,24 @@ describe('shortlistPrompt, marking what the operator plays elsewhere', () => {
         expect(user).not.toContain('the first more than the second');
     });
 });
+
+describe('shortlistPrompt, for a refill leaning to an energy stage', () => {
+    const userOf = (messages: ReturnType<typeof shortlistPrompt>) => messages.find(message => message.role === 'user')?.content ?? '';
+    const marked: ShortlistEntry[] = [
+        { title: 'South of Heaven', artist: 'Slayer', trackId: 'track-1', energy: 'high' },
+        { title: 'Freezing Moon', artist: 'Mayhem', trackId: 'track-2', energy: 'low' },
+    ];
+
+    it('marks each line with its third and says which third the stretch leans to, as a preference', () => {
+        const user = userOf(shortlistPrompt({ count: 1, list: marked, energy: 'high' }));
+
+        expect(user).toContain('1. Slayer - "South of Heaven" (energy high, not played lately)');
+        expect(user).toContain('leans toward its more energetic records');
+        expect(user).toContain('prefer energy high, without letting it crowd out the rest of the request');
+    });
+
+    it('says nothing about energy on a list nothing could be measured for, or with no stage', () => {
+        expect(userOf(shortlistPrompt({ count: 1, list: LIST, energy: 'high' }))).not.toMatch(/energy/);
+        expect(userOf(shortlistPrompt({ count: 1, list: LIST }))).not.toMatch(/energy/);
+    });
+});

@@ -3,6 +3,8 @@ import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
 import type { TrackPick } from './set.generator.js';
 import type { ShortlistEntry } from './shortlist.js';
 import { pickReason } from './pick.reason.js';
+import { energySentence } from './energy.words.js';
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
 
 /**
  * The conversation for a refill that hands the model a numbered list (`Shortlist`), and the reader
@@ -31,6 +33,8 @@ export interface ShortlistPromptRequest {
     brief?: string;
     era?: { from?: number; to?: number };
     lean?: readonly string[];
+    /** The energy stage this batch airs in, when the show names energy stages. The lines carry each record's third. */
+    energy?: EnergyThird;
     list: readonly ShortlistEntry[];
     /** Who the operator plays at their music providers, for marking the lines they are on. */
     listening?: readonly string[];
@@ -109,6 +113,11 @@ function userPrompt(request: ShortlistPromptRequest): string {
         lines.push('', `For now the station is leaning toward ${request.lean.join(', ')}.`);
     }
 
+    // Only when some line carries a third, so a list the station could not measure says nothing it cannot back.
+    if (request.energy !== undefined && request.list.some(entry => entry.energy !== undefined)) {
+        lines.push('', energySentence(request.energy, 'list'));
+    }
+
     // Marked on the lines rather than listed by name: the list is all this model chooses from, so a
     // name not on it could only send it searching, and the brief's own acts have to stay what the set is.
     const listening = new Set((request.listening ?? []).map(name => name.toLowerCase()));
@@ -140,6 +149,7 @@ function describe(number: number, entry: ShortlistEntry, mark: string | undefine
         ...(mark === undefined ? [] : [mark]),
         ...(entry.year === undefined ? [] : [String(entry.year)]),
         ...(entry.like === undefined ? [] : [`like ${entry.like}`]),
+        ...(entry.energy === undefined ? [] : [`energy ${entry.energy}`]),
         entry.airedDaysAgo === undefined ? 'not played lately' : entry.airedDaysAgo === 0 ? 'played today' : `played ${entry.airedDaysAgo}d ago`,
     ];
     return `${number}. ${entry.artist} - "${entry.title}" (${notes.join(', ')})`;

@@ -2,6 +2,7 @@
 // FOR: every row says whether the station owns it, the host decides when to reach the providers
 // rather than the model, and a ban narrows both halves rather than only the one that always did.
 
+import { RefillEnergy, type EnergyBand } from '../../../src/modules/shared/refill.energy.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -26,6 +27,7 @@ import type { ArtistTrack } from '@deadair/plugin-sdk';
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 type LibraryRow = {
+    trackId?: string;
     title: string;
     artistName: string;
     albumName?: string | null;
@@ -66,6 +68,8 @@ interface Build {
     tagged?: ArtistTrack[];
     /** Records a provider carries, by `key(title, artist)`, for the lookup that confirms a tagged row. */
     carried?: string[];
+    /** The refill's energy stage, and each owned record's band against the library, by track id. */
+    energy?: { stage: EnergyBand; bands: Record<string, EnergyBand> };
 }
 
 function build({
@@ -82,6 +86,7 @@ function build({
     coverage = { withSubject: 0, total: 0 },
     tagged,
     carried = [],
+    energy,
 }: Build = {}) {
     const searchPlayable = vi.fn(async () => library);
     const ownership = vi.fn(async () => ({ owned: new Set(ownedKeys), banned: new Set(bannedKeys) }));
@@ -108,6 +113,12 @@ function build({
 
     const searched = new SearchedRecords();
 
+    const refillEnergy = new RefillEnergy();
+    const bandsFor = vi.fn(
+        async (ids: readonly string[]) => new Map(ids.flatMap(id => (energy?.bands[id] ? [[id, energy.bands[id]!] as const] : []))),
+    );
+    if (energy !== undefined) refillEnergy.set(energy.stage, bandsFor);
+
     // No rules by default, which is every station until somebody writes one.
     const neverPlay = {
         holding: vi.fn(async () => forbidden?.rules ?? []),
@@ -125,7 +136,8 @@ function build({
     const lookup = { canLookUp: () => true, find } as unknown as ProviderTrackLookup;
 
     return {
-        tool: new MusicSearchTool(tracks, providers, queued, aired, searched, identity, neverPlay, similarity, lookup, config, logger),
+        tool: new MusicSearchTool(tracks, providers, queued, aired, refillEnergy, searched, identity, neverPlay, similarity, lookup, config, logger),
+        refillEnergy,
         tracksForTags,
         find,
         searchPlayable,
@@ -395,6 +407,29 @@ describe('MusicSearchTool', () => {
             { title: 'Hurricane', artist: 'Mitch Murder', owned: false, airedDaysAgo: 3 },
             { title: 'Prime Operator', artist: 'Mitch Murder', owned: false },
         ]);
+    });
+
+    it("says how energetic an owned record is against the library while the refill leans to a stage, and never a provider's", async () => {
+        const { tool } = build({
+            library: [
+                { trackId: 'drive', title: 'Ocean Drive', artistName: 'Miami Nights 1984' },
+                { trackId: 'unmeasured', title: 'Turbo Killer', artistName: 'Carpenter Brut' },
+            ],
+            reached: [found('Hurricane', 'Mitch Murder')],
+            energy: { stage: 'high', bands: { drive: 'high' } },
+        });
+
+        const tracks = (await run(tool, { query: 'anything' })).tracks;
+
+        expect(tracks.find(row => row.title === 'Ocean Drive')).toMatchObject({ owned: true, energy: 'high' });
+        expect(tracks.find(row => row.title === 'Turbo Killer')).not.toHaveProperty('energy');
+        expect(tracks.find(row => row.title === 'Hurricane')).not.toHaveProperty('energy');
+    });
+
+    it('marks no energy and asks for none for a refill with no stage, which is every break writer', async () => {
+        const { tool } = build({ library: [{ trackId: 'drive', title: 'Ocean Drive', artistName: 'Miami Nights 1984' }] });
+
+        expect((await run(tool, { query: 'anything' })).tracks[0]).not.toHaveProperty('energy');
     });
 
     it('marks and never filters a record that aired lately, since a narrow brief may need it', async () => {

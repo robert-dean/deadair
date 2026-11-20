@@ -632,3 +632,17 @@ describe("the brief's own acts in the set prompt", () => {
         expect(userOf(setPrompt({ count: 5, avoid: [], brief: 'loud' }))).not.toMatch(/brief names these artists/);
     });
 });
+
+describe('setPrompt, for a refill leaning to an energy stage', () => {
+    it("says the stretch's stage, what a search row's energy means, and that it is a preference", () => {
+        const user = userOf(setPrompt({ count: 5, avoid: [], energy: 'low' }));
+
+        expect(user).toContain('leans toward its calmer records');
+        expect(user).toContain('"energy": low, medium or high against the rest of the station\'s library');
+        expect(user).toContain('prefer energy low');
+    });
+
+    it('says nothing about energy for a show with no stage', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/energy/i);
+    });
+});

@@ -37,7 +37,15 @@
  */
 
 import type { AlmanacDay, AlmanacEntry, AlmanacQuery, AlmanacSubject } from './capabilities/almanac.js';
-import type { AnalysisRef, TrackAnalysis, TrackBeats, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
+import type {
+    AnalysisRef,
+    TrackAnalysis,
+    TrackBeats,
+    TrackCuePoints,
+    TrackLoudness,
+    TrackTaggedLoudness,
+    TrackTimbre,
+} from './capabilities/analysis.js';
 import type { AudioBed, AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { AudioTranscode } from './capabilities/transcode.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
@@ -251,6 +259,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     TrackLoudness: IsJsonSafe<TrackLoudness>;
     TrackTaggedLoudness: IsJsonSafe<TrackTaggedLoudness>;
     TrackBeats: IsJsonSafe<TrackBeats>;
+    TrackTimbre: IsJsonSafe<TrackTimbre>;
     TrackAnalysis: IsJsonSafe<TrackAnalysis>;
     ChartDescriptor: IsJsonSafe<ChartDescriptor>;
     ChartQuery: IsJsonSafe<ChartQuery>;
@@ -378,6 +387,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'TrackLoudness',
     'TrackTaggedLoudness',
     'TrackBeats',
+    'TrackTimbre',
     'TrackAnalysis',
     'ChartDescriptor',
     'ChartQuery',

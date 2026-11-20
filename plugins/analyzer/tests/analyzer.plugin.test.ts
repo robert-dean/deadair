@@ -125,7 +125,7 @@ describe('AnalyzerPlugin.analyzeTrack', () => {
     it('passes data through unread, so a newer schema needs no change here', async () => {
         // A v2-shaped payload the adapter has never heard of. It must survive intact: the host
         // stores it as an opaque blob under the version the analyzer reported.
-        const body = { ...goodBody(), schemaVersion: 2, data: { ...goodBody().data, bpm: 126.02, downbeats: [1840, 3744] } };
+        const body = { ...goodBody(), schemaVersion: 2, data: { ...goodBody().data, bpm: 126.02, downbeats: [1840, 3744], brightnessHz: 812.4 } };
         const { plugin } = await started({ analyze: { body } });
 
         const result = await plugin.analyzeTrack(REF);

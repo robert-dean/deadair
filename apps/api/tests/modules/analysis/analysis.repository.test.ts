@@ -223,3 +223,75 @@ describe('AnalysisRepository.stateFor', () => {
         expect(state).not.toHaveProperty('failureCode');
     });
 });
+
+describe('AnalysisRepository energy reads', () => {
+    const even = (from: number, to: number): number[] => Array.from({ length: 101 }, (_, index) => from + ((to - from) * index) / 100);
+
+    it('ranks the library by the trusted rows only, and skips a row without the figure', async () => {
+        const captured: Captured = { statements: [] };
+        await new AnalysisRepository(fakeDb(captured, [{}])).energyDistributions(1);
+
+        const sql = captured.statements[0]!.sql.replace(/\s+/g, ' ');
+        expect(sql).toContain('where analyzed_at is not null and complete and schema_version >=');
+        expect(sql).toMatch(
+            /percentile_cont\(\$\d+::double precision\[\]\) within group \(order by \(data ->> 'integratedLufs'\)::double precision\)/,
+        );
+        expect(sql).toMatch(/count\(\(data ->> 'brightnessHz'\)::double precision\)/);
+        // The cut points: the minimum, every percentile, the maximum.
+        expect(captured.statements[0]!.parameters[0]).toEqual(Array.from({ length: 101 }, (_, index) => index / 100));
+    });
+
+    it('answers each distribution only once enough of the library has the figure', async () => {
+        const row = { loudnessCount: '7234', loudness: even(-20, -5), brightnessCount: '40', brightness: even(130, 1500) };
+
+        const distributions = await new AnalysisRepository(fakeDb({ statements: [] }, [row])).energyDistributions(1);
+
+        expect(distributions.loudness).toHaveLength(101);
+        expect(distributions).not.toHaveProperty('brightness');
+    });
+
+    it('answers nothing for a library with no measured rows', async () => {
+        const row = { loudnessCount: '0', loudness: null, brightnessCount: '0', brightness: null };
+
+        expect(await new AnalysisRepository(fakeDb({ statements: [] }, [row])).energyDistributions(1)).toEqual({});
+    });
+
+    it('reads each record its figures, dropping an absent one rather than passing a null on', async () => {
+        const rows = [
+            { trackId: 't-1', loudnessLufs: -8.4, brightnessHz: 812.4 },
+            { trackId: 't-2', loudnessLufs: -11.2, brightnessHz: undefined },
+            { trackId: 't-3', loudnessLufs: undefined, brightnessHz: undefined },
+        ];
+
+        const parts = await new AnalysisRepository(fakeDb({ statements: [] }, rows)).energyPartsFor(['t-1', 't-2', 't-3'], 1);
+
+        expect(parts.get('t-1')).toEqual({ loudnessLufs: -8.4, brightnessHz: 812.4 });
+        expect(parts.get('t-2')).toEqual({ loudnessLufs: -11.2 });
+        expect(parts.has('t-3')).toBe(false);
+    });
+
+    it('asks nothing for no records', async () => {
+        const captured: Captured = { statements: [] };
+
+        expect((await new AnalysisRepository(fakeDb(captured)).energiesFor([], 1)).size).toBe(0);
+        expect(captured.statements).toHaveLength(0);
+    });
+
+    it("turns the two reads into each record's energy, leaving out a record it cannot judge", async () => {
+        const repository = new AnalysisRepository(fakeDb({ statements: [] }));
+        vi.spyOn(repository, 'energyDistributions').mockResolvedValue({ loudness: even(-20, -5), brightness: even(100, 1600) });
+        vi.spyOn(repository, 'energyPartsFor').mockResolvedValue(
+            new Map([
+                ['loud', { loudnessLufs: -8, brightnessHz: 400 }],
+                ['old', { loudnessLufs: -8 }],
+                ['silent', { brightnessHz: 400 }],
+            ]),
+        );
+
+        const energies = await repository.energiesFor(['loud', 'old', 'silent'], 1);
+
+        expect(energies.get('loud')).toEqual({ percentile: expect.closeTo(50, 6), from: 'loudnessAndBrightness' });
+        expect(energies.get('old')).toEqual({ percentile: expect.closeTo(80, 6), from: 'loudness' });
+        expect(energies.has('silent')).toBe(false);
+    });
+});

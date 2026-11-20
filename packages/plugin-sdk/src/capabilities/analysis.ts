@@ -308,6 +308,27 @@ export interface TrackBeats {
 }
 
 /**
+ * How a record sounds, as one absolute figure measured from its audio.
+ *
+ * Half of a record's ENERGY: the station ranks this and {@link TrackLoudness.integratedLufs} each
+ * against its own library and averages the two ranks. The analyzer answers only the absolute figure,
+ * because it cannot know the library; "bright compared to what" is the station's question.
+ *
+ * Absent for a record with too little sounding to judge, for a row measured before an analyzer
+ * reported it, and whenever its pass failed. Absent is an answer: that record's energy rests on its
+ * loudness alone.
+ */
+export interface TrackTimbre {
+    /**
+     * Where the weight of the record's spectrum sits, in hertz: the median spectral centroid of its
+     * sounding frames, read off the channels averaged. Invariant to gain, so turning a record up moves
+     * its loudness and not this. Real records run from about 130 (dark, bass-led) to 1,500 (bright,
+     * cymbal-heavy).
+     */
+    brightnessHz?: number;
+}
+
+/**
  * What one analysis produced.
  *
  * `data` is deliberately the only place measurements live, and the host stores
@@ -357,7 +378,7 @@ export interface TrackAnalysis {
      * happened, where loudness needs a filter chain an analyzer may reasonably
      * not implement.
      */
-    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & TrackBeats & Record<string, unknown>;
+    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & TrackBeats & TrackTimbre & Record<string, unknown>;
 
     /**
      * How long the audio turned out to be once decoded.

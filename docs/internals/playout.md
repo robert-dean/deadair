@@ -571,10 +571,12 @@ because the host is a persona row and this route answers with no database; the s
 name is the setting it falls back to per call. `show.description` rides with it: the listener description
 of the slot the order is stamped with, read beside the host on the host's minute (`ScheduleRepository.described`,
 narrow so the poll-side cost stays one small row), and told only while the broadcast's name is the slot's
-label, because an operator's own `putOnAir` is stamped with the slot in force too and their programme is not
-what the slot's words describe. Never the brief, and nothing while a presenter has the live input. A presenter talking over the start of a record is
-deliberately NOT reported: the voice rides the record, has no end time anything could report, and the
-record is what the listener hears for all but a few seconds of it.
+label (as it reads now, or as it read when the show began, since renaming a slot leaves the show on air
+under its old name), because an operator's own `putOnAir` is stamped with the slot in force too and their programme is not
+what the slot's words describe. Never the brief, and nothing while a presenter has the live input.
+A presenter talking over the start of a record is deliberately NOT reported: the voice rides the
+record, has no end time anything could report, and the record is what the listener hears for all but a
+few seconds of it.
 
 **A client that hands playback to a network player is producing a SECOND listener, and must transfer
 rather than add.** `apps/desktop` can send the station to a BluOS speaker, and from this side that

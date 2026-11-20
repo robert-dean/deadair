@@ -375,7 +375,7 @@ export class DirectorService {
      * fails, on the host's argument. Which description is TOLD is worked out per telling, by
      * {@link descriptionFor}, so a rename or a new order never carries the last one's words.
      */
-    private slotWords?: { slotId: string; label: string; description?: string };
+    private slotWords?: { slotId: string; label: string; openedAs: string; description?: string };
     private active = false;
     /**
      * What puts the station on air, as the setting currently stands.
@@ -2001,12 +2001,18 @@ export class DirectorService {
      * An operator's own `putOnAir` stamps the slot in force too (see `StationLineup.slotId`), so a
      * stamp alone does not make the broadcast the slot's. The NAME does: a slot aired by the clock or
      * from the Desk goes on under its label, and an operator's own programme under whatever they called
-     * it, which the slot's words do not describe. A rename on air is the same test, told at once.
+     * it, which the slot's words do not describe. A rename of the BROADCAST on air is the same test,
+     * told at once.
+     *
+     * The slot's label is matched as it reads now and as it read when this slot was first read, because
+     * renaming a slot leaves the show on air under its old name until the next occurrence (or until the
+     * operator applies the edit, which renames the broadcast to the new label). Either name is the slot's.
      */
     private descriptionFor(lineup: StationLineup): string | undefined {
         const words = this.slotWords;
         if (words === undefined || lineup.slotId !== words.slotId) return undefined;
-        return words.label.trim() === lineup.name.trim() ? words.description : undefined;
+        const name = lineup.name.trim();
+        return name === words.label.trim() || name === words.openedAs.trim() ? words.description : undefined;
     }
 
     /**
@@ -2023,7 +2029,8 @@ export class DirectorService {
         }
         try {
             const slot = await inScope(this.container, async scope => scope.get(ScheduleRepository).described(slotId));
-            this.slotWords = slot === undefined ? undefined : { slotId, ...slot };
+            const openedAs = this.slotWords?.slotId === slotId ? this.slotWords.openedAs : slot?.label;
+            this.slotWords = slot === undefined || openedAs === undefined ? undefined : { slotId, openedAs, ...slot };
         } catch (error) {
             this.logger.warn(`director: could not read the show's description (${errorText(error)})`);
         }

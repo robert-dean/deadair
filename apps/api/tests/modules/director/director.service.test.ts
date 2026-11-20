@@ -2296,6 +2296,23 @@ describe('DirectorService telling the transport what the show is', () => {
         expect(rundown.broadcast()).toEqual({ name: 'Church' });
     });
 
+    it('keeps describing the show when its slot is renamed while it is on, which leaves the show its old name', async () => {
+        const options: Options = { items: ['a', 'b', 'c'], slotWords: { [SLOT]: { ...words[SLOT] } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+        await director.post({ kind: 'putOnAir', binding: asScheduled, tracks: [track('x'), track('y'), track('z')] });
+
+        options.slotWords = { [SLOT]: { label: 'Late Night', description: 'Soul and funk for the small hours.' } };
+        vi.setSystemTime(Date.now() + 61_000);
+        await wake(rundown);
+        expect(rundown.broadcast()).toMatchObject({ name: 'Late night', description: 'Soul and funk for the small hours.' });
+
+        // Applying the edit renames the broadcast to the new label, which is the slot's too.
+        await director.post({ kind: 'reprogramme', change: { name: 'Late Night' } });
+        expect(rundown.broadcast()?.description).toBe('Soul and funk for the small hours.');
+    });
+
     it('describes nothing for a broadcast that belongs to no slot, or a slot with no description', async () => {
         const { director, rundown, seed } = build({ items: ['a'], slotWords: { [SLOT]: { label: 'Late night' } } });
         await seed();

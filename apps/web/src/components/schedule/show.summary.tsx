@@ -25,6 +25,7 @@ export interface ShowSummaryValues {
     coHostCount: number;
     sourceKind: 'playlist' | 'station' | 'chart' | undefined;
     mode: string;
+    description: string;
     brief: string;
     eraFrom: number | string;
     eraTo: number | string;
@@ -65,6 +66,7 @@ export function ShowSummary({ values }: { values: ShowSummaryValues }) {
 /** The summary's lines, in the order a listener would want them. Exported for its test. */
 export function linesOf(t: TFunction<['schedule', 'programme']>, values: ShowSummaryValues, host: string | undefined): string[] {
     const lines: string[] = [t('slot.summary.times', { start: values.startsAt, end: values.endsAt })];
+    if (values.description.trim()) lines.push(t('slot.summary.described', { description: values.description.trim() }));
 
     if (values.special && values.byRule) lines.push(t('slot.summary.byRule'));
     else {

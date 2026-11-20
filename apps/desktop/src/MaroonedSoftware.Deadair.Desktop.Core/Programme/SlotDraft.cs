@@ -26,6 +26,9 @@ public sealed record SlotDraft
     /// <summary>The ceiling the contract puts on a brief.</summary>
     public const int BriefMax = 500;
 
+    /// <summary>The ceiling the contract puts on a description for listeners.</summary>
+    public const int DescriptionMax = 300;
+
     public string Label { get; init; } = string.Empty;
 
     public string StartsAt { get; init; } = "06:00";
@@ -43,6 +46,9 @@ public sealed record SlotDraft
     public string? PersonaId { get; init; }
 
     public string Brief { get; init; } = string.Empty;
+
+    /// <summary>What listeners are told the show is. Never read to the presenter; the brief is for that.</summary>
+    public string Description { get; init; } = string.Empty;
 
     public string EraFrom { get; init; } = string.Empty;
 
@@ -90,6 +96,7 @@ public sealed record SlotDraft
             ChartOrder = slot.SourceChartOrder ?? ScheduleSlotSourceChartOrder.Countdown,
             PersonaId = slot.PersonaId,
             Brief = slot.Brief ?? string.Empty,
+            Description = slot.Description ?? string.Empty,
             EraFrom = slot.EraFrom?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             EraTo = slot.EraTo?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             Callins = slot.Callins == true,
@@ -148,6 +155,11 @@ public sealed record SlotDraft
         if (Brief.Trim().Length > BriefMax)
         {
             return $"What it is asked to play is at most {BriefMax} characters.";
+        }
+
+        if (Description.Trim().Length > DescriptionMax)
+        {
+            return $"A description for listeners is at most {DescriptionMax} characters.";
         }
 
         if (!Year(EraFrom, out _) || !Year(EraTo, out _))
@@ -214,6 +226,8 @@ public sealed record SlotDraft
             SourceStationPlaylistId = (Source as ProgrammeSource.Station)?.PlaylistId,
             PersonaId = string.IsNullOrEmpty(PersonaId) ? null : PersonaId,
             Brief = brief.Length == 0 ? null : brief,
+            // Always sent, so an emptied box clears it: the station keeps a description a write leaves out.
+            Description = Description.Trim(),
             EraFrom = from,
             EraTo = to,
             Callins = Callins ? true : null,

@@ -85,6 +85,29 @@ public class OnNowTests
     }
 
     [Fact]
+    public void TheDescriptionComesFromTheBlockAndTheBriefIsNamedAsThePresenters()
+    {
+        var slot = new ScheduleSlot
+        {
+            Id = "a",
+            Label = "Breakfast",
+            StartsAtMinutes = 360,
+            EndsAtMinutes = 600,
+            Brief = "Bright.",
+            Mode = ScheduleSlotMode.Rotation,
+            OnEnd = ScheduleSlotOnEnd.Extend,
+        };
+        var described = Breakfast with { Description = "Records for the drive in." };
+
+        var cells = OnNow.Cells(Now("2026-09-30 09:00:00", "a", "a", described), [slot], []);
+
+        Assert.Equal("Records for the drive in.", cells[0].Description);
+        Assert.True(cells[0].HasDescription);
+        Assert.Equal("Asked to play “Bright.”", cells[0].BriefLine);
+        Assert.False(OnNow.Cells(Now("2026-09-30 09:00:00", "a", "a", Breakfast), [slot], [])[0].HasDescription);
+    }
+
+    [Fact]
     public void ABlockTheListNoLongerHasCannotBeEdited() =>
         Assert.Null(OnNow.Cells(Now("2026-09-30 09:00:00", "a", "a", Breakfast), [], [])[0].SlotId);
 

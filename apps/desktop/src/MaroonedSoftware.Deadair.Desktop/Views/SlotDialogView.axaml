@@ -93,6 +93,14 @@
             </StackPanel>
 
             <StackPanel Spacing="3">
+                <TextBlock Text="Description for listeners" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
+                         MaxLength="300" PlaceholderText="Soul and funk for the small hours" />
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           Text="What the show is, in a sentence or two. Listeners see it on the timetable and on now playing. It is never read to the presenter or the model." />
+            </StackPanel>
+
+            <StackPanel Spacing="3">
                 <TextBlock Text="Asked to play" FontSize="12" Classes="secondary" />
                 <TextBox Text="{Binding Brief}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
                          MaxLength="500" PlaceholderText="warm and unhurried" />

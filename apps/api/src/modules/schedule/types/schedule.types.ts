@@ -233,6 +233,13 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean",
         ),
+    energyStages: z
+        .array(z.enum(['low', 'medium', 'high']))
+        .max(4)
+        .optional()
+        .describe(
+            "The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it",
+        ),
     avoidMoods: z
         .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))
         .max(6)
@@ -452,6 +459,13 @@ export const ScheduleSlotInput = z.strictObject({
         .optional()
         .describe(
             "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean",
+        ),
+    energyStages: z
+        .array(z.enum(['low', 'medium', 'high']))
+        .max(4)
+        .optional()
+        .describe(
+            "The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it",
         ),
     avoidMoods: z
         .array(z.enum(['love', 'happiness', 'comfort', 'sadness', 'loneliness', 'anger', 'fear']))

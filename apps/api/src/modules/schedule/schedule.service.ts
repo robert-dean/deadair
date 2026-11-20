@@ -2,6 +2,7 @@ import { hasMixFlow } from './mix.flow.shape.js';
 import { mixFlowProblems } from './mix.flow.validate.js';
 import { Injectable } from 'injectkit';
 import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
+import { energyStagesField } from '#modules/director/energy.stage.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
@@ -445,7 +446,9 @@ export class ScheduleService {
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
         const stored = (await this.slots.list()).find(slot => slot.id === id);
-        const draft = draftOf(keepingMixFlow(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored), stored));
+        const draft = draftOf(
+            keepingEnergyStages(keepingMixFlow(keepingBeds(keepingSwitch(keepingRecurrence(body, stored), stored), stored), stored), stored),
+        );
         await this.refuseOverlap(draft, id);
         await this.refusePeople(draft);
         await this.refuseFestival(draft);
@@ -618,6 +621,7 @@ export function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
             : { era: { ...(body.eraFrom === undefined ? {} : { from: body.eraFrom }), ...(body.eraTo === undefined ? {} : { to: body.eraTo }) } }),
         ...moodsField(body.moods),
         ...avoidMoodsField(body.avoidMoods),
+        ...energyStagesField(body.energyStages),
         // `=== undefined` rather than a falsy test: `false` is a real answer meaning this slot takes
         // no calls, which is not the same as never having been asked.
         ...(body.callins === undefined ? {} : { callins: body.callins }),
@@ -739,6 +743,17 @@ function keepingRecurrence(body: ScheduleSlotInput, stored: ScheduleSlot | undef
  */
 function keepingMixFlow(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
     return body.mixFlow === undefined && stored?.mixFlow !== undefined ? { ...body, mixFlow: stored.mixFlow } : body;
+}
+
+/**
+ * A body that says nothing about energy stages leaves the slot's stages where they are.
+ *
+ * `keepingMixFlow`'s argument: the field is newer than every native app's build, and one of those
+ * rewriting a slot without it would quietly flatten a show's arc because somebody corrected its name. A
+ * client that means to clear the stages sends an empty list.
+ */
+function keepingEnergyStages(body: ScheduleSlotInput, stored: ScheduleSlot | undefined): ScheduleSlotInput {
+    return body.energyStages === undefined && stored?.energyStages !== undefined ? { ...body, energyStages: [...stored.energyStages] } : body;
 }
 
 /**
@@ -868,6 +883,7 @@ function forTheWire(slot: ScheduleSlot, today: StationDate): ScheduleSlotList['s
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         ...(slot.moods === undefined ? {} : { moods: slot.moods }),
         ...(slot.avoidMoods === undefined ? {} : { avoidMoods: slot.avoidMoods }),
+        ...(slot.energyStages === undefined ? {} : { energyStages: slot.energyStages }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
         ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         ...(slot.chartPositions === undefined ? {} : { chartPositions: slot.chartPositions }),

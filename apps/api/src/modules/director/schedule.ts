@@ -53,6 +53,7 @@ import type { MixFlow } from '#modules/schedule/types/mix.types.js';
  * block's, so everything below asks {@link startsOn} and none of it needs to know which kind it has.
  */
 
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { occasionFalls, type OccasionRule } from '#modules/schedule/occasion.rule.js';
 import type { ChartOrder } from './chart.picks.js';
@@ -205,6 +206,12 @@ export interface ScheduleSlot {
      * order beside {@link moods}. A lean and never a filter: see `director/mood.lean.ts`.
      */
     avoidMoods?: LyricMood[];
+    /**
+     * The energy this stretch of the day leans to, as stages in order, copied onto the running order's
+     * rules at a changeover. A lean and never a filter: see `director/energy.stage.ts`. Absent rather
+     * than empty for no lean.
+     */
+    energyStages?: EnergyThird[];
     /**
      * Whether the host talks between the records during this stretch of the day.
      *

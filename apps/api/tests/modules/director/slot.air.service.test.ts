@@ -130,6 +130,13 @@ describe('SlotAirService.apply', () => {
         expect(jobs.send).toHaveBeenCalled();
     });
 
+    it('replans when the slot changes the energy it builds through, since that changes which records are chosen', async () => {
+        const { service, jobs } = build({ slot: { ...church, energyStages: ['high', 'low'] } });
+
+        expect((await service.apply(SLOT)).replanning).toBe(true);
+        expect(jobs.send).toHaveBeenCalled();
+    });
+
     it('replans when the slot gains a festival, since the bill changes which records are chosen', async () => {
         const { service, jobs } = build({ slot: { ...church, festivalId: '0a0b0c0d-0000-4000-8000-0000000000f1' } });
 

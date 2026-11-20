@@ -42,6 +42,8 @@ export function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean
         ...(slot.festivalId === undefined ? {} : { festivalId: slot.festivalId }),
         // On the order's rules for the festival's reason. An empty flow is no flow, and is not carried.
         ...(slot.mixFlow === undefined || slot.mixFlow.nodes.length === 0 ? {} : { mixFlow: slot.mixFlow }),
+        // On the order's rules beside the mix flow, and for its reason: every refill has to lean, not the first.
+        ...(slot.energyStages === undefined ? {} : { energyStages: slot.energyStages }),
         // The same three-way, and absent is the mode's answer: a countdown slot is a setlist that says yes.
         ...(slot.breaks === undefined ? {} : { breaks: slot.breaks }),
         // A kind of show rather than a station setting, so absent is simply no.

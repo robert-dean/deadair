@@ -1,3 +1,4 @@
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
 import type { MixFlow } from '#modules/schedule/types/mix.types.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
 import { randomUUID } from 'node:crypto';
@@ -413,6 +414,13 @@ export interface StationLineupRules {
      * flow with no nodes, is no flow: the show chooses exactly as it would without one.
      */
     mixFlow?: MixFlow;
+    /**
+     * The energy the show leans to, as stages in order across the slot it fills: `director/energy.stage.ts`.
+     *
+     * A show rule for `mixFlow`'s reason: it is read where the choice is made and travels through
+     * `reprogramme`. A lean on which records are chosen, never a filter. Absent is no lean.
+     */
+    energyStages?: readonly EnergyThird[];
     /**
      * Whether one record may be blended into the next.
      *

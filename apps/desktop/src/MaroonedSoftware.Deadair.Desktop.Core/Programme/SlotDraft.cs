@@ -58,7 +58,7 @@ public sealed record SlotDraft
 
     /// <summary>
     /// What this editor does not draw and must still send back, because <c>PUT</c> replaces the row:
-    /// a slot's mood, a special's dates, its guest hosts and co-hosts, whether it resumes its playlist,
+    /// a slot's mood and energy stages, a special's dates, its guest hosts and co-hosts, whether it resumes its playlist,
     /// whether its host talks and reads out chart positions, its request show and how many records
     /// follow a request, its own repeat window, artist cooldown and per-artist cap, and which writer
     /// it asks first. Without them, saving a special here would turn Halloween into a show every
@@ -100,6 +100,7 @@ public sealed record SlotDraft
             {
                 Moods = slot.Moods,
                 AvoidMoods = slot.AvoidMoods,
+                EnergyStages = slot.EnergyStages,
                 StartsOn = slot.StartsOn,
                 EndsOn = slot.EndsOn,
                 Yearly = slot.Yearly,
@@ -220,6 +221,7 @@ public sealed record SlotDraft
             MixInSimilar = MixInSimilar && ProgrammeSource.MixesInto(Source) ? true : null,
             Moods = Kept.Moods,
             AvoidMoods = Kept.AvoidMoods,
+            EnergyStages = Kept.EnergyStages,
             StartsOn = Kept.StartsOn,
             EndsOn = Kept.EndsOn,
             Yearly = Kept.Yearly,
@@ -325,6 +327,9 @@ public sealed record SlotPassthrough
 
     /// <summary>The moods the slot steers away from; null for none.</summary>
     public List<ScheduleSlotAvoidMoods>? AvoidMoods { get; init; }
+
+    /// <summary>The energy stages the slot builds or winds down through, in order; null for no lean.</summary>
+    public List<ScheduleSlotEnergyStages>? EnergyStages { get; init; }
 
     /// <summary>A special's first date, <c>YYYY-MM-DD</c>; null on a weekly slot.</summary>
     public string? StartsOn { get; init; }

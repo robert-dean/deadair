@@ -242,6 +242,35 @@ describe('the repeat rules a slot lifts', () => {
     });
 });
 
+describe('the energy a slot builds through', () => {
+    it('writes the stages to their own column and reads them back in order', async () => {
+        const statements: string[] = [];
+        const parameters: unknown[][] = [];
+        const stages = ['low', 'medium', 'high'];
+        const db = fakeDb(storedRow({}), { ...storedRow({}), energyStages: stages }, statements, parameters);
+        const slot = await new ScheduleRepository(db, new StationIdentity()).update(SLOT, {
+            ...draft(undefined),
+            energyStages: ['low', 'medium', 'high'],
+        });
+
+        const at = statements.findIndex(sql => sql.startsWith('update'));
+        expect(statements[at]).toContain('"energy_stages" = $');
+        expect(parameters[at]).toContainEqual(stages);
+        expect(slot?.energyStages).toEqual(stages);
+    });
+
+    it('reads a null back as no lean, and drops a level it does not know', async () => {
+        const none = await new ScheduleRepository(fakeDb(storedRow({}), storedRow({}), []), new StationIdentity()).update(SLOT, draft(undefined));
+        const odd = await new ScheduleRepository(
+            fakeDb(storedRow({}), { ...storedRow({}), energyStages: ['low', 'frantic'] }, []),
+            new StationIdentity(),
+        ).update(SLOT, draft(undefined));
+
+        expect(none).not.toHaveProperty('energyStages');
+        expect(odd?.energyStages).toEqual(['low']);
+    });
+});
+
 describe('a booked live show', () => {
     it('writes it to its own column and reads it back, and an ordinary slot never says live at all', async () => {
         const statements: string[] = [];

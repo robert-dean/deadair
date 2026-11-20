@@ -795,6 +795,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PutOnAirInputMoods>? Moods { get; init; }
 
+    /// <summary>The energy this broadcast leans to, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records measured in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean</summary>
+    [JsonPropertyName("energyStages")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PutOnAirInputEnergyStages>? EnergyStages { get; init; }
+
     /// <summary>The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing</summary>
     [JsonPropertyName("avoidMoods")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1366,6 +1371,67 @@ public sealed class PutOnAirInputMoodsConverter : JsonConverter<PutOnAirInputMoo
         PutOnAirInputMoods.Anger => "anger",
         PutOnAirInputMoods.Fear => "fear",
         _ => throw new JsonException($"PutOnAirInputMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(PutOnAirInputEnergyStagesConverter))]
+public enum PutOnAirInputEnergyStages
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("low")]
+    Low,
+
+    [JsonStringEnumMemberName("medium")]
+    Medium,
+
+    [JsonStringEnumMemberName("high")]
+    High,
+}
+
+/// <summary>
+/// Reads and writes <see cref="PutOnAirInputEnergyStages"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="PutOnAirInputEnergyStages.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class PutOnAirInputEnergyStagesConverter : JsonConverter<PutOnAirInputEnergyStages>
+{
+    public override PutOnAirInputEnergyStages Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for PutOnAirInputEnergyStages, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, PutOnAirInputEnergyStages value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override PutOnAirInputEnergyStages ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PutOnAirInputEnergyStages value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static PutOnAirInputEnergyStages FromWire(string? text) => text switch
+    {
+        "low" => PutOnAirInputEnergyStages.Low,
+        "medium" => PutOnAirInputEnergyStages.Medium,
+        "high" => PutOnAirInputEnergyStages.High,
+        _ => PutOnAirInputEnergyStages.Unknown,
+    };
+
+    private static string ToWire(PutOnAirInputEnergyStages value) => value switch
+    {
+        PutOnAirInputEnergyStages.Low => "low",
+        PutOnAirInputEnergyStages.Medium => "medium",
+        PutOnAirInputEnergyStages.High => "high",
+        _ => throw new JsonException($"PutOnAirInputEnergyStages.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

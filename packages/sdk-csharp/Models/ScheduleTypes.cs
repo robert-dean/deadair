@@ -355,6 +355,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ScheduleSlotMoods>? Moods { get; init; }
 
+    /// <summary>The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it</summary>
+    [JsonPropertyName("energyStages")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScheduleSlotEnergyStages>? EnergyStages { get; init; }
+
     /// <summary>The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing</summary>
     [JsonPropertyName("avoidMoods")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -560,6 +565,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("moods")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ScheduleSlotMoods>? Moods { get; init; }
+
+    /// <summary>The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it</summary>
+    [JsonPropertyName("energyStages")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ScheduleSlotEnergyStages>? EnergyStages { get; init; }
 
     /// <summary>The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing</summary>
     [JsonPropertyName("avoidMoods")]
@@ -942,6 +952,67 @@ public sealed class ScheduleSlotMoodsConverter : JsonConverter<ScheduleSlotMoods
         ScheduleSlotMoods.Anger => "anger",
         ScheduleSlotMoods.Fear => "fear",
         _ => throw new JsonException($"ScheduleSlotMoods.{value} has no wire spelling, so it cannot be sent."),
+    };
+}
+
+[JsonConverter(typeof(ScheduleSlotEnergyStagesConverter))]
+public enum ScheduleSlotEnergyStages
+{
+    /// <summary>
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: writing it throws a <see cref="JsonException"/>.
+    /// </summary>
+    Unknown = 0,
+
+    [JsonStringEnumMemberName("low")]
+    Low,
+
+    [JsonStringEnumMemberName("medium")]
+    Medium,
+
+    [JsonStringEnumMemberName("high")]
+    High,
+}
+
+/// <summary>
+/// Reads and writes <see cref="ScheduleSlotEnergyStages"/> by its wire spelling. A spelling it does not know reads as
+/// <see cref="ScheduleSlotEnergyStages.Unknown"/> rather than failing the payload.
+/// </summary>
+public sealed class ScheduleSlotEnergyStagesConverter : JsonConverter<ScheduleSlotEnergyStages>
+{
+    public override ScheduleSlotEnergyStages Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a string for ScheduleSlotEnergyStages, got {reader.TokenType}.");
+        }
+
+        return FromWire(reader.GetString());
+    }
+
+    public override void Write(Utf8JsonWriter writer, ScheduleSlotEnergyStages value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(ToWire(value));
+
+    public override ScheduleSlotEnergyStages ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        FromWire(reader.GetString());
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, ScheduleSlotEnergyStages value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(ToWire(value));
+
+    private static ScheduleSlotEnergyStages FromWire(string? text) => text switch
+    {
+        "low" => ScheduleSlotEnergyStages.Low,
+        "medium" => ScheduleSlotEnergyStages.Medium,
+        "high" => ScheduleSlotEnergyStages.High,
+        _ => ScheduleSlotEnergyStages.Unknown,
+    };
+
+    private static string ToWire(ScheduleSlotEnergyStages value) => value switch
+    {
+        ScheduleSlotEnergyStages.Low => "low",
+        ScheduleSlotEnergyStages.Medium => "medium",
+        ScheduleSlotEnergyStages.High => "high",
+        _ => throw new JsonException($"ScheduleSlotEnergyStages.{value} has no wire spelling, so it cannot be sent."),
     };
 }
 

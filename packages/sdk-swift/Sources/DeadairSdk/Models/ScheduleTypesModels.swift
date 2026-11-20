@@ -413,6 +413,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var eraTo: Int?
     /// The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean
     public var moods: [ScheduleSlotMoods]?
+    /// The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it
+    public var energyStages: [ScheduleSlotEnergyStages]?
     /// The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing
     public var avoidMoods: [ScheduleSlotAvoidMoods]?
     /// Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
@@ -468,7 +470,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, nextDate: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, energyStages: [ScheduleSlotEnergyStages]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, nextDate: String? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -484,6 +486,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
+        self.energyStages = energyStages
         self.avoidMoods = avoidMoods
         self.breaks = breaks
         self.callins = callins
@@ -530,6 +533,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
+        case energyStages = "energyStages"
         case avoidMoods = "avoidMoods"
         case breaks = "breaks"
         case callins = "callins"
@@ -577,6 +581,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([ScheduleSlotMoods].self, forKey: .moods)
+        self.energyStages = try container.decodeIfPresent([ScheduleSlotEnergyStages].self, forKey: .energyStages)
         self.avoidMoods = try container.decodeIfPresent([ScheduleSlotAvoidMoods].self, forKey: .avoidMoods)
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
@@ -624,6 +629,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)
+        try container.encodeIfPresent(self.energyStages, forKey: .energyStages)
         try container.encodeIfPresent(self.avoidMoods, forKey: .avoidMoods)
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
@@ -684,6 +690,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var eraTo: Int?
     /// The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean
     public var moods: [ScheduleSlotMoods]?
+    /// The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it
+    public var energyStages: [ScheduleSlotEnergyStages]?
     /// The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing
     public var avoidMoods: [ScheduleSlotAvoidMoods]?
     /// Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
@@ -737,7 +745,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [ScheduleSlotMoods]? = nil, energyStages: [ScheduleSlotEnergyStages]? = nil, avoidMoods: [ScheduleSlotAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: ScheduleSlotWriterOrder? = nil, startsOn: String? = nil, endsOn: String? = nil, recurrence: SpecialRecurrence? = nil, coHosts: [SlotCoHost]? = nil, guestHosts: [SlotGuestHost]? = nil, yearly: Bool? = nil, live: Bool? = nil, resumePlaylist: Bool? = nil, shufflePlaylist: Bool? = nil, enabled: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -752,6 +760,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
+        self.energyStages = energyStages
         self.avoidMoods = avoidMoods
         self.breaks = breaks
         self.callins = callins
@@ -796,6 +805,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
+        case energyStages = "energyStages"
         case avoidMoods = "avoidMoods"
         case breaks = "breaks"
         case callins = "callins"
@@ -841,6 +851,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([ScheduleSlotMoods].self, forKey: .moods)
+        self.energyStages = try container.decodeIfPresent([ScheduleSlotEnergyStages].self, forKey: .energyStages)
         self.avoidMoods = try container.decodeIfPresent([ScheduleSlotAvoidMoods].self, forKey: .avoidMoods)
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
@@ -886,6 +897,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)
+        try container.encodeIfPresent(self.energyStages, forKey: .energyStages)
         try container.encodeIfPresent(self.avoidMoods, forKey: .avoidMoods)
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
@@ -1255,6 +1267,55 @@ public enum ScheduleSlotMoods: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotMoods.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum ScheduleSlotEnergyStages: Codable, CaseIterable, Hashable, Sendable {
+    case low
+    case medium
+    case high
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [ScheduleSlotEnergyStages] = [.low, .medium, .high]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .low: return "low"
+        case .medium: return "medium"
+        case .high: return "high"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "low": self = .low
+        case "medium": self = .medium
+        case "high": self = .high
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "ScheduleSlotEnergyStages.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

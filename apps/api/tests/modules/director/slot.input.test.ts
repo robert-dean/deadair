@@ -73,3 +73,17 @@ describe('slotInput, for a mix flow', () => {
         expect(slotInput(slot({ mixFlow: { version: 1, nodes: [], links: [] } }))).not.toHaveProperty('mixFlow');
     });
 });
+
+describe('slotInput, for energy stages', () => {
+    it("carries a show's stages onto its broadcast and its rules, in order", () => {
+        const input = slotInput(slot({ energyStages: ['low', 'medium', 'high'] }));
+
+        expect(input.energyStages).toEqual(['low', 'medium', 'high']);
+        expect(rulesAskedFor(input).rules).toEqual({ energyStages: ['low', 'medium', 'high'] });
+    });
+
+    it('asks for no lean when the show names none, or sends an empty list by hand', () => {
+        expect(slotInput(slot())).not.toHaveProperty('energyStages');
+        expect(rulesAskedFor({ energyStages: [] })).toEqual({});
+    });
+});

@@ -10,7 +10,11 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
+import { libraryThird, type EnergyThird } from '#modules/analysis/energy.rank.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
+import { RefillEnergy } from '#modules/shared/refill.energy.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { DateTime } from 'luxon';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -327,6 +331,9 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly similarity: SimilarityService,
         // The festival the show is built around, read once per refill. See `FestivalBill`.
         private readonly festivals: FestivalBill,
+        // The refill's energy stage, handed to the search with how to read a record's band. See `RefillEnergy`.
+        private readonly refillEnergy: RefillEnergy,
+        private readonly analysis: AnalysisRepository,
     ) {
         super();
     }
@@ -350,6 +357,7 @@ export class ModelSetGenerator extends SetGenerator {
         // Before the prompt for the same reason, and only with smart shuffle on: off, nothing is read
         // and no row is marked, which is the search as it was.
         await this.rememberAired();
+        this.rememberEnergy(inputs.energy);
 
         const steer = await this.rules.steer();
         // Before the conversation, because it may ask the providers (a few, capped) and the model's
@@ -388,6 +396,8 @@ export class ModelSetGenerator extends SetGenerator {
                           // The genre steer, read per refill like everything above. Advice to the model and a
                           // weight in the catalog draw, never a filter: see `genre.steer.ts`.
                           ...(steer === undefined ? {} : { lean: steer.genres }),
+                          // The stage in words, beside the genre lean and as a lean: the rows say each record's band.
+                          ...(inputs.energy === undefined ? {} : { energy: inputs.energy }),
                           namedArtists: reach.acts.map(artist => ({
                               name: artist.name,
                               ...(artist.lastAiredAt === undefined
@@ -419,6 +429,7 @@ export class ModelSetGenerator extends SetGenerator {
                           ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                           ...(inputs.era === undefined ? {} : { era: inputs.era }),
                           ...(steer === undefined ? {} : { lean: steer.genres }),
+                          ...(inputs.energy === undefined ? {} : { energy: inputs.energy }),
                           ...(await this.listeningOnAList()),
                       },
                       {
@@ -694,6 +705,19 @@ export class ModelSetGenerator extends SetGenerator {
      * before smart shuffle, which is a fine answer, where letting the throw through would cost the
      * model its whole turn over a lean.
      */
+    /**
+     * Hand the search this refill's energy stage, and how to read a record's band against the library,
+     * so the rows the model chooses from say how energetic each owned record is. Nothing with no stage,
+     * which leaves every row as it was.
+     */
+    private rememberEnergy(stage: EnergyThird | undefined): void {
+        if (stage === undefined) return;
+        this.refillEnergy.set(stage, async trackIds => {
+            const energies = await this.analysis.energiesFor(trackIds, ANALYSIS_READABLE_SINCE_VERSION);
+            return new Map([...energies].map(([trackId, energy]) => [trackId, libraryThird(energy.percentile)]));
+        });
+    }
+
     private async rememberAired(): Promise<void> {
         const smartShuffle = resolveSmartShuffle(this.config);
         if (!smartShuffle.enabled) return;
@@ -744,7 +768,7 @@ export class ModelSetGenerator extends SetGenerator {
      */
     private rescue(inputs: SetInputs, why: string, list: readonly ShortlistEntry[] | undefined): TrackPick[] {
         if (list !== undefined) {
-            const drawn = drawFromShortlist(list, inputs.count, inputs.rules.maxPerArtist);
+            const drawn = drawFromShortlist(list, inputs.count, inputs.rules.maxPerArtist, Math.random, inputs.energy);
             if (drawn.length > 0) {
                 // Info for the reason the search rescue below says so: the failure was reported upstream.
                 this.logger.info('director: the model went quiet, so the hour is drawn from the list it was handed', {

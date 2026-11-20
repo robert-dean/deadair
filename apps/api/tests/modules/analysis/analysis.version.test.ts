@@ -1,6 +1,8 @@
 // Which question each constant answers. A reader handed the CURRENT version loses every measurement
 // the moment the schema moves on, so what is pinned is that only the walk ever reads that one, however
-// many readers are added later. The two are equal today, so no assertion on a value could tell them apart.
+// many readers are added later. Version 2 re-measured the library without changing what any field means,
+// so the two differ now, and a reader handed the current one would drop every record the walk has not
+// reached yet.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -28,6 +30,11 @@ describe('the analysis schema versions', () => {
 
     it('never reads a failure row, which is stored as version 0', () => {
         expect(ANALYSIS_READABLE_SINCE_VERSION).toBeGreaterThan(0);
+    });
+
+    it('keeps reading the rows version 2 re-measures, since no field changed its meaning', () => {
+        expect(ANALYSIS_SCHEMA_VERSION).toBe(2);
+        expect(ANALYSIS_READABLE_SINCE_VERSION).toBe(1);
     });
 
     it('never asks for a version no analyzer writes yet', () => {

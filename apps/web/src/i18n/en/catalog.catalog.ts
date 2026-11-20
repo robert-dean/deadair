@@ -199,6 +199,13 @@ export const catalog = {
             tempoValue: '{{bpm}} BPM',
             tempoTrust: 'How sure',
             tempoTrustValue: '{{percent}}%',
+            energy: 'Energy',
+            energyValue: '{{value}} of 100',
+            energyFromLoudness: 'from loudness only',
+            energyHelp:
+                'How energetic this record is beside the rest of the library, from 0 for the calmest to 100 for the most energetic: its loudness and its brightness, each ranked here and averaged. Until its brightness is measured, its loudness alone.',
+            brightness: 'Brightness',
+            brightnessValue: '{{hz}} Hz',
             whyFailed: 'Why it failed',
             kind: 'What went wrong',
             kinds: {

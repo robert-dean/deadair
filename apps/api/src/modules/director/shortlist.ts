@@ -1,6 +1,9 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { ANALYSIS_READABLE_SINCE_VERSION } from '@deadair/plugin-sdk';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
+import { thirdsOf, type Energy, type EnergyThird } from '#modules/analysis/energy.rank.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { SimilarityStoreRepository } from '#modules/similarity/similarity.store.repository.js';
@@ -9,6 +12,7 @@ import type { BriefReach } from './brief.acts.js';
 import { CandidatesRepository, namedRecordKey, type NamedMatch } from './candidates.repository.js';
 import { PickResolver, type ScreenCandidate } from './pick.resolver.js';
 import { artistKey, songKey } from './rotation.keys.js';
+import { ENERGY_BOOST } from './energy.lean.js';
 import { FRESH_FLOOR } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
 import type { SetInputs } from './set.generator.js';
@@ -67,6 +71,12 @@ export interface ShortlistEntry extends ScreenCandidate {
     album?: string;
     /** Whole days since it last aired, inside the smart shuffle's horizon. Absent for never. */
     airedDaysAgo?: number;
+    /**
+     * Which third of THIS LIST the record's measured energy falls in, while the refill leans to an energy
+     * stage. Absent with no stage, for a record the library does not hold or has not measured, and for a
+     * list too short of measured records to split. See `energy.lean.ts`.
+     */
+    energy?: EnergyThird;
 }
 
 @Injectable()
@@ -79,6 +89,8 @@ export class Shortlist {
         private readonly aired: AiredRecords,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        /** Each listed record's measured energy, for a refill that leans to an energy stage. */
+        private readonly analysis: AnalysisRepository,
     ) {}
 
     /**
@@ -192,11 +204,28 @@ export class Shortlist {
                 listed: chosen.length,
                 asked: inputs.count,
             });
-            return chosen.length >= inputs.count ? chosen : undefined;
+            if (chosen.length < inputs.count) return undefined;
+            return inputs.energy === undefined ? chosen : await this.withEnergy(chosen);
         } catch (error) {
             this.logger.warn(`director: could not build a shortlist for the model; it will search as before (${errorText(error)})`);
             return undefined;
         }
+    }
+
+    /**
+     * The list with each record's third of it marked, by measured energy. Thirds of the LIST, which is
+     * what the model chooses between, for the floor's reason: a show's records may all sit low in the
+     * library and still have a low, a middle and a high of their own. A failed read lists them unmarked.
+     */
+    private async withEnergy(list: ShortlistEntry[]): Promise<ShortlistEntry[]> {
+        const ids = list.flatMap(entry => (entry.trackId === undefined ? [] : [entry.trackId]));
+        const energies = await this.analysis.energiesFor(ids, ANALYSIS_READABLE_SINCE_VERSION).catch(() => new Map<string, Energy>());
+        const thirds = thirdsOf(new Map([...energies].map(([trackId, energy]) => [trackId, energy.percentile])));
+        if (thirds === undefined) return list;
+        return list.map(entry => {
+            const third = entry.trackId === undefined ? undefined : thirds.get(entry.trackId);
+            return third === undefined ? entry : { ...entry, energy: third };
+        });
     }
 }
 
@@ -239,7 +268,8 @@ const NEIGHBOUR_WEIGHT = 0.5;
  * of failed refills does not air the same opening every time: a record never aired, or off air a
  * fortnight, draws at full weight, one aired lately at no less than `FRESH_FLOOR` of it (the smart
  * shuffle's floor, never zero), and a neighbour at half an act's. No more than `maxPerArtist` by one
- * artist, the cap the resolver applies, so the slots go to records it will keep; `0` is no cap.
+ * artist, the cap the resolver applies, so the slots go to records it will keep; `0` is no cap. A record
+ * in the refill's energy stage, by its mark, draws at `ENERGY_BOOST` times, as it would from the floor.
  *
  * @param random - For tests. Anything answering in `[0, 1)`.
  */
@@ -248,8 +278,9 @@ export function drawFromShortlist(
     count: number,
     maxPerArtist: number,
     random: () => number = Math.random,
+    energy?: EnergyThird,
 ): TrackPick[] {
-    const pool = list.map(entry => ({ entry, weight: weightOf(entry) }));
+    const pool = list.map(entry => ({ entry, weight: weightOf(entry) * (energy !== undefined && entry.energy === energy ? ENERGY_BOOST : 1) }));
     const perArtist = new Map<string, number>();
     const drawn: TrackPick[] = [];
 

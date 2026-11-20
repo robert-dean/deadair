@@ -244,6 +244,8 @@ export interface PutOnAirInput {
     eraTo?: number;
     /** The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean */
     moods?: ('love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear')[];
+    /** The energy this broadcast leans to, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records measured in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean */
+    energyStages?: ('low' | 'medium' | 'high')[];
     /** The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing */
     avoidMoods?: ('love' | 'happiness' | 'comfort' | 'sadness' | 'loneliness' | 'anger' | 'fear')[];
     /** Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */

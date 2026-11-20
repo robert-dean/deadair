@@ -181,6 +181,8 @@ data class ScheduleSlot(
     val eraTo: Long? = null,
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     val moods: List<ScheduleSlotMoods>? = null,
+    /** The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it */
+    val energyStages: List<ScheduleSlotEnergyStages>? = null,
     /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
     val avoidMoods: List<ScheduleSlotAvoidMoods>? = null,
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
@@ -269,6 +271,8 @@ data class ScheduleSlotInput(
     val eraTo: Long? = null,
     /** The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean */
     val moods: List<ScheduleSlotMoods>? = null,
+    /** The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it */
+    val energyStages: List<ScheduleSlotEnergyStages>? = null,
     /** The moods this stretch of the day steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it, and a never-play rule is the way to refuse a genre outright. Absent or empty avoids nothing */
     val avoidMoods: List<ScheduleSlotAvoidMoods>? = null,
     /** Whether the host talks between the records during this stretch of the day. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a chart countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
@@ -442,6 +446,28 @@ object ScheduleSlotMoodsSerializer : SdkEnumSerializer<ScheduleSlotMoods>(
     ScheduleSlotMoods.LONELINESS to "loneliness",
     ScheduleSlotMoods.ANGER to "anger",
     ScheduleSlotMoods.FEAR to "fear",
+)
+
+@Serializable(with = ScheduleSlotEnergyStagesSerializer::class)
+enum class ScheduleSlotEnergyStages {
+    LOW,
+    MEDIUM,
+    HIGH,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [ScheduleSlotEnergyStages] by its wire spelling. A spelling it does not know reads as [ScheduleSlotEnergyStages.UNKNOWN]. */
+object ScheduleSlotEnergyStagesSerializer : SdkEnumSerializer<ScheduleSlotEnergyStages>(
+    "ScheduleSlotEnergyStages",
+    ScheduleSlotEnergyStages.UNKNOWN,
+    ScheduleSlotEnergyStages.LOW to "low",
+    ScheduleSlotEnergyStages.MEDIUM to "medium",
+    ScheduleSlotEnergyStages.HIGH to "high",
 )
 
 @Serializable(with = ScheduleSlotAvoidMoodsSerializer::class)

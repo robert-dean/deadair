@@ -62,6 +62,22 @@ export const programme = {
             fear: 'Fear',
         },
     },
+    energy: {
+        label: 'Energy',
+        description:
+            'Records measured at this energy are a little more likely to be picked. Calmer, middle and more energetic are thirds of the records the show is choosing between, measured from how loud and bright they sound, so even a show of quiet records has a calmer and a livelier end. Nothing is ever kept off the air for it.',
+        stagesDescription:
+            'The show moves through each energy in turn, for an equal share of its time: the first while it opens, the last as it closes. Calmer, middle and more energetic are thirds of the records it is choosing between, measured from their sound. Nothing is ever kept off the air for it.',
+        none: 'No lean',
+        then: 'Then…',
+        stage: 'Energy stage {{number}}',
+        clearStage: 'Remove energy stage {{number}}',
+        options: {
+            low: 'Calmer',
+            medium: 'Middle',
+            high: 'More energetic',
+        },
+    },
     avoidMoods: {
         label: 'Steers away from',
         description:

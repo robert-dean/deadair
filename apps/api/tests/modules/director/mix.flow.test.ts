@@ -393,3 +393,56 @@ describe('a bypassed node', () => {
         expect(judgeQuestions(judging)).toEqual([]);
     });
 });
+
+describe('a split by energy', () => {
+    /** The liveliest third of the library at most twice a show; everything else goes straight to air. */
+    const lively = (): MixFlow => ({
+        version: 1,
+        nodes: [
+            { id: 'picks', kind: 'picks' },
+            { id: 'energy', kind: 'split', splitBy: 'energy', branches: [{ values: ['high'] }] },
+            { id: 'two', kind: 'limitCount', count: 2 },
+            { id: 'merge', kind: 'merge' },
+            { id: 'air', kind: 'onAir' },
+        ],
+        links: [wire('picks', 'energy'), wire('energy', 'two', 0), wire('two', 'merge', 0, 0), wire('energy', 'merge', 1, 1), wire('merge', 'air')],
+    });
+    const loud = (artist: string): MixRecord => ({ ...rec(artist), energy: 'high' });
+
+    it('sends a record down the branch naming its third of the library', () => {
+        expect(walkRecord(lively(), loud('Slayer'), ctx()).path).toContain('two');
+        expect(walkRecord(lively(), { ...rec('Enya'), energy: 'low' }, ctx()).path).not.toContain('two');
+    });
+
+    it('sends a record not measured yet down "everything else", as a band with no genre matches no genre', () => {
+        expect(walkRecord(lively(), rec('Unmeasured'), ctx()).path).toEqual(['picks', 'energy', 'merge', 'air']);
+    });
+
+    it("counts the show's own history by its band, so a limit behind the branch holds once it is used up", () => {
+        const counted = countThrough(lively(), [
+            { ...loud('Slayer'), hour: 20 },
+            { ...loud('Kreator'), hour: 20 },
+        ]);
+
+        expect(walkRecord(lively(), loud('Sodom'), ctx(counted))).toMatchObject({ heldAt: 'two' });
+        expect(walkRecord(lively(), { ...rec('Enya'), energy: 'low' }, ctx(counted)).heldAt).toBeUndefined();
+    });
+
+    it('reads the band off the context it is handed, for the aired records and the queued ones alike', () => {
+        const built = buildMixContext({
+            flow: lively(),
+            aired: [{ trackId: 'a', title: 'Angel of Death', artist: 'Slayer', airedAtMs: 0 }],
+            queued: [{ trackId: 'q', title: 'Pleasure to Kill', artist: 'Kreator' }],
+            genres: new Map(),
+            energies: new Map([
+                ['a', 'high'],
+                ['q', 'high'],
+            ]),
+            hourOf: () => 20,
+            nowMs: 0,
+        });
+
+        expect(built.counted.map(record => record.energy)).toEqual(['high', 'high']);
+        expect(walkRecord(lively(), loud('Sodom'), built)).toMatchObject({ heldAt: 'two' });
+    });
+});

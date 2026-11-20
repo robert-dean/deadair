@@ -8,7 +8,7 @@
 // check it. Neither has a safe default, so both absences are faults.
 
 import { describe, expect, it } from 'vitest';
-import { isPluginError, type HostFetchInit, type PluginError } from '@deadair/plugin-sdk';
+import { ANALYSIS_SCHEMA_VERSION, isPluginError, type HostFetchInit, type PluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { AnalyzerPlugin } from '../src/analyzer.plugin.js';
@@ -22,9 +22,9 @@ const REF = {
     durationMs: 214_000,
 };
 
-/** A well-formed v1 answer. Tests override one field at a time from here. */
+/** A well-formed answer at the station's own version. Tests override one field at a time from here. */
 const goodBody = () => ({
-    schemaVersion: 1,
+    schemaVersion: ANALYSIS_SCHEMA_VERSION,
     analyzer: 'deadair-analysis/0.1.0',
     complete: true,
     durationMs: 213_880,
@@ -78,7 +78,9 @@ function fakeHost(options: FakeHostOptions = {}) {
 
         const chosen = url.endsWith('/analyze') ? options.analyze : options.health;
         const status = chosen?.status ?? 200;
-        const body = chosen?.body ?? (url.endsWith('/analyze') ? goodBody() : { status: 'ok', schemaVersion: 1, analyzer: 'deadair-analysis/0.1.0' });
+        const body =
+            chosen?.body ??
+            (url.endsWith('/analyze') ? goodBody() : { status: 'ok', schemaVersion: ANALYSIS_SCHEMA_VERSION, analyzer: 'deadair-analysis/0.1.0' });
 
         return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
             status,
@@ -123,14 +125,18 @@ describe('AnalyzerPlugin.analyzeTrack', () => {
     });
 
     it('passes data through unread, so a newer schema needs no change here', async () => {
-        // A v2-shaped payload the adapter has never heard of. It must survive intact: the host
-        // stores it as an opaque blob under the version the analyzer reported.
-        const body = { ...goodBody(), schemaVersion: 2, data: { ...goodBody().data, bpm: 126.02, downbeats: [1840, 3744] } };
+        // A payload of a version past the station's, with fields the adapter has never heard of. It
+        // must survive intact: the host stores it as an opaque blob under the version the analyzer reported.
+        const body = {
+            ...goodBody(),
+            schemaVersion: ANALYSIS_SCHEMA_VERSION + 1,
+            data: { ...goodBody().data, bpm: 126.02, downbeats: [1840, 3744], brightnessHz: 812.4 },
+        };
         const { plugin } = await started({ analyze: { body } });
 
         const result = await plugin.analyzeTrack(REF);
 
-        expect(result.schemaVersion).toBe(2);
+        expect(result.schemaVersion).toBe(ANALYSIS_SCHEMA_VERSION + 1);
         expect(result.data).toEqual(body.data);
     });
 
@@ -370,11 +376,31 @@ describe('AnalyzerPlugin.testConnection', () => {
         expect(result.ok).toBe(true);
         expect(result.message).toMatch(/v9/);
         expect(result.message).toMatch(/stored and then ignored/);
+        expect(result.message).not.toMatch(/until the analyzer is updated/);
+    });
+
+    it('says so when a sidecar run on its own is still on the image before the station re-measured', async () => {
+        // The station moved to version 2 to re-measure the library. A separately run analyzer left on
+        // the old image goes on answering version 1, and every row it writes is stale on arrival.
+        const { plugin } = await started({ health: { body: { status: 'ok', schemaVersion: 1, analyzer: 'deadair-analysis/0.2.0' } } });
+        const result = await plugin.testConnection();
+
+        expect(ANALYSIS_SCHEMA_VERSION).toBeGreaterThan(1);
+        expect(result.message).toMatch(/schema v1 where this station reads v2/);
+        // Its rows are read, not ignored, and they stay due: the operator has to update it to stop the loop.
+        expect(result.message).toMatch(/keep measuring them again until the analyzer is updated/);
+        expect(result.message).not.toMatch(/ignored/);
+    });
+
+    it('says nothing about a schema an analyzer shares with the station', async () => {
+        const { plugin } = await started();
+
+        expect((await plugin.testConnection()).message).not.toMatch(/stored and then ignored/);
     });
 
     it('repeats the decode ceiling, so asking the station for more than it is visible here', async () => {
         const { plugin } = await started({
-            health: { body: { status: 'ok', schemaVersion: 1, analyzer: 'deadair-analysis/0.1.0', maxConcurrent: 4 } },
+            health: { body: { status: 'ok', schemaVersion: ANALYSIS_SCHEMA_VERSION, analyzer: 'deadair-analysis/0.1.0', maxConcurrent: 4 } },
         });
         const result = await plugin.testConnection();
 
@@ -393,7 +419,9 @@ describe('AnalyzerPlugin.testConnection', () => {
 
     it('reports what that machine is currently holding, which is the one figure here that moves', async () => {
         const { plugin } = await started({
-            health: { body: { status: 'ok', schemaVersion: 1, analyzer: 'deadair-analysis/0.1.0', maxConcurrent: 4, rssMb: 118.4 } },
+            health: {
+                body: { status: 'ok', schemaVersion: ANALYSIS_SCHEMA_VERSION, analyzer: 'deadair-analysis/0.1.0', maxConcurrent: 4, rssMb: 118.4 },
+            },
         });
         const result = await plugin.testConnection();
 

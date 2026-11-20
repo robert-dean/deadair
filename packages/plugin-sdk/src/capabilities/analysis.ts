@@ -58,26 +58,40 @@
 import type { PluginLifecycle } from '../plugin.lifecycle.js';
 
 /**
- * The current shape of {@link TrackAnalysis.data}.
+ * The current shape of {@link TrackAnalysis.data}, and the version every stored row is
+ * measured against.
  *
- * Bumped whenever a detector's output changes shape, which is what lets a stored
- * row be recognised as STALE rather than read as missing or, worse, as current.
- * Reanalysis then falls out of an ordinary "needs work" query instead of needing
- * a migration.
+ * Bumped for one of two reasons, and only these. **A detector's output changes shape**,
+ * which is what lets a stored row be recognised as STALE rather than read as missing
+ * or, worse, as current. Or **the library is to be measured again** for fields older
+ * rows lack, because nothing else re-measures a row that works. Either way reanalysis
+ * falls out of an ordinary "needs work" query instead of needing a migration, and
+ * whether a READER still trusts an older row is {@link ANALYSIS_READABLE_SINCE_VERSION}'s
+ * question, not this one's.
  *
- * **An OPTIONAL field being added is not that**, and does not bump this. Every
+ * **An OPTIONAL field being added does not, on its own, bump this.** Every
  * consumer of `data` already has a defined answer for a field that is absent —
  * it has to, since an analyzer may not compute one — so a row written before the
  * field existed is still a correct row of this version rather than a stale one.
- * Bumping for it would mark the whole catalog for re-measurement to gain
- * something the station degrades over anyway. `tagGainDb` and friends arrived
- * exactly this way.
+ * Bumping marks the whole catalog for re-measurement, so it is worth doing only
+ * when a field is wanted on every record rather than on new ones, which is the
+ * second reason above. `tagGainDb` and friends arrived without one.
+ *
+ * **Version 2 is the second reason, a re-measure rather than a change of
+ * shape.** The beat fields and `brightnessHz` arrived as
+ * optional fields on version 1, so new records got them and the library's
+ * existing rows never would: nothing else re-measures a row that works. Raising
+ * this to 2 is how the whole library is measured once more, last and behind
+ * every new record, for both at once. No field changed meaning, which is why
+ * {@link ANALYSIS_READABLE_SINCE_VERSION} stays at 1 and nothing a version-1 row
+ * carries stops being read. A version 2 row is one measured by an analyzer that
+ * reports the tempo and the brightness when it can.
  *
  * The host compares this against what it stored, so a plugin must report the
  * version it actually produced rather than this constant, in case the two have
  * drifted apart across an upgrade.
  */
-export const ANALYSIS_SCHEMA_VERSION = 1;
+export const ANALYSIS_SCHEMA_VERSION = 2;
 
 /**
  * The oldest {@link ANALYSIS_SCHEMA_VERSION} whose measurements a READER still uses.
@@ -308,6 +322,27 @@ export interface TrackBeats {
 }
 
 /**
+ * How a record sounds, as one absolute figure measured from its audio.
+ *
+ * Half of a record's ENERGY: the station ranks this and {@link TrackLoudness.integratedLufs} each
+ * against its own library and averages the two ranks. The analyzer answers only the absolute figure,
+ * because it cannot know the library; "bright compared to what" is the station's question.
+ *
+ * Absent for a record with too little sounding to judge, for a row measured before an analyzer
+ * reported it, and whenever its pass failed. Absent is an answer: that record's energy rests on its
+ * loudness alone.
+ */
+export interface TrackTimbre {
+    /**
+     * Where the weight of the record's spectrum sits, in hertz: the median spectral centroid of its
+     * sounding frames, read off the channels averaged. Invariant to gain, so turning a record up moves
+     * its loudness and not this. Real records run from about 130 (dark, bass-led) to 1,500 (bright,
+     * cymbal-heavy).
+     */
+    brightnessHz?: number;
+}
+
+/**
  * What one analysis produced.
  *
  * `data` is deliberately the only place measurements live, and the host stores
@@ -357,7 +392,7 @@ export interface TrackAnalysis {
      * happened, where loudness needs a filter chain an analyzer may reasonably
      * not implement.
      */
-    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & TrackBeats & Record<string, unknown>;
+    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & TrackBeats & TrackTimbre & Record<string, unknown>;
 
     /**
      * How long the audio turned out to be once decoded.

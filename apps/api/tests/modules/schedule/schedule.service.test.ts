@@ -929,6 +929,25 @@ describe("a slot's mix flow", () => {
         expect(list[0]?.mixFlow).toBeUndefined();
     });
 
+    it('carries energy stages through in order, and stores an empty list as none', () => {
+        expect(draftOf(input({ energyStages: ['low', 'low', 'high'] }))).toMatchObject({ energyStages: ['low', 'low', 'high'] });
+        expect(draftOf(input({ energyStages: [] }))).not.toHaveProperty('energyStages');
+    });
+
+    it('keeps its energy stages through an edit from a client that never heard of them', async () => {
+        const list = [{ ...slot('a', 600, 720), energyStages: ['low', 'high'] as ('low' | 'medium' | 'high')[] }];
+        const service = build({ slots: list });
+        await service.update('a', input({ label: 'renamed' }));
+        expect(list[0]).toMatchObject({ label: 'renamed', energyStages: ['low', 'high'] });
+    });
+
+    it('clears them when the edit sends an empty list', async () => {
+        const list = [{ ...slot('a', 600, 720), energyStages: ['low', 'high'] as ('low' | 'medium' | 'high')[] }];
+        const service = build({ slots: list });
+        await service.update('a', input({ energyStages: [] }));
+        expect(list[0]?.energyStages).toBeUndefined();
+    });
+
     it('refuses a flow that cannot run, naming the node', async () => {
         const service = build({ slots: [] });
         const loose = { ...flow, links: [flow.links[0]!] };

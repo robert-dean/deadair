@@ -1,3 +1,4 @@
+import { ENERGY_BOOST } from './energy.lean.js';
 import { MOOD_AVOID, MOOD_BOOST } from './mood.lean.js';
 import { skipWeight } from './skip.lean.js';
 import { DEEP_CUT_LEAN, RETURN_LEAN } from './rediscover.js';
@@ -511,6 +512,12 @@ export interface RotationCandidate {
      */
     moodAvoid?: true;
     /**
+     * Whether this record is in the third of the draw the broadcast's energy stage leans toward. Only
+     * ever `true` or absent, a lean like {@link moodFit}: a record in another third, or never measured,
+     * weighs what it did. See `energy.lean.ts`.
+     */
+    energyFit?: true;
+    /**
      * How strongly the station is leaning toward this record right now, as a multiplier on its weight.
      * Absent weighs like `1`. Set only by a draw that read a genre steer (`genre.steer.ts`), and only
      * ever a lean: it changes how often a record is drawn and never whether it may be. It multiplies
@@ -597,6 +604,7 @@ export const weightOf = (candidate: RotationCandidate): number =>
     freshWeight(candidate.freshness) *
     (candidate.moodFit === true ? MOOD_BOOST : 1) *
     (candidate.moodAvoid === true ? MOOD_AVOID : 1) *
+    (candidate.energyFit === true ? ENERGY_BOOST : 1) *
     (candidate.lean ?? 1) *
     (candidate.returning === true ? RETURN_LEAN : 1) *
     (candidate.deepCut === true ? DEEP_CUT_LEAN : 1) *

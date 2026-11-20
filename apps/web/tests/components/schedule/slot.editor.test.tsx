@@ -1275,6 +1275,59 @@ describe('SlotEditorForm', () => {
         expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('avoidMoods');
     });
 
+    it('sends the energy a slot builds through, and nothing for a new slot that names none', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot({ energyStages: ['low', 'medium', 'high'] }) }}
+                onCancel={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        // The input, not the listbox Mantine labels the same way.
+        const stage = async (number: number) =>
+            (await screen.findAllByLabelText(`Energy stage ${number}`)).find(element => element.tagName === 'INPUT');
+        expect(await stage(3)).toHaveValue('More energetic');
+        expect(await stage(4)).toHaveValue('');
+
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[0]![0].energyStages).toEqual(['low', 'medium', 'high']);
+
+        const untouched = vi.fn();
+        render(<SlotEditorForm target={{ kind: 'new' }} onCancel={noop} onSubmit={untouched} onDelete={noop} saving={false} deleting={false} />);
+        await setupUser().type((await screen.findAllByRole('textbox', { name: 'Name' })).at(-1)!, 'Breakfast');
+        await setupUser().click(screen.getAllByRole('button', { name: 'Save' }).at(-1)!);
+        expect(untouched.mock.calls[0]?.[0]).not.toHaveProperty('energyStages');
+    });
+
+    it('clears energy stages a slot had with an empty list, since leaving the field out would keep them', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditorForm
+                target={{ kind: 'edit', slot: slot({ energyStages: ['high'] }) }}
+                onCancel={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+
+        expect(await screen.findByText('Energy')).toBeInTheDocument();
+        // Mantine's clear control is a button kept out of the accessibility tree, so it is found by its label.
+        await setupUser().click(screen.getByLabelText('Remove energy stage 1'));
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]![0].energyStages).toEqual([]);
+    });
+
     it('sends a second mood stage after the first, and closes the gap when one is cleared', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

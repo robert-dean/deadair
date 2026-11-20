@@ -1,6 +1,7 @@
 import { mixFlowProblems } from '#modules/schedule/mix.flow.validate.js';
 import { Injectable } from 'injectkit';
 import { avoidMoodsField, moodsField } from '#modules/lyrics/lyric.moods.js';
+import { energyStagesField } from './energy.stage.js';
 import { stationCover } from '#modules/art/art.source.token.js';
 import type { HostChartEntry } from '#modules/charts/station.chart.source.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -2106,6 +2107,7 @@ export function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRule
         ...(input.beds === undefined ? {} : { beds: input.beds }),
         ...(input.festivalId === undefined ? {} : { festivalId: input.festivalId }),
         ...(input.mixFlow === undefined || input.mixFlow.nodes.length === 0 ? {} : { mixFlow: input.mixFlow }),
+        ...energyStagesField(input.energyStages),
         ...(input.requestShow === undefined ? {} : { requestShow: input.requestShow }),
         ...(input.requestFollowOn === undefined ? {} : { requestFollowOn: input.requestFollowOn }),
         ...(input.requestCooldownMinutes === undefined ? {} : { requestCooldownMinutes: input.requestCooldownMinutes }),

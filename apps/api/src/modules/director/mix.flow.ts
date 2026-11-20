@@ -21,6 +21,13 @@ export interface MixRecord {
     /** Its release year, for a split by decade. */
     year?: number;
     /**
+     * Its measured energy as a third of the station's LIBRARY, for a split by energy. The library and not
+     * the batch, because a split is a rule the counts replay: a record has to go down the same branch
+     * every time the show's history is walked, and a third of whatever the batch held would move it.
+     * Absent for a record not measured yet, which matches no energy branch.
+     */
+    energy?: 'low' | 'medium' | 'high';
+    /**
      * The model's stored answers about this record, by question key (`judgeKey`), for a split by
      * `judged`. A question with no answer yet holds the record at that split.
      */
@@ -160,6 +167,8 @@ function matches(node: MixNode, branch: MixBranch, record: MixRecord, ctx: MixCo
             return values.some(wanted => sameTag(record.artist, wanted));
         case 'decade':
             return record.year !== undefined && values.some(wanted => Math.floor(record.year! / 10) * 10 === Number(wanted));
+        case 'energy':
+            return record.energy !== undefined && values.includes(record.energy);
         case 'hour':
             return inRange(ctx.hour, branch);
         case 'showProgress':
@@ -348,6 +357,7 @@ const SPLIT_WORDS: Record<Exclude<NonNullable<MixNode['splitBy']>, 'judged'>, st
     hour: 'hour',
     showProgress: 'percent of the show',
     lastGenre: 'after a record of main genre',
+    energy: 'energy',
 };
 
 function describeSplit(node: MixNode): string {

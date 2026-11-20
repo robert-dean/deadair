@@ -859,6 +859,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var eraTo: Int?
     /// The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean
     public var moods: [PutOnAirInputMoods]?
+    /// The energy this broadcast leans to, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records measured in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean
+    public var energyStages: [PutOnAirInputEnergyStages]?
     /// The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing
     public var avoidMoods: [PutOnAirInputAvoidMoods]?
     /// Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says
@@ -886,7 +888,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: PutOnAirInputWriterOrder? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, chartPositions: Bool? = nil, beds: Bool? = nil, concerts: Bool? = nil, mixFlow: MixFlow? = nil, festivalId: UUID? = nil, albumId: UUID? = nil, routeFrom: String? = nil, routeTo: String? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, moods: [PutOnAirInputMoods]? = nil, energyStages: [PutOnAirInputEnergyStages]? = nil, avoidMoods: [PutOnAirInputAvoidMoods]? = nil, breaks: Bool? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, requestShow: Bool? = nil, requestFollowOn: Int? = nil, requestCooldownMinutes: Int? = nil, requestMaxOpen: Int? = nil, repeatWindowDays: Int? = nil, artistCooldownMinutes: Int? = nil, maxPerArtist: Int? = nil, writerOrder: PutOnAirInputWriterOrder? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -906,6 +908,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.moods = moods
+        self.energyStages = energyStages
         self.avoidMoods = avoidMoods
         self.breaks = breaks
         self.callins = callins
@@ -942,6 +945,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case moods = "moods"
+        case energyStages = "energyStages"
         case avoidMoods = "avoidMoods"
         case breaks = "breaks"
         case callins = "callins"
@@ -979,6 +983,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.moods = try container.decodeIfPresent([PutOnAirInputMoods].self, forKey: .moods)
+        self.energyStages = try container.decodeIfPresent([PutOnAirInputEnergyStages].self, forKey: .energyStages)
         self.avoidMoods = try container.decodeIfPresent([PutOnAirInputAvoidMoods].self, forKey: .avoidMoods)
         self.breaks = try container.decodeIfPresent(Bool.self, forKey: .breaks)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
@@ -1016,6 +1021,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.moods, forKey: .moods)
+        try container.encodeIfPresent(self.energyStages, forKey: .energyStages)
         try container.encodeIfPresent(self.avoidMoods, forKey: .avoidMoods)
         try container.encodeIfPresent(self.breaks, forKey: .breaks)
         try container.encodeIfPresent(self.callins, forKey: .callins)
@@ -1588,6 +1594,55 @@ public enum PutOnAirInputMoods: Codable, CaseIterable, Hashable, Sendable {
             throw EncodingError.invalidValue(
                 self,
                 EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PutOnAirInputMoods.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum PutOnAirInputEnergyStages: Codable, CaseIterable, Hashable, Sendable {
+    case low
+    case medium
+    case high
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [PutOnAirInputEnergyStages] = [.low, .medium, .high]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .low: return "low"
+        case .medium: return "medium"
+        case .high: return "high"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "low": self = .low
+        case "medium": self = .medium
+        case "high": self = .high
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "PutOnAirInputEnergyStages.unknown has no wire spelling, so it cannot be sent")
             )
         }
         var container = encoder.singleValueContainer()

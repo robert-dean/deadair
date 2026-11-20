@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { AiredRecords } from '#modules/shared/aired.records.js';
+import { RefillEnergy } from '#modules/shared/refill.energy.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { MusicSearchTool } from './music.search.tool.js';
 import { ProviderSearch } from './provider.search.js';
@@ -70,6 +71,8 @@ export const LlmModule: ServerKitModule = {
         // The same edge carrying a second fact: how long ago each record aired, for smart shuffle.
         // Registered here for the reason `QueuedRecords` is, and empty for every caller but a refill.
         registry.register(AiredRecords).useClass(AiredRecords).asScoped();
+        // And a third: the energy stage a refill leans to, with how to read each record's band. Unset for every caller but a refill.
+        registry.register(RefillEnergy).useClass(RefillEnergy).asScoped();
         // The other direction of the same edge, and registered here for the same reason: the search
         // tool writes it, `ModelSetGenerator` reads it, and a scope where nothing searched leaves an
         // empty set, which is the correct answer for every caller that is not a refill.

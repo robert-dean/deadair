@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
-import type { Mood } from '../programme/programme.fields';
+import type { EnergyLevel, Mood } from '../programme/programme.fields';
 import { Eyebrow } from '../shared/eyebrow';
 import { weekdayShort } from '../../i18n/format.locale';
 import { DAYS } from './schedule.day';
@@ -30,6 +30,7 @@ export interface ShowSummaryValues {
     eraFrom: number | string;
     eraTo: number | string;
     moods: readonly Mood[];
+    energyStages: readonly EnergyLevel[];
     mixFlow: boolean;
     callins: boolean;
 }
@@ -100,6 +101,8 @@ export function linesOf(t: TFunction<['schedule', 'programme']>, values: ShowSum
 
     if (values.moods.length > 0)
         lines.push(t('slot.summary.leans', { moods: values.moods.map(mood => t(`programme:mood.options.${mood}`)).join(' → ') }));
+    if (values.energyStages.length > 0)
+        lines.push(t('slot.summary.energy', { stages: values.energyStages.map(level => t(`programme:energy.options.${level}`)).join(' → ') }));
     if (values.mixFlow) lines.push(t('slot.summary.mixFlow'));
     if (values.callins) lines.push(t('slot.summary.callins'));
 

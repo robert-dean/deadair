@@ -4,6 +4,9 @@
 // library too small to satisfy them comes back short rather than empty-handed or
 // repeating itself.
 
+import type { AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
+import type { Energy } from '../../../src/modules/analysis/energy.rank.js';
+import { ENERGY_BOOST } from '../../../src/modules/director/energy.lean.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { DateTime } from 'luxon';
@@ -61,6 +64,10 @@ interface Options {
     moods?: Map<string, MoodDistribution>;
     /** The judged moods cannot be read at all. */
     moodsFail?: boolean;
+    /** Each record's measured energy against the library, keyed by track id. */
+    energies?: Map<string, Energy>;
+    /** The energies cannot be read at all. */
+    energiesFail?: boolean;
     /** The station's never-play rules, as the repository lists them. */
     neverPlay?: BlockRule[];
     /** The rules cannot be read at all. */
@@ -136,6 +143,12 @@ function build(options: Options = {}) {
             return options.moods ?? new Map();
         }),
     } as unknown as LyricLabelsRepository;
+    const analysis = {
+        energiesFor: vi.fn(async (ids: readonly string[]) => {
+            if (options.energiesFail) throw new Error('the analysis table is gone');
+            return new Map([...(options.energies ?? new Map<string, Energy>())].filter(([id]) => ids.includes(id)));
+        }),
+    } as unknown as AnalysisRepository;
 
     return {
         generator: new CatalogSetGenerator(
@@ -149,9 +162,11 @@ function build(options: Options = {}) {
             labels,
             new NeverPlay(rules, candidates, config),
             skips,
+            analysis,
         ),
         skips,
         labels,
+        analysis,
         candidates,
         history,
         watch,
@@ -813,6 +828,70 @@ describe('CatalogSetGenerator leaning toward a mood', () => {
         const { generator, labels } = build({ sample: [candidate('Party', 'One')], settings: off });
         await generator.generate({ count: 1, rules: rotation, mood: 'happiness', avoidMoods: ['sadness'] });
         expect(labels.moodsForTracks).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('CatalogSetGenerator leaning toward an energy stage', () => {
+    const off = { [SMART_SHUFFLE_KEYS.enabled]: 'false' };
+    /** Six records, the calmest first, all of them low in the library: the pool's own thirds are what count. */
+    const pool = () => Array.from({ length: 6 }, (_, index) => candidate(`Song ${index}`, `Artist ${index}`));
+    const measured = (sample: CandidateTrack[]) =>
+        new Map(sample.map((track, index): [string, Energy] => [track.trackId, { percentile: 5 + index * 3, from: 'loudness' }]));
+
+    it("makes the pool's own top third twice as likely when the stage is high, though every record is low in the library", async () => {
+        expect(ENERGY_BOOST).toBe(2);
+        const sample = pool();
+        const { generator } = build({ sample, energies: measured(sample), settings: off });
+
+        let high = 0;
+        const draws = 3000;
+        for (let index = 0; index < draws; index++) {
+            const [pick] = await generator.generate({ count: 1, rules: rotation, energy: 'high' });
+            if (pick?.title === 'Song 4' || pick?.title === 'Song 5') high++;
+        }
+
+        // Two records at twice the weight of four is four eighths. A generous band, because this is a draw.
+        expect(high / draws).toBeGreaterThan(0.44);
+        expect(high / draws).toBeLessThan(0.56);
+    });
+
+    it('asks nothing about energy for a broadcast with no stage', async () => {
+        const { generator, analysis } = build({ sample: pool(), settings: off });
+
+        await generator.generate({ count: 1, rules: rotation });
+
+        expect(analysis.energiesFor).not.toHaveBeenCalled();
+    });
+
+    it('leans nowhere when too few of the sample are measured to split into thirds', async () => {
+        const sample = pool();
+        const { generator } = build({ sample, energies: new Map([...measured(sample)].slice(0, 5)), settings: off });
+
+        let low = 0;
+        const draws = 3000;
+        for (let index = 0; index < draws; index++) {
+            const [pick] = await generator.generate({ count: 1, rules: rotation, energy: 'low' });
+            if (pick?.title === 'Song 0' || pick?.title === 'Song 1') low++;
+        }
+
+        // Two of six with no lean is a third.
+        expect(low / draws).toBeGreaterThan(0.27);
+        expect(low / draws).toBeLessThan(0.39);
+    });
+
+    it('still draws when the energies cannot be read, as though no stage was named', async () => {
+        const { generator } = build({ sample: pool(), energiesFail: true, settings: off });
+
+        expect(await generator.generate({ count: 1, rules: rotation, energy: 'high' })).toHaveLength(1);
+    });
+
+    it('never keeps a record off the air: the whole pool still plays under a stage', async () => {
+        const sample = pool();
+        const { generator } = build({ sample, energies: measured(sample), settings: off });
+
+        const picks = await generator.generate({ count: 6, rules: { ...rotation, artistCooldownMinutes: 0, repeatWindowDays: 0 }, energy: 'high' });
+
+        expect(new Set(picks.map(pick => pick.title)).size).toBe(6);
     });
 });
 

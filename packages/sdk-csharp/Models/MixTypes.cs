@@ -34,7 +34,7 @@ public sealed record MixLink
 /// <summary>One output of a `split`</summary>
 public sealed record MixBranch
 {
-    /// <summary>What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`</summary>
+    /// <summary>What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980`</summary>
     [JsonPropertyName("values")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Values { get; init; }
@@ -116,7 +116,7 @@ public sealed record MixNode
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Bands { get; init; }
 
-    /// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked</summary>
+    /// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked</summary>
     [JsonPropertyName("splitBy")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public MixNodeSplitBy? SplitBy { get; init; }
@@ -343,7 +343,7 @@ public sealed class MixNodeKindConverter : JsonConverter<MixNodeKind>
     };
 }
 
-/// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked</summary>
+/// <summary>`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked</summary>
 [JsonConverter(typeof(MixNodeSplitByConverter))]
 public enum MixNodeSplitBy
 {
@@ -373,6 +373,9 @@ public enum MixNodeSplitBy
 
     [JsonStringEnumMemberName("judged")]
     Judged,
+
+    [JsonStringEnumMemberName("energy")]
+    Energy,
 }
 
 /// <summary>
@@ -409,6 +412,7 @@ public sealed class MixNodeSplitByConverter : JsonConverter<MixNodeSplitBy>
         "showProgress" => MixNodeSplitBy.ShowProgress,
         "lastGenre" => MixNodeSplitBy.LastGenre,
         "judged" => MixNodeSplitBy.Judged,
+        "energy" => MixNodeSplitBy.Energy,
         _ => MixNodeSplitBy.Unknown,
     };
 
@@ -421,6 +425,7 @@ public sealed class MixNodeSplitByConverter : JsonConverter<MixNodeSplitBy>
         MixNodeSplitBy.ShowProgress => "showProgress",
         MixNodeSplitBy.LastGenre => "lastGenre",
         MixNodeSplitBy.Judged => "judged",
+        MixNodeSplitBy.Energy => "energy",
         _ => throw new JsonException($"MixNodeSplitBy.{value} has no wire spelling, so it cannot be sent."),
     };
 }

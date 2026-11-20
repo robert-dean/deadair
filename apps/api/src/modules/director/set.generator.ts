@@ -1,5 +1,6 @@
 import type { MixInForce } from './mix.flow.js';
 import type { LyricMood } from '#modules/lyrics/lyric.moods.js';
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { PickBroadcast } from './never.play.js';
 import type { ChartPlacing } from '#modules/playout/rundown.js';
@@ -109,6 +110,12 @@ export interface SetInputs {
      * generator for the same reason. See `director/mood.lean.ts`.
      */
     avoidMoods?: readonly LyricMood[];
+    /**
+     * The energy stage this batch airs in, when the broadcast names energy stages: the third of the
+     * records being chosen between that the draw leans toward. A lean and never a filter, read by
+     * `CatalogSetGenerator`. See `director/energy.lean.ts`.
+     */
+    energy?: EnergyThird;
     /**
      * The festival this broadcast is built around, by its id, from the order's rules or the slot. Read
      * through `FestivalBill`, once per refill, by `FestivalSetGenerator` and the model. Absent is no

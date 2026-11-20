@@ -314,6 +314,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             { moodsForTracks: async () => new Map() } as never,
             { holding: async () => [], blockedUnder: async () => new Map() } as never,
             { lastSkippedSince: async () => new Map() } as never,
+            { energiesFor: async () => new Map() } as never,
         );
     }
 
@@ -333,6 +334,8 @@ describe('SetGeneratorChain with the real bindings', () => {
             logger,
             // Nor are these: the smart shuffle's history read and the brief's acts come after the
             // same config check.
+            {} as never,
+            {} as never,
             {} as never,
             {} as never,
             {} as never,

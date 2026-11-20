@@ -3,6 +3,8 @@
 // cost the station a running order, because the chain tops up from a draw that cannot fail -- so
 // what is actually under test is that each one produces FEWER picks rather than an exception.
 
+import type { AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
+import { RefillEnergy } from '../../../src/modules/shared/refill.energy.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -187,6 +189,10 @@ function build(options: Options = {}) {
         reach: vi.fn(async () => ({ acts: (options.namedArtists ?? []).map(artist => ({ ...artist, inLibrary: true })), neighbours: [] })),
     };
 
+    // The refill's energy stage reaches the search through this, and the measurements behind it here.
+    const refillEnergy = new RefillEnergy();
+    const analysis = { energiesFor: vi.fn(async () => new Map()) };
+
     // No steer unless a case sets one, which is every station until an operator leans it.
     const rules = { steer: vi.fn(async () => undefined as { genres: string[]; endsAt: string } | undefined) };
 
@@ -209,7 +215,11 @@ function build(options: Options = {}) {
             listening as unknown as ListeningProfileService,
             { canNameTagged: () => false } as never,
             { of: vi.fn(async (id: string | undefined) => (id === undefined ? undefined : options.festivals?.[id])) } as never,
+            refillEnergy,
+            analysis as unknown as AnalysisRepository,
         ),
+        refillEnergy,
+        analysis,
         rules,
         converse,
         taste,
@@ -378,6 +388,29 @@ describe('ModelSetGenerator', () => {
         const user = request.messages.find(message => message.role === 'user')?.content ?? '';
         expect(user).toContain('This show is built around Shaky Knees.');
         expect(user).toContain('Foo Fighters; Wet Leg');
+    });
+
+    it("hands the search the refill's energy stage, reading each record's band against the library", async () => {
+        const { generator, refillEnergy, analysis } = build({ enabled: true });
+        analysis.energiesFor.mockResolvedValue(
+            new Map([
+                ['calm', { percentile: 12, from: 'loudness' }],
+                ['loud', { percentile: 88, from: 'loudnessAndBrightness' }],
+            ]),
+        );
+
+        await generator.generate(inputs(5, { energy: 'high' }));
+
+        expect(refillEnergy.stage).toBe('high');
+        expect(Object.fromEntries(await refillEnergy.bandsFor(['calm', 'loud']))).toEqual({ calm: 'low', loud: 'high' });
+    });
+
+    it('hands the search no stage for a show with none', async () => {
+        const { generator, refillEnergy } = build({ enabled: true });
+
+        await generator.generate(inputs(5));
+
+        expect(refillEnergy.stage).toBeUndefined();
     });
 
     it('says nothing about a festival when the show names none, or names one that is gone', async () => {

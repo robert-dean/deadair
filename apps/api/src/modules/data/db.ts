@@ -1087,6 +1087,7 @@ export interface DeadairScheduleSlots {
   enabled: Generated<boolean>;
   endsAtMinutes: number;
   endsOn: DateTime | null;
+  energyStages: string[] | null;
   eraFrom: number | null;
   eraTo: number | null;
   festivalId: string | null;

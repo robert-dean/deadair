@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir --no-deps -r requirements.nodeps.txt
 # [comparable-stations](https://github.com/robert-dean/deadair/discussions/10) recorded. `requirements.nodeps.txt` above is the one place
 # it is named now, read by both Dockerfiles, so there is nothing left to forget for that
 # package. Only this module list still is.
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/beats.py analysis/beat_model.py analysis/app.py ./
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/beats.py analysis/beat_model.py analysis/brightness.py analysis/app.py ./
 
 # The beat tracker's weights, in the image rather than fetched on first use. `beat_this` would download
 # them to a home directory this image's non-root user has not got, from a university's server, in the

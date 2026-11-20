@@ -20,7 +20,7 @@ data class MixLink(
 /** One output of a `split` */
 @Serializable
 data class MixBranch(
-    /** What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980` */
+    /** What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980` */
     val values: List<String>? = null,
     /** The lowest it matches, for `hour` and `showProgress`, inclusive */
     val min: Double? = null,
@@ -69,7 +69,7 @@ data class MixNode(
     val kind: MixNodeKind,
     /** `block`: the bands it keeps off, matched by name, ignoring case */
     val bands: List<String>? = null,
-    /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
+    /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
     val splitBy: MixNodeSplitBy? = null,
     /** `split`: its outputs in order, before the last output, "everything else" */
     val branches: List<MixBranch>? = null,
@@ -171,7 +171,7 @@ object MixNodeKindSerializer : SdkEnumSerializer<MixNodeKind>(
     MixNodeKind.TIME_SWITCH to "timeSwitch",
 )
 
-/** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
+/** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
 @Serializable(with = MixNodeSplitBySerializer::class)
 enum class MixNodeSplitBy {
     GENRE,
@@ -181,6 +181,7 @@ enum class MixNodeSplitBy {
     SHOW_PROGRESS,
     LAST_GENRE,
     JUDGED,
+    ENERGY,
 
     /**
      * A value this SDK does not know, such as a member the service added after it was generated.
@@ -200,6 +201,7 @@ object MixNodeSplitBySerializer : SdkEnumSerializer<MixNodeSplitBy>(
     MixNodeSplitBy.SHOW_PROGRESS to "showProgress",
     MixNodeSplitBy.LAST_GENRE to "lastGenre",
     MixNodeSplitBy.JUDGED to "judged",
+    MixNodeSplitBy.ENERGY to "energy",
 )
 
 /** `limitShare` and `limitCount`: what the amount is counted over. Absent is `show` */

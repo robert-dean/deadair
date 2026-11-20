@@ -359,6 +359,66 @@ export function MoodStagesField({ value, onChange }: { value: readonly Mood[]; o
     );
 }
 
+/** The thirds an energy stage can name, calmest first. The API's own three. */
+export const ENERGY_LEVELS = ['low', 'medium', 'high'] as const;
+
+export type EnergyLevel = (typeof ENERGY_LEVELS)[number];
+
+/** How many energy stages a slot may pass through: the API's own limit, the same as the mood stages. */
+export const MAX_ENERGY_STAGES = 4;
+
+/**
+ * The energy it builds up or winds down through, as stages in order, or none.
+ *
+ * {@link MoodStagesField}'s shape and its rule for the same reasons: one select per stage and a blank
+ * one after the last while there is room, a cleared stage closing the gap. A level may repeat, since
+ * "calmer, calmer, more energetic" holds two thirds of a show down and lifts the last. Only a LEAN, and
+ * the description says so, along with the one thing an operator could not guess: each level is a third
+ * of the records the show is choosing between, not of the whole library, so a show of dark, quiet
+ * records still has a calmer and a more energetic end of its own.
+ */
+export function EnergyStagesField({ value, onChange }: { value: readonly EnergyLevel[]; onChange: (stages: EnergyLevel[]) => void }) {
+    const { t } = useTranslation('programme');
+    const data = ENERGY_LEVELS.map(level => ({ value: level, label: t(`energy.options.${level}`) }));
+    const rows: (EnergyLevel | undefined)[] = value.length < MAX_ENERGY_STAGES ? [...value, undefined] : [...value];
+
+    const change = (index: number, next: string | null) => {
+        const stages = [...value];
+        if (next === null) stages.splice(index, 1);
+        else stages[index] = next as EnergyLevel;
+        onChange(stages);
+    };
+
+    return (
+        <Input.Wrapper label={t('energy.label')} description={t(value.length > 1 ? 'energy.stagesDescription' : 'energy.description')}>
+            <Stack gap={6} mt={4}>
+                {rows.map((level, index) => (
+                    <Select
+                        // Positional on purpose: a stage IS its position, and clearing one moves the rest up.
+                        key={index}
+                        aria-label={t('energy.stage', { number: index + 1 })}
+                        placeholder={index === 0 ? t('energy.none') : t('energy.then')}
+                        data={data}
+                        value={level ?? null}
+                        onChange={next => change(index, next)}
+                        clearable
+                        clearButtonProps={{ 'aria-label': t('energy.clearStage', { number: index + 1 }) }}
+                        {...(rows.length > 1
+                            ? {
+                                  leftSection: (
+                                      <Text size="xs" c="dimmed">
+                                          {index + 1}
+                                      </Text>
+                                  ),
+                              }
+                            : {})}
+                    />
+                ))}
+            </Stack>
+        </Input.Wrapper>
+    );
+}
+
 /** How many moods a slot may steer away from: the API's own limit, all seven but one. */
 export const MAX_AVOIDED_MOODS = MOODS.length - 1;
 

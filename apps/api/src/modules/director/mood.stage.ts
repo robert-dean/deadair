@@ -8,7 +8,9 @@ import { minutesIntoSlot, minutesLeftInSlot, type ScheduleSlot } from './schedul
 import type { StationLineupItem } from './station.lineup.js';
 
 /**
- * Which of a slot's mood stages a batch of records will mostly air in.
+ * Which of a slot's stages a batch of records will mostly air in: its mood stages, or its energy stages
+ * (`energy.stage.ts`), which split the slot by the same rule so the two never disagree about where in
+ * the slot the station is.
  *
  * The stages split the slot into equal shares, in order: two stages over four hours are the first two
  * hours and the last two. Where the batch falls is measured from `now`, when the slot is known to be
@@ -20,22 +22,22 @@ import type { StationLineupItem } from './station.lineup.js';
  * with more stages than it has hours only ever airs the stages its refills land in. A single stage, or
  * no slot to measure against, is the first stage, which is exactly the lean before stages existed.
  */
-export function stageAt(
-    moods: readonly LyricMood[] | undefined,
+export function stageAt<T>(
+    stages: readonly T[] | undefined,
     slot: ScheduleSlot | undefined,
     now: number,
     aheadMs: number,
     zone: string,
-): LyricMood | undefined {
-    if (moods === undefined || moods.length === 0) return undefined;
-    if (moods.length === 1 || slot === undefined) return moods[0];
+): T | undefined {
+    if (stages === undefined || stages.length === 0) return undefined;
+    if (stages.length === 1 || slot === undefined) return stages[0];
 
     const into = minutesIntoSlot(slot, now, zone);
     const length = into + minutesLeftInSlot(slot, now, zone);
-    if (length <= 0) return moods[0];
+    if (length <= 0) return stages[0];
 
     const position = (into + Math.max(0, aheadMs) / 60_000) / length;
-    return moods[Math.min(moods.length - 1, Math.max(0, Math.floor(position * moods.length)))];
+    return stages[Math.min(stages.length - 1, Math.max(0, Math.floor(position * stages.length)))];
 }
 
 /**

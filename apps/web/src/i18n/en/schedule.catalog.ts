@@ -183,6 +183,7 @@ export const schedule = {
             periodFrom: 'Records from {{from}} on',
             periodTo: 'Records up to {{to}}',
             leans: 'Leans toward {{moods}}',
+            energy: 'Energy: {{stages}}',
             mixFlow: 'Mix rules decide each pick',
             callins: 'Takes phone-ins',
         },

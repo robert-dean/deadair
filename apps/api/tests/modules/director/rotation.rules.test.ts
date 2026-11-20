@@ -4,8 +4,9 @@
 // thing is dodged by every track with a guest artist on it. So these are tested
 // against the cases that produce those silences, not just the happy path.
 
+import { ENERGY_BOOST } from '../../../src/modules/director/energy.lean.js';
 import { settingsConfig } from '../../utils/settings.config.js';
-import { MOOD_AVOID } from '../../../src/modules/director/mood.lean.js';
+import { MOOD_AVOID, MOOD_BOOST } from '../../../src/modules/director/mood.lean.js';
 import { describe, expect, it } from 'vitest';
 
 import { albumKey, artistKey, creditKey, songKey, spacingKeys } from '../../../src/modules/director/rotation.keys.js';
@@ -497,6 +498,11 @@ describe('weightOf under smart shuffle', () => {
         expect(weightOf({ ...candidate('A', ['One']), moodAvoid: true })).toBe(MOOD_AVOID);
         expect(MOOD_AVOID).toBeGreaterThan(0);
         expect(weightOf({ ...candidate('A', ['One']), moodFit: true, moodAvoid: true })).toBe(1);
+    });
+
+    it('doubles a record in the energy stage, and multiplies with a mood fit rather than replacing it', () => {
+        expect(weightOf({ ...candidate('A', ['One']), energyFit: true })).toBe(ENERGY_BOOST);
+        expect(weightOf({ ...candidate('A', ['One']), energyFit: true, moodFit: true })).toBe(ENERGY_BOOST * MOOD_BOOST);
     });
 
     it('reads a freshness outside the ramp as its nearest end', () => {

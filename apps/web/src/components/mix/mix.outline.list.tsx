@@ -54,7 +54,11 @@ function Line({ line, set }: { line: OutlineLine; set: (node: MixNode) => void }
             branch === undefined
                 ? t('outline.everythingElse')
                 : (branch.values?.length ?? 0) > 0
-                  ? t('outline.branch', { match: (branch.values ?? []).join(', ') })
+                  ? t('outline.branch', {
+                        match: (branch.values ?? [])
+                            .map(value => (line.split.splitBy === 'energy' ? t(`energy.${value}`, { defaultValue: value }) : value))
+                            .join(', '),
+                    })
                   : t('outline.branchRange', { min: branch.min ?? 0, max: branch.max ?? '…' });
         return (
             <Text size="sm" fw={600} c="dimmed">

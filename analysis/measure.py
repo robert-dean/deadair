@@ -18,7 +18,11 @@ from scipy import signal
 
 from loudness import REFERENCE_RATE
 
-SCHEMA_VERSION = 1
+# 2 measures the library again, rather than describing a new shape: the tempo and the brightness
+# arrived as optional fields on version 1, which reached new records only. Every version-1 field means
+# what it did, so the station keeps reading version-1 rows while the walk re-measures them, last. The
+# SDK's `ANALYSIS_SCHEMA_VERSION` moves with this one, and `ANALYSIS_READABLE_SINCE_VERSION` does not.
+SCHEMA_VERSION = 2
 
 # One decode serves both this file and `loudness.py`, so the rate is the one
 # BS.1770 specifies its filters at. Nothing here needs 48 kHz -- no measurement

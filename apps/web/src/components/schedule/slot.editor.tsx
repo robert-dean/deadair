@@ -24,6 +24,8 @@ import {
     repeatRulesInput,
     AvoidMoodsField,
     MoodStagesField,
+    EnergyStagesField,
+    type EnergyLevel,
     type Mood,
     ShapeFields,
     ShapeNote,
@@ -199,6 +201,12 @@ export function SlotEditorForm({
             ...(typeof values.eraTo === 'number' ? { eraTo: values.eraTo } : {}),
             ...(values.moods.length === 0 ? {} : { moods: values.moods }),
             ...(values.avoidMoods.length === 0 ? {} : { avoidMoods: values.avoidMoods }),
+            // An empty list only to clear stages the slot had, since a rewrite that leaves the field out keeps them.
+            ...(values.energyStages.length > 0
+                ? { energyStages: values.energyStages }
+                : slot?.energyStages !== undefined && slot.energyStages.length > 0
+                  ? { energyStages: [] }
+                  : {}),
             // Sent only when it is ON. Absent is no calls, as it is for `putOnAir`.
             ...(values.callins ? { callins: true } : {}),
             // The same three-way, and only beside a playlist, the station's own or a provider's:
@@ -508,6 +516,8 @@ export function SlotEditorForm({
                                     leaning={form.values.moods}
                                     onChange={moods => form.setFieldValue('avoidMoods', moods)}
                                 />
+
+                                <EnergyStagesField value={form.values.energyStages} onChange={stages => form.setFieldValue('energyStages', stages)} />
                                 {/* Only a rotation picks its own records, so only a rotation has a flow to judge them by. */}
                                 {form.values.mode === 'rotation' ? (
                                     <MixFlowField
@@ -723,6 +733,8 @@ interface FormValues {
     moods: Mood[];
     /** Empty is nothing avoided, and sends nothing. */
     avoidMoods: Mood[];
+    /** Empty is no lean: sends nothing for a slot that had none, and an empty list to clear one that had some. */
+    energyStages: EnergyLevel[];
     /** Ticked sends `true`; unticked sends nothing, which is no calls. See `CallinsField`. */
     callins: boolean;
     /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
@@ -797,6 +809,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         eraTo: slot?.eraTo ?? '',
         moods: slot?.moods ?? [],
         avoidMoods: slot?.avoidMoods ?? [],
+        energyStages: slot?.energyStages ?? [],
         callins: slot?.callins ?? false,
         mixInSimilar: slot?.mixInSimilar ?? false,
         resumePlaylist: slot?.resumePlaylist === true,
@@ -853,6 +866,7 @@ function summaryOf(values: FormValues, special: boolean): ShowSummaryValues {
         eraFrom: values.eraFrom,
         eraTo: values.eraTo,
         moods: values.moods,
+        energyStages: values.energyStages,
         mixFlow: values.mode === 'rotation' && values.mixFlow !== undefined && values.mixFlow.nodes.length > 0,
         callins: values.callins,
     };

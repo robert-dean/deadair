@@ -1527,10 +1527,16 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
     public var bpm: Double?
     /// How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel
     public var beatConfidence: Double?
+    /// Where the weight of the record's sound sits, in hertz: the median spectral centroid of its sounding audio. About 130 for a dark, bass-led record to 1,500 for a bright, cymbal-heavy one. Absent where it has not been measured yet
+    public var brightnessHz: Double?
+    /// How energetic the record is against the rest of this library, 0 the calmest and 100 the most energetic: its loudness and its brightness, each ranked here and averaged. Absent for a record with no trustworthy measurement, or while too little of the library is measured to rank against
+    public var energyPercentile: Double?
+    /// Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is
+    public var energyFrom: TrackAnalysisEnergyFrom?
     /// Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is
     public var failureCode: MeasureFailure?
 
-    public init(schemaVersion: Int, complete: Bool, analyzer: String? = nil, analyzerPluginId: String? = nil, analyzedAt: Date? = nil, failedAt: Date? = nil, failureReason: String? = nil, bpm: Double? = nil, beatConfidence: Double? = nil, failureCode: MeasureFailure? = nil) {
+    public init(schemaVersion: Int, complete: Bool, analyzer: String? = nil, analyzerPluginId: String? = nil, analyzedAt: Date? = nil, failedAt: Date? = nil, failureReason: String? = nil, bpm: Double? = nil, beatConfidence: Double? = nil, brightnessHz: Double? = nil, energyPercentile: Double? = nil, energyFrom: TrackAnalysisEnergyFrom? = nil, failureCode: MeasureFailure? = nil) {
         self.schemaVersion = schemaVersion
         self.complete = complete
         self.analyzer = analyzer
@@ -1540,6 +1546,9 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         self.failureReason = failureReason
         self.bpm = bpm
         self.beatConfidence = beatConfidence
+        self.brightnessHz = brightnessHz
+        self.energyPercentile = energyPercentile
+        self.energyFrom = energyFrom
         self.failureCode = failureCode
     }
 
@@ -1553,6 +1562,9 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         case failureReason = "failureReason"
         case bpm = "bpm"
         case beatConfidence = "beatConfidence"
+        case brightnessHz = "brightnessHz"
+        case energyPercentile = "energyPercentile"
+        case energyFrom = "energyFrom"
         case failureCode = "failureCode"
     }
 
@@ -1567,6 +1579,9 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         self.failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
         self.bpm = try container.decodeIfPresent(Double.self, forKey: .bpm)
         self.beatConfidence = try container.decodeIfPresent(Double.self, forKey: .beatConfidence)
+        self.brightnessHz = try container.decodeIfPresent(Double.self, forKey: .brightnessHz)
+        self.energyPercentile = try container.decodeIfPresent(Double.self, forKey: .energyPercentile)
+        self.energyFrom = try container.decodeIfPresent(TrackAnalysisEnergyFrom.self, forKey: .energyFrom)
         self.failureCode = try container.decodeIfPresent(MeasureFailure.self, forKey: .failureCode)
     }
 
@@ -1581,6 +1596,9 @@ public struct TrackAnalysis: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.failureReason, forKey: .failureReason)
         try container.encodeIfPresent(self.bpm, forKey: .bpm)
         try container.encodeIfPresent(self.beatConfidence, forKey: .beatConfidence)
+        try container.encodeIfPresent(self.brightnessHz, forKey: .brightnessHz)
+        try container.encodeIfPresent(self.energyPercentile, forKey: .energyPercentile)
+        try container.encodeIfPresent(self.energyFrom, forKey: .energyFrom)
         try container.encodeIfPresent(self.failureCode, forKey: .failureCode)
     }
 }
@@ -3476,6 +3494,53 @@ public struct AlbumEnrichmentDetailInput: Codable, Equatable, Sendable {
         try container.encode(self.merged, forKey: .merged)
         try container.encode(self.sources, forKey: .sources)
         try container.encode(self.claims, forKey: .claims)
+    }
+}
+
+/// Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is
+public enum TrackAnalysisEnergyFrom: Codable, CaseIterable, Hashable, Sendable {
+    case loudness
+    case loudnessAndBrightness
+
+    /// A value this SDK does not know, such as a member the service added after it was generated.
+    /// Never sent: encoding it throws an `EncodingError`.
+    case unknown
+
+    /// The members the contract declares. `unknown` is not one of them.
+    public static let allCases: [TrackAnalysisEnergyFrom] = [.loudness, .loudnessAndBrightness]
+
+    /// The wire spelling, or `nil` for `unknown`, which has none.
+    public var rawValue: String? {
+        switch self {
+        case .loudness: return "loudness"
+        case .loudnessAndBrightness: return "loudnessAndBrightness"
+        case .unknown: return nil
+        }
+    }
+
+    /// The member a wire spelling names, or `nil` for one this SDK does not know.
+    public init?(rawValue: String) {
+        switch rawValue {
+        case "loudness": self = .loudness
+        case "loudnessAndBrightness": self = .loudnessAndBrightness
+        default: return nil
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self = Self(rawValue: try container.decode(String.self)) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard let rawValue else {
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "TrackAnalysisEnergyFrom.unknown has no wire spelling, so it cannot be sent")
+            )
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

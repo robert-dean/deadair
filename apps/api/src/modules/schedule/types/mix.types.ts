@@ -30,7 +30,7 @@ export const MixBranch = z.strictObject({
         .max(20)
         .optional()
         .describe(
-            'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`',
+            'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980`',
         ),
     min: z
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(100))
@@ -97,10 +97,10 @@ export const MixNode = z.strictObject({
         ),
     bands: z.array(z.string().min(1).max(200)).max(50).optional().describe('`block`: the bands it keeps off, matched by name, ignoring case'),
     splitBy: z
-        .enum(['genre', 'artist', 'decade', 'hour', 'showProgress', 'lastGenre', 'judged'])
+        .enum(['genre', 'artist', 'decade', 'hour', 'showProgress', 'lastGenre', 'judged', 'energy'])
         .optional()
         .describe(
-            '`split`: what it reads. `genre` is the band\'s main genre, which matches a branch\'s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch\'s range. `judged` is the model\'s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked',
+            "`split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so \"black metal\" takes \"Norwegian black metal\". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked",
         ),
     branches: z.array(MixBranch).max(8).optional().describe('`split`: its outputs in order, before the last output, "everything else"'),
     question: z.string().min(1).max(200).optional().describe('`split` by `judged`: what the model is asked about each record, once'),

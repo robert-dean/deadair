@@ -9597,6 +9597,22 @@ components:
                     maximum: 1
                     readOnly: true
                     description: 'How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel'
+                brightnessHz:
+                    type: number
+                    minimum: 0
+                    readOnly: true
+                    description: "Where the weight of the record's sound sits, in hertz: the median spectral centroid of its sounding audio. About 130 for a dark, bass-led record to 1,500 for a bright, cymbal-heavy one. Absent where it has not been measured yet"
+                energyPercentile:
+                    type: number
+                    minimum: 0
+                    maximum: 100
+                    readOnly: true
+                    description: 'How energetic the record is against the rest of this library, 0 the calmest and 100 the most energetic: its loudness and its brightness, each ranked here and averaged. Absent for a record with no trustworthy measurement, or while too little of the library is measured to rank against'
+                energyFrom:
+                    type: string
+                    enum: [loudness, loudnessAndBrightness]
+                    readOnly: true
+                    description: "Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is"
                 failureCode:
                     '$ref': '#/components/schemas/MeasureFailure'
                     readOnly: true
@@ -11348,6 +11364,13 @@ components:
                         enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
                     maxItems: 4
                     description: 'The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean'
+                energyStages:
+                    type: array
+                    items:
+                        type: string
+                        enum: [low, medium, high]
+                    maxItems: 4
+                    description: "The energy this broadcast leans to, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records measured in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean"
                 avoidMoods:
                     type: array
                     items:
@@ -17541,8 +17564,8 @@ components:
                     description: '`block`: the bands it keeps off, matched by name, ignoring case'
                 splitBy:
                     type: string
-                    enum: [genre, artist, decade, hour, showProgress, lastGenre, judged]
-                    description: '`split`: what it reads. `genre` is the band''s main genre, which matches a branch''s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch''s range. `judged` is the model''s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked'
+                    enum: [genre, artist, decade, hour, showProgress, lastGenre, judged, energy]
+                    description: '`split`: what it reads. `genre` is the band''s main genre, which matches a branch''s value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch''s range. `energy` is the record''s measured energy as a third of the station''s library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model''s stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked'
                 branches:
                     type: array
                     items:
@@ -17630,7 +17653,7 @@ components:
                         minLength: 1
                         maxLength: 200
                     maxItems: 20
-                    description: 'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980`'
+                    description: 'What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980`'
                 min:
                     type: number
                     minimum: 0
@@ -18007,6 +18030,13 @@ components:
                         enum: [love, happiness, comfort, sadness, loneliness, anger, fear]
                     maxItems: 4
                     description: "The moods this stretch of the day leans into, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. Records a model has judged to be in the stage's mood are a little more likely to be picked; nothing is ever kept off the air for it. One mood leans the whole slot one way. Absent or empty is no lean"
+                energyStages:
+                    type: array
+                    items:
+                        type: string
+                        enum: [low, medium, high]
+                    maxItems: 4
+                    description: "The energy this stretch of the day leans to, as stages in order: the first for its opening stretch, the last for its close, each an equal share of the slot. `[low, medium, high]` builds up, `[high, low]` winds down, one value leans the whole slot. A record's energy is measured from its audio, and the records in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. A rewrite that leaves it out keeps what the slot had; an empty list clears it"
                 avoidMoods:
                     type: array
                     items:

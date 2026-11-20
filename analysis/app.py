@@ -29,6 +29,7 @@ from dataclasses import dataclass
 import numpy as np
 import beat_model
 from beats import beats_from
+from brightness import brightness_hz
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
@@ -52,7 +53,7 @@ from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 from tags import gain_tags
 
-ANALYZER = "deadair-analysis/0.2.0"
+ANALYZER = "deadair-analysis/0.3.0"
 
 _log = logging.getLogger("uvicorn.error")
 
@@ -109,6 +110,8 @@ WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", str(min(4, os.cpu_count(
 # 320 MB, held for as long as the process runs once a first record has loaded the model: measured on two
 # CPUs, a five minute record peaks at 680 MB with the tracker and 360 MB without, and a sixteen minute
 # one, which skips it below, at 1.1 GB and 760 MB.
+# The averaged 22.05 kHz signal the tracker reads is still made with it off, because brightness reads
+# it too; that moved no measured peak (see README.md, "How brightness is measured").
 BEATS_ON = os.environ.get("ANALYSIS_BEATS", "on").strip().lower() != "off"
 
 # A record longer than this goes without a tempo, so that it keeps its cue points. The tracker took 14s
@@ -623,13 +626,16 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
         **gain_tags(probed.tags),
     }
 
-    # The beat pass last, and on a signal a small fraction of the decode's size, with the decode let go
-    # first. A long record's channels at the reference rate are hundreds of megabytes, and holding them
-    # under the model is the largest number this service can reach on a machine with the mixer on it.
+    # The spectral passes last, on ONE signal a small fraction of the decode's size, with the decode let
+    # go first. A long record's channels at the reference rate are hundreds of megabytes, and holding
+    # them under the model is the largest number this service can reach on a machine with the mixer on
+    # it. Brightness and the beat tracker read the same averaged 22.05 kHz signal, so it is made once.
     duration_ms = decoded.duration_ms
-    beat_signal = _beat_signal(decoded.samples, duration_ms)
+    spectral = _spectral_signal(decoded.samples)
     del decoded
-    data.update(_beats_of(beat_signal, points.cue_out - points.cue_in))
+    data.update(_brightness_of(spectral))
+    data.update(_beats_of(spectral if _beats_wanted(duration_ms) else None, points.cue_out - points.cue_in))
+    del spectral
 
     # Two independent truths, and the answer is complete only if BOTH hold.
     #
@@ -653,14 +659,38 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     }
 
 
-def _beat_signal(samples: np.ndarray, duration_ms: int) -> np.ndarray | None:
-    if not BEATS_ON or duration_ms > BEATS_MAX_SECONDS * 1000:
-        return None
+def _spectral_signal(samples: np.ndarray) -> np.ndarray | None:
+    """The channels AVERAGED at 22.05 kHz, for brightness and the beat tracker, or None.
+
+    `beat_model.model_signal` makes it, and it is made whatever `ANALYSIS_BEATS` says, because
+    brightness reads it too: about half a second of resampling on a five-minute record, and a quarter
+    of the decode's size. Its failure costs both of its readers and nothing else.
+    """
     try:
         return beat_model.model_signal(samples)
     except Exception:
-        _log.exception("could not prepare a record for the beat tracker")
+        _log.exception("could not prepare a record for its spectral passes")
         return None
+
+
+def _beats_wanted(duration_ms: int) -> bool:
+    return BEATS_ON and duration_ms <= BEATS_MAX_SECONDS * 1000
+
+
+def _brightness_of(signal: np.ndarray | None) -> dict:
+    """The record's brightness, or nothing, at no cost to the rest of the answer.
+
+    Its own failure path, as the beat pass has, so whatever goes wrong here leaves the cue points, the
+    loudness and the tempo standing and the field absent, which every reader already handles.
+    """
+    if signal is None:
+        return {}
+    try:
+        found = brightness_hz(signal)
+    except Exception:
+        _log.exception("the brightness pass failed; answering without it")
+        return {}
+    return {} if found is None else {"brightnessHz": found}
 
 
 def _beats_of(signal: np.ndarray | None, sounding_ms: int) -> dict:

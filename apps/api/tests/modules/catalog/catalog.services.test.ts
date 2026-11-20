@@ -220,6 +220,8 @@ interface TrackServiceParts {
     clearAnalysis?: ReturnType<typeof vi.fn>;
     clearEnrichment?: ReturnType<typeof vi.fn>;
     record?: ReturnType<typeof vi.fn>;
+    /** The record's energy against the library. Defaults to none, as a library too thin to rank answers. */
+    energiesFor?: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -248,6 +250,7 @@ const tracksService = (repository: Partial<TracksRepository>, parts: TrackServic
         {
             stateFor: vi.fn().mockResolvedValue(parts.analysis),
             clearFor: parts.clearAnalysis ?? vi.fn().mockResolvedValue(0),
+            energiesFor: parts.energiesFor ?? vi.fn().mockResolvedValue(new Map()),
         } as unknown as AnalysisRepository,
         { forTrack: vi.fn().mockResolvedValue({ plays: parts.plays ?? [], total: parts.playCount ?? 0 }) } as unknown as PlayHistoryRepository,
         { clearTrackEnrichment: parts.clearEnrichment ?? vi.fn().mockResolvedValue(0) } as unknown as EnrichmentRepository,
@@ -452,6 +455,33 @@ describe('TracksService.getTrack', () => {
         expect(detail.analysis).toBeUndefined();
         expect(detail.plays).toEqual([]);
         expect(detail.playCount).toBe(0);
+    });
+
+    it('adds how the record ranks against the library to its measurement', async () => {
+        const findTrack = vi.fn().mockResolvedValue(trackRow());
+        const energiesFor = vi.fn().mockResolvedValue(new Map([[TRACK_ID, { percentile: 81.94, from: 'loudnessAndBrightness' }]]));
+        const service = tracksService(
+            { findTrack },
+            { analysis: { schemaVersion: 1, complete: true, analyzedAt: '2026-08-14T11:00:00.000Z', brightnessHz: 812.4 }, energiesFor },
+        );
+
+        const detail = await service.getTrack(TRACK_ID);
+
+        expect(energiesFor).toHaveBeenCalledWith([TRACK_ID], expect.any(Number));
+        expect(detail.analysis).toMatchObject({ brightnessHz: 812.4, energyPercentile: 81.9, energyFrom: 'loudnessAndBrightness' });
+    });
+
+    it('answers the page without an energy when ranking it fails or cannot judge it', async () => {
+        const findTrack = vi.fn().mockResolvedValue(trackRow());
+        const analysis = { schemaVersion: 1, complete: true, analyzedAt: '2026-08-14T11:00:00.000Z' };
+        const failing = tracksService({ findTrack }, { analysis, energiesFor: vi.fn().mockRejectedValue(new Error('connection reset')) });
+        const unjudged = tracksService({ findTrack }, { analysis });
+
+        for (const service of [failing, unjudged]) {
+            const detail = await service.getTrack(TRACK_ID);
+            expect(detail.analysis).toMatchObject({ complete: true });
+            expect(detail.analysis).not.toHaveProperty('energyPercentile');
+        }
     });
 
     it('404s on a track that is absent or merged away', async () => {

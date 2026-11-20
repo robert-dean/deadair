@@ -357,6 +357,8 @@ data class PutOnAirInput(
     val eraTo: Long? = null,
     /** The moods this broadcast leans into, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records a model has judged to be in the mood are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean */
     val moods: List<PutOnAirInputMoods>? = null,
+    /** The energy this broadcast leans to, as stages in order across the schedule slot it fills. Off the schedule, only the first is used. Records measured in the stage's third of those being chosen between are a little more likely to be picked; nothing is ever kept off the air for it. Absent or empty is no lean */
+    val energyStages: List<PutOnAirInputEnergyStages>? = null,
     /** The moods this broadcast steers away from, for the whole of it. Records a model has judged to be in one are less likely to be picked, half as likely; nothing is ever kept off the air for it. Absent or empty avoids nothing */
     val avoidMoods: List<PutOnAirInputAvoidMoods>? = null,
     /** Whether the host talks between the records. Absent is the mode's own answer: a `rotation` talks and a `setlist` does not. Set it true on a `setlist` for a countdown with a host, which talks as often as the station does while the records play exactly as the setlist has them. A `feature` stays silent whatever this says */
@@ -590,6 +592,28 @@ object PutOnAirInputMoodsSerializer : SdkEnumSerializer<PutOnAirInputMoods>(
     PutOnAirInputMoods.LONELINESS to "loneliness",
     PutOnAirInputMoods.ANGER to "anger",
     PutOnAirInputMoods.FEAR to "fear",
+)
+
+@Serializable(with = PutOnAirInputEnergyStagesSerializer::class)
+enum class PutOnAirInputEnergyStages {
+    LOW,
+    MEDIUM,
+    HIGH,
+
+    /**
+     * A value this SDK does not know, such as a member the service added after it was generated.
+     * Never sent: encoding it throws a [kotlinx.serialization.SerializationException].
+     */
+    UNKNOWN,
+}
+
+/** Reads and writes [PutOnAirInputEnergyStages] by its wire spelling. A spelling it does not know reads as [PutOnAirInputEnergyStages.UNKNOWN]. */
+object PutOnAirInputEnergyStagesSerializer : SdkEnumSerializer<PutOnAirInputEnergyStages>(
+    "PutOnAirInputEnergyStages",
+    PutOnAirInputEnergyStages.UNKNOWN,
+    PutOnAirInputEnergyStages.LOW to "low",
+    PutOnAirInputEnergyStages.MEDIUM to "medium",
+    PutOnAirInputEnergyStages.HIGH to "high",
 )
 
 @Serializable(with = PutOnAirInputAvoidMoodsSerializer::class)

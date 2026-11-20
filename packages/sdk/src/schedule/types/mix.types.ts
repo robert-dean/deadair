@@ -18,7 +18,7 @@ export interface MixLink {
  * generated from [MixBranch](../../../../../apps/api/data/contracts/schedule/mix.types.ck)
  */
 export interface MixBranch {
-    /** What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist` and `judged` (`yes` or `no`); a decade as `1980` */
+    /** What it matches, for `genre`, `lastGenre` (a genre or anything refining it), `artist`, `judged` (`yes` or `no`) and `energy` (`low`, `medium` or `high`); a decade as `1980` */
     values?: string[];
     /** The lowest it matches, for `hour` and `showProgress`, inclusive */
     min?: number;
@@ -75,8 +75,8 @@ export interface MixNode {
     kind: 'picks' | 'onAir' | 'block' | 'split' | 'limitShare' | 'limitCount' | 'noRepeat' | 'merge' | 'require' | 'timeSwitch';
     /** `block`: the bands it keeps off, matched by name, ignoring case */
     bands?: string[];
-    /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
-    splitBy?: 'genre' | 'artist' | 'decade' | 'hour' | 'showProgress' | 'lastGenre' | 'judged';
+    /** `split`: what it reads. `genre` is the band's main genre, which matches a branch's value or anything that refines it, so "black metal" takes "Norwegian black metal". `hour` and `showProgress` (a percent of the show) match a branch's range. `energy` is the record's measured energy as a third of the station's library, `low`, `medium` or `high`; a record not measured yet matches no branch. `judged` is the model's stored answer to `question`, yes or no, asked once per record and kept; a record not answered yet is held at the split and waits a refill while the model is asked */
+    splitBy?: 'genre' | 'artist' | 'decade' | 'hour' | 'showProgress' | 'lastGenre' | 'judged' | 'energy';
     /** `split`: its outputs in order, before the last output, "everything else" */
     branches?: MixBranch[];
     /** `split` by `judged`: what the model is asked about each record, once */

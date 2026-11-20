@@ -23,6 +23,8 @@
  * something real, so the rule has to be about provenance rather than about invention.
  */
 
+import type { EnergyThird } from '#modules/analysis/energy.rank.js';
+import { energySentence } from './energy.words.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
 import type { TrackPick } from './set.generator.js';
@@ -213,6 +215,13 @@ export interface SetPromptRequest {
      * the hour from a genre the library barely holds.
      */
     lean?: readonly string[];
+    /**
+     * The energy stage this batch airs in, when the show names energy stages. Told beside the genre lean
+     * and as a lean for its reason: the search rows carry each owned record's band, and the model is
+     * asked to prefer the stage's between records that fit equally, never to refuse the rest. See
+     * `energy.lean.ts`.
+     */
+    energy?: EnergyThird;
     /**
      * The acts the brief names, longest off air first, from `BriefArtists`, with how many whole days
      * ago each last aired (absent for none inside the history's retention).
@@ -637,6 +646,8 @@ function userPrompt(request: SetPromptRequest): string {
                 'something else wherever the library has too little of them to fill the hour well.',
         );
     }
+
+    if (request.energy !== undefined) lines.push('', energySentence(request.energy, 'search'));
 
     if (request.avoid.length > 0) {
         const shown = request.avoid.slice(0, MAX_AVOID_SHOWN);

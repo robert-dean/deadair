@@ -499,6 +499,24 @@ export const TrackAnalysis = z.strictObject({
         .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(1))
         .optional()
         .describe('How far to trust that tempo, from 0 to 1. Low on a record that changes tempo or feel'),
+    brightnessHz: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0))
+        .optional()
+        .describe(
+            "Where the weight of the record's sound sits, in hertz: the median spectral centroid of its sounding audio. About 130 for a dark, bass-led record to 1,500 for a bright, cymbal-heavy one. Absent where it has not been measured yet",
+        ),
+    energyPercentile: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().min(0).max(100))
+        .optional()
+        .describe(
+            'How energetic the record is against the rest of this library, 0 the calmest and 100 the most energetic: its loudness and its brightness, each ranked here and averaged. Absent for a record with no trustworthy measurement, or while too little of the library is measured to rank against',
+        ),
+    energyFrom: z
+        .enum(['loudness', 'loudnessAndBrightness'])
+        .optional()
+        .describe(
+            "Which measurements `energyPercentile` was ranked from. `loudness` until the record's brightness is measured and enough of the library has one to rank it against. Present whenever `energyPercentile` is",
+        ),
     failureCode: MeasureFailure.optional().describe(
         'Which kind of failure it was, which decides when the walk tries again. Present whenever `failedAt` is',
     ),

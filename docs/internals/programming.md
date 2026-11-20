@@ -228,6 +228,39 @@ the time would refuse as many records wrongly as rightly, with nothing on air to
 `block_rules`' job, which reads a provider's tags rather than a model's reading of the lyrics. One read of
 the labels serves both halves.
 
+**A show's energy is a third lean on the draw, measured from the audio rather than judged, and it is ranked
+against the records being chosen between, never against the library.** A slot's `energyStages` (0148, up to
+four of `low`, `medium` and `high`) are stages in order across the slot by the mood stages' own split
+(`stageAt`, generic now, so the two can never disagree about where in the slot the station is), carried on
+the broadcast's `rules` as the mix flow is, read per refill and per replan (`refillEnergy`) and for a
+prepared opening as the first stage. A record's ENERGY is its `integratedLufs` and its `brightnessHz`, each
+a percentile rank against the library's trusted rows, averaged (`analysis/energy.rank.ts`); measured on 40
+records drawn from the live library against felt-energy scores written down before any figure was computed,
+the pair agreed at ρ 0.77, loudness alone at 0.63 (`analysis/README.md`, "How brightness is measured"). The
+lean does not cut on the library's thirds, and the measurement is the reason: **brightness reads dark club
+music as calm and loudness carries the mastering era**, so on this library a techno show's whole draw sits in
+the bottom third and a library-wide "build" would have nothing to build through. So `CatalogSetGenerator`
+reads the energies of what it SAMPLED (`AnalysisRepository.energiesFor`, only when a stage is named) and
+stamps `energyFit` on the sampled records in the stage's third of that sample (`thirdsOf`, `inEnergyStage`),
+and `weightOf` multiplies it by `ENERGY_BOOST`, two, a like's factor, unfitted and said so. **Never zero and
+never a filter**: a record in another third, one never measured and one the library cannot rank all keep
+their weight, a sample with fewer than six measured records leans nowhere, and a failed read costs the lean
+and never the batch. Until a record's brightness is measured its energy is its loudness alone, and
+brightness is ranked at all only once 500 records carry it, which the schema-2 re-measure brings. A hard rule
+about energy is a mix flow's job, where it is drawn. Not built: ordering records inside a batch by energy (a
+stage is one refill, about an hour, as the mood stage is) and telling the break writers that a stretch is
+winding down. **On a briefed show the floor only tops up**, so the model is TOLD the stage, smart shuffle's
+move: the shortlist marks each line `energy low|medium|high`, its third of THAT LIST (`Shortlist.withEnergy`,
+the floor's reason again), its own fallback draw (`drawFromShortlist`) doubles a line in the stage, and
+both prompts say which third the stretch leans to in one sentence (`energy.words.ts`), as a preference
+between records that suit the request equally and never an "only". A search row cannot be ranked against a
+pool, since one search's rows are not a set anybody is choosing between, so an owned row carries its band
+against the LIBRARY (`libraryThird`), handed to `MusicSearchTool` through the scoped `RefillEnergy` with the
+lookup beside it, so the `llm` module never reaches the measurements itself. All of it only while a stage is
+named: with none, the prompts, the list and the rows are word for word what they were, and a break writer,
+which shares the search tool, sets nothing. The brief's named acts, the festival and the similar walk name
+records and are not leaned.
+
 **Several similarity sources are asked in an order the operator sets, and the order matters to two of the three questions rather than all three.** `SimilarityService` pools every source for `similarTo` — two sources disagreeing about who resembles Portishead are two opinions, not a conflict — so the order there only decides whose ids survive when both name the same artist. `topTracks` and `similarTracks` take the FIRST usable answer and stop, so for those it decides whose judgement airs. Until `rotation.similarityOrder` that order was `record.id.localeCompare`, which on a station running all three bundled sources means `deadair.deezer`, then `deadair.lastfm`, then `deadair.musicbrainz`: an accident of spelling, and nothing an operator who trusted one source over another could change short of disabling the others. The setting is a `list` of plugin ids, and it is now one of six that share the same machinery: `plugins/plugin.order.ts` reads any of them with `pluginOrder` and sorts with `byOrderThen`, which puts the listed ones first in the order given and leaves everything else to the capability's own fallback — alphabetical here — so **an empty setting is exactly the old behaviour**. Which key belongs to which capability is one row of `plugins/plugin.providers.ts`, and `SimilarityService.plugins()` reaches its sources through `pluginsInOrder` over that row rather than composing the sort itself. It orders and never gates: an id that is listed but not installed is absent rather than an error, and a source left out is asked after the listed ones rather than switched off — a setting that could silently disable the only similarity plugin would turn a typo into a station with no discovery. `SimilarityService` is scoped, so the setting is read once per refill and a change applies at the next one; the day-long cache holds merged neighbours rather than the order, so nothing needs invalidating.
 
 **A playlist can ask for its neighbours to be mixed in, and they are seeded from the playlist, never from what aired.** Spotify's Smart Shuffle is a playlist with recommendations among it, and nothing here did that: the similar share of a refill only starts once a playlist runs out. `PutOnAirInput.mixInSimilar` (or `rotation.mixInSimilar`, off by default on the chart mix's argument: a playlist is what the operator chose) rides the broadcast's `rules`, and after the put-on-air commit the director sends one `director.mix_in_similar` job. `MixInSimilarJob` takes every `rotation.mixInEvery`-th planned record as an ANCHOR (four by default, at most `MAX_MIX_INS`), asks `SimilarPicker.pickLike` for one record like each anchor (the record-level `similarTracks` first, where a plugin implements it, then the anchor's artist through the same walk `SimilarSetGenerator` runs, lifted out of it for this), resolves the lot once through `PickResolver.resolve` with the broadcast's rules, and posts one `interleaveTracks` command naming each record's anchor. Three things are load-bearing. **The seed is the anchor, not the history**: at the moment a playlist goes on air the history is entirely the previous programme, which is the "Mitch Murder opened on thirteen thrash records" failure `SimilarSetGenerator.seeds` records. **Only a rotation mixes**: `resolveRules` ties the switch to `mayGenerate`, so a setlist or a feature refuses it whatever it asks, unlike crossfade, which a setlist may ask for; and a chart is excluded at the send, being somebody else's published document. **A pick that comes back from the resolver under a different name is dropped**, because the anchor is matched by song key and a guess would put a record after the wrong line. An operator who asked and got nothing is told: `order.mixInEmpty` on the feed, with no similarity plugin or with every pick refused.
@@ -588,8 +621,14 @@ Picks; a Split sends it down the first branch it matches, else "everything else"
 a Limit share or Limit count holds it when it would take the records that passed through that node past the
 node's amount, per show or per hour; No two in a row holds it when the last counted record passed through the
 same node; a Merge joins wires; reaching On air means it may air. A Split reads the band's main genre, the
-artist, the decade, the hour, how far through the show it is, the genre of the last record, or the model's
-answer to a question. A Time switch is a number rather than a record path: wired into a Limit share's input 1,
+artist, the decade, the hour, how far through the show it is, the genre of the last record, the model's
+answer to a question, or the record's measured energy. **An energy split reads a third of the LIBRARY**
+(`MixRecord.energy`, `libraryThird`), unlike the energy stages, which lean by thirds of the pool: a split is
+a rule the counts replay, so a record must go down the same branch every time the show's history is
+walked, and a third of whatever one batch held would move it. Read only for a flow that splits by energy
+(`splitsByEnergy`), in the resolver and the replay alike; a record not measured yet matches no energy
+branch, as a band with no genre matches no genre branch. A Time switch is a number rather than a record
+path: wired into a Limit share's input 1,
 it gives that limit one share before an hour and another from it, and wins over the node's own `percent`.
 Every node is a pure test on the record and the counts, so one function serves the resolver, the shortlist
 and the counts themselves. **A limit's group is whatever passed through

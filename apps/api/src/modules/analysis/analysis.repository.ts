@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import { ANALYSIS_FAILURE_CODES, type AnalysisFailureCode, type TrackAnalysis, type TrackCuePoints } from '@deadair/plugin-sdk';
 import { DataRepository } from '../data/data.repository.js';
 import { toJsonb } from '../data/jsonb.js';
+import { ENERGY_CUT_POINTS, energyOf, usableCuts, type Energy, type EnergyDistributions, type EnergyParts } from './energy.rank.js';
 
 /**
  * How long a track that could not be measured waits before anything tries again.
@@ -359,13 +360,19 @@ export class AnalysisRepository extends DataRepository {
             .select([
                 sql<number | null>`(data ->> 'bpm')::double precision`.as('bpm'),
                 sql<number | null>`(data ->> 'beatConfidence')::double precision`.as('beatConfidence'),
+                sql<number | null>`(data ->> 'brightnessHz')::double precision`.as('brightnessHz'),
             ])
             .where('trackId', '=', trackId)
             .executeTakeFirst();
         if (row === undefined) return undefined;
 
-        const { failureCode, bpm, beatConfidence, ...measured } = row;
-        const rest = { ...measured, ...(bpm == null ? {} : { bpm }), ...(beatConfidence == null ? {} : { beatConfidence }) };
+        const { failureCode, bpm, beatConfidence, brightnessHz, ...measured } = row;
+        const rest = {
+            ...measured,
+            ...(bpm == null ? {} : { bpm }),
+            ...(beatConfidence == null ? {} : { beatConfidence }),
+            ...(brightnessHz == null ? {} : { brightnessHz }),
+        };
         // A failure written before 0086 has no code and is retried as `undecodable` is, so it is
         // reported as one. A row that did not fail carries none at all.
         if (row.failedAt == null) return rest;
@@ -430,6 +437,99 @@ export class AnalysisRepository extends DataRepository {
             });
         }
         return found;
+    }
+
+    /**
+     * The library's distribution of each energy figure, as cut points from its quietest (darkest)
+     * record to its loudest (brightest), each `undefined` below `ENERGY_MIN_LIBRARY` records.
+     *
+     * One statement over the trusted rows, the same three conditions {@link trustedAnalysisFor} applies,
+     * because a figure off a truncated download or a failure is not one the library should be ranked
+     * by. `percentile_cont` skips a row without the figure, so a library half re-measured for brightness
+     * is ranked on the half that has it. About 7,000 rows on the live station, read when a refill or a
+     * record's page needs it rather than kept, so a library that changes moves its own ranks.
+     *
+     * Throws on a failed read, as every repository here does; a caller leaning on energy catches and
+     * leans on nothing.
+     */
+    async energyDistributions(schemaVersion: number): Promise<EnergyDistributions> {
+        const fractions = Array.from({ length: ENERGY_CUT_POINTS }, (_, index) => index / (ENERGY_CUT_POINTS - 1));
+        const loudness = sql`(data ->> 'integratedLufs')::double precision`;
+        const brightness = sql`(data ->> 'brightnessHz')::double precision`;
+
+        const { rows } = await sql<{
+            loudnessCount: string | number | null;
+            loudness: number[] | null;
+            brightnessCount: string | number | null;
+            brightness: number[] | null;
+        }>`
+            select count(${loudness}) as loudness_count,
+                   percentile_cont(${fractions}::double precision[]) within group (order by ${loudness}) as loudness,
+                   count(${brightness}) as brightness_count,
+                   percentile_cont(${fractions}::double precision[]) within group (order by ${brightness}) as brightness
+              from deadair.track_analysis
+             where analyzed_at is not null
+               and complete
+               and schema_version >= ${schemaVersion}
+        `.execute(this.db);
+
+        const [row] = rows;
+        const loudnessCuts = usableCuts(row?.loudness ?? undefined, Number(row?.loudnessCount ?? 0));
+        const brightnessCuts = usableCuts(row?.brightness ?? undefined, Number(row?.brightnessCount ?? 0));
+        return {
+            ...(loudnessCuts === undefined ? {} : { loudness: loudnessCuts }),
+            ...(brightnessCuts === undefined ? {} : { brightness: brightnessCuts }),
+        };
+    }
+
+    /**
+     * Each record's two energy figures, for the trusted rows among `trackIds`. A record with neither, or
+     * no trusted row, is left out of the map; a figure it lacks is left off its entry.
+     *
+     * The two fields rather than `data`, which carries a bar line for every bar of the record.
+     */
+    async energyPartsFor(trackIds: readonly string[], schemaVersion: number): Promise<Map<string, EnergyParts>> {
+        const found = new Map<string, EnergyParts>();
+        if (trackIds.length === 0) return found;
+
+        const rows = await this.db
+            .selectFrom('deadair.trackAnalysis')
+            .select('trackId')
+            .select([
+                sql<number | null>`(data ->> 'integratedLufs')::double precision`.as('loudnessLufs'),
+                sql<number | null>`(data ->> 'brightnessHz')::double precision`.as('brightnessHz'),
+            ])
+            .where('trackId', 'in', [...trackIds])
+            .where('analyzedAt', 'is not', null)
+            .where('complete', '=', true)
+            .where('schemaVersion', '>=', schemaVersion)
+            .execute();
+
+        for (const row of rows) {
+            // `== null`: a SQL NULL reads back as undefined, whatever the generated type says.
+            const parts: EnergyParts = {
+                ...(row.loudnessLufs == null ? {} : { loudnessLufs: row.loudnessLufs }),
+                ...(row.brightnessHz == null ? {} : { brightnessHz: row.brightnessHz }),
+            };
+            if (parts.loudnessLufs !== undefined || parts.brightnessHz !== undefined) found.set(row.trackId, parts);
+        }
+        return found;
+    }
+
+    /**
+     * Each record's energy in this library, for those among `trackIds` that have one: both reads above,
+     * at once, through {@link energyOf}. Empty when the library is too thinly measured to rank anything.
+     */
+    async energiesFor(trackIds: readonly string[], schemaVersion: number): Promise<Map<string, Energy>> {
+        const energies = new Map<string, Energy>();
+        if (trackIds.length === 0) return energies;
+
+        const [distributions, parts] = await Promise.all([this.energyDistributions(schemaVersion), this.energyPartsFor(trackIds, schemaVersion)]);
+        for (const [trackId, figures] of parts) {
+            const energy = energyOf(figures, distributions);
+            if (energy !== undefined) energies.set(trackId, energy);
+        }
+        return energies;
     }
 }
 

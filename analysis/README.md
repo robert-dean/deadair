@@ -62,7 +62,8 @@ without it anyway; the point of saying so is that a "better" AAC encoder is the 
 for, and `test_transcode.py` pins the command so nobody does.
 
 The four cue points and the vocal fields are outside the question entirely — band-limited energy
-between 200 Hz and 4 kHz, no toolkit — which is why this only ever came up for the beat layer.
+between 200 Hz and 4 kHz, no toolkit — which is why this only ever came up for the beat layer. So is
+brightness, a Fourier transform in numpy and nothing else.
 
 ## Measuring the beat tracker
 
@@ -79,7 +80,7 @@ consumer leans on is chosen from its output on this library. Its docstring has t
 Cheap. Does no work, decodes nothing.
 
 ```json
-{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.2.0", "maxConcurrent": 4, "rssMb": 118.4 }
+{ "status": "ok", "schemaVersion": 2, "analyzer": "deadair-analysis/0.3.0", "maxConcurrent": 4, "rssMb": 118.4 }
 ```
 
 Two callers, two purposes. The plugin's connection test uses it so the console can say "not
@@ -112,8 +113,8 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
 ```jsonc
 // response, 200
 {
-  "schemaVersion": 1,
-  "analyzer": "deadair-analysis/0.2.0",
+  "schemaVersion": 2,
+  "analyzer": "deadair-analysis/0.3.0",
   "complete": true,
   "durationMs": 213880,
   "data": {
@@ -132,7 +133,9 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
 
     "bpm": 117.1,             // beats a minute, octave-ambiguous, stored as measured
     "beatConfidence": 0.994,  // 0 to 1, how far to trust that
-    "downbeats": [460, 2510]  // where each bar starts, absolute into the file
+    "downbeats": [460, 2510], // where each bar starts, absolute into the file
+
+    "brightnessHz": 812.4     // where the spectrum's weight sits: half of the record's energy
   }
 }
 ```
@@ -161,11 +164,26 @@ answer for one being absent, so a row written before the field existed is a corr
 version rather than a stale one. The `tag*` fields arrived exactly that way. A row measured before
 them keeps its measured loudness, and re-measuring the catalog is how it picks them up.
 
+**Version 2 is that re-measure, and the one bump that changed no shape.** The beat fields and
+`brightnessHz` arrived as optional fields on version 1, so they reached new records and nothing else.
+Raising the version is what makes the station's walk measure every existing record once more: last,
+behind any new record, a day apart after a failed try, and with nothing a version-1 row carries going
+unread meanwhile, because the station reads from version 1 (`ANALYSIS_READABLE_SINCE_VERSION`) and
+only the walk asks for the current one. On a library of about 7,300 records the beat tracker makes it
+about two weeks of background work; everything else in a measurement is seconds a record.
+
 The three beat fields are **optional and arrive together or not at all**. They are absent for a record
 with no pulse to report, for a tempo outside 40 to 220 BPM, for a record longer than
 `ANALYSIS_BEATS_MAX_SECONDS` (900), and whenever the tracker failed, which never fails the measurement. The tracker runs one record at a time on `ANALYSIS_BEAT_THREADS` threads
 (2) whatever the concurrency, because the mixer shares the machine in the single image. `ANALYSIS_BEATS=off`
 leaves it out altogether, torch included, for a machine short of memory.
+
+`brightnessHz` is **optional** on the same terms: absent for a record with under 20 seconds sounding,
+and whenever its pass failed, which never fails the measurement. A row measured before it is a correct
+row with no brightness, and the station ranks such a record's energy on its loudness alone until the
+version-2 re-measure above reaches it. It is
+measured whatever `ANALYSIS_BEATS` says and whatever the record's length, because it costs a fraction
+of a second; see "How brightness is measured".
 
 Synchronous, deliberately. The caller is a background walk with its own time budget and its own
 concurrency setting, so nothing is waiting on the response and a job-id-plus-polling protocol would
@@ -388,6 +406,58 @@ so far produced a number that looked entirely plausible:
 ```bash
 ffmpeg -nostdin -hide_banner -i track.mp3 -filter_complex ebur128=peak=true -f null -
 ```
+
+## How brightness is measured
+
+`brightness.py`. The spectral centroid of each 46 ms frame (where the weight of the spectrum sits,
+`sum(f * power) / sum(power)`), and the median of that over every frame above the cue points' −60 dBFS
+floor. A 200 Hz tone reads 200; white noise reads a quarter of the sample rate; real records ran from
+about 130 Hz (dark, bass-led club music) to 1,500 Hz (bright, cymbal-heavy rock) on the library it was
+chosen against. The median, so one crash or one breakdown moves it as little as a frame should. It is
+**invariant to gain**, which is the point of it: it is the half of a record's energy that turning the
+record up must not move.
+
+It reads the channels **averaged** at 22.05 kHz, the signal the beat tracker already reads, made once
+for both. **Never `loudness.to_mono`**, which rectifies; `loudness.py` says what that did to a bassline. Frame by frame in
+passes, so a thirty-minute record never holds its whole spectrogram: that would be about 320 MB, the
+largest allocation in a measurement. Measured with the passes on and off, a measurement's peak did not
+move (356 against 354 MB on a 3.7 minute record, 605 against 610 MB on 7.9), because the decode and
+the loudness passes set it and are let go of first. The averaged signal is made even with
+`ANALYSIS_BEATS=off` for that reason: it is about half a second, and memory the peak already covers.
+
+### Why brightness, and why it is half of an energy
+
+The station's ENERGY is a record's loudness (`integratedLufs`, already measured) and its brightness,
+each ranked against the station's own library and averaged; the sidecar answers only the two absolute
+figures, because it cannot know the library. The pair was chosen on 40 records drawn at random from a
+real library (2026-11-20), against felt-energy scores of 1 to 5 written down **before** any figure was
+computed. Those scores are one listener's, so the table says which features agree with an ear, not how
+accurate any of them is. Spearman's ρ, and the cost per record in a two-CPU container:
+
+| Candidate | ρ | Cost |
+| --- | --- | --- |
+| Integrated loudness | 0.63 | already measured |
+| Median short-term loudness | 0.62 | small, and no better |
+| **Brightness** | **0.70** | **0.23 s** after a resample the beat pass already does |
+| Onset rate (spectral-flux peaks a second) | 0.46 | about 1 s |
+| Percussive share (median-filter separation) | 0.37 | 7.8 s |
+| Loudness range | −0.39 | small |
+| **Loudness and brightness, ranks averaged** | **0.77** | |
+| ... and percussive share | 0.77 | +7.8 s for nothing |
+
+Two biases come with it, and the station answers both by ranking a show's records against the other
+records it is choosing between rather than against the whole library: **brightness reads dark club
+music as calm** (the bottom third of that sample was mostly melodic techno and house), and **loudness
+carries the mastering era** (a seventies master is quieter than any modern one, felt or not).
+
+Not a model, because two cheap, explainable measurements already give this, and a model would bring
+weights into the licence rule above. Not onset density, the obvious candidate: it agreed at only 0.46, well
+below brightness, and the vocal detector discussion 45 records is the evidence of how rhythmic
+popular music defeats features read off an envelope's movement.
+
+`energy.check.py` repeats the measurement on any records it is given, with an optional file of felt
+scores, so the composition is judged by ear on real music before anything leans on it. Its docstring
+has the command.
 
 ## Configuration
 

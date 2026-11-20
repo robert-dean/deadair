@@ -3,6 +3,7 @@
 // what may be listed; the list spreads one record per artist per turn, acts before neighbours and up
 // to each one's turns; and a list too short for the batch, or a read that fails, offers nothing.
 
+import type { AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -47,6 +48,8 @@ interface Options {
     held?: Record<string, { trackId: string; title: string; artist: string; year?: number }>;
     /** The catalog lookup for a source's records fails. */
     heldFails?: boolean;
+    /** Each record's measured energy against the library, by track id. */
+    energies?: Record<string, number>;
 }
 
 function build(options: Options = {}) {
@@ -92,6 +95,16 @@ function build(options: Options = {}) {
             aired,
             config,
             stubLogger(),
+            {
+                energiesFor: vi.fn(
+                    async (ids: readonly string[]) =>
+                        new Map(
+                            ids.flatMap(id =>
+                                options.energies?.[id] === undefined ? [] : [[id, { percentile: options.energies[id]!, from: 'loudness' }] as const],
+                            ),
+                        ),
+                ),
+            } as unknown as AnalysisRepository,
         ),
         screen,
         candidates,
@@ -175,6 +188,41 @@ describe('Shortlist', () => {
     });
 });
 
+describe('Shortlist, for a refill leaning to an energy stage', () => {
+    it("marks each listed record with its third of the list, whatever the list's place in the library", async () => {
+        // Eight records, four from each act, every one of them low in the library (5 to 12 of 100).
+        const library = [
+            ...Array.from({ length: 4 }, (_, index) => owned(`Slayer ${index}`, 'Slayer', `s${index}`)),
+            ...Array.from({ length: 4 }, (_, index) => owned(`Mayhem ${index}`, 'Mayhem', `m${index}`)),
+        ];
+        const energies = Object.fromEntries(library.map((track, index) => [track.trackId, 5 + index]));
+        const { shortlist } = build({ library, stored: {}, energies });
+        const reach: BriefReach = {
+            acts: [
+                { name: 'Slayer', artistKey: 'slayer', inLibrary: true },
+                { name: 'Mayhem', artistKey: 'mayhem', inLibrary: true },
+            ],
+            neighbours: [],
+        };
+
+        const list = await shortlist.build(inputs(2, { energy: 'high' }), reach);
+        const third = (trackId: string) => list?.find(entry => entry.trackId === trackId)?.energy;
+
+        expect(list).toHaveLength(8);
+        expect(third('s0')).toBe('low');
+        expect(third('m3')).toBe('high');
+        expect(new Set(list?.map(entry => entry.energy))).toEqual(new Set(['low', 'medium', 'high']));
+    });
+
+    it('marks nothing and reads no energy for a refill with no stage', async () => {
+        const { shortlist } = build({ energies: { t1: 90, t2: 10 } });
+
+        const list = await shortlist.build(inputs(3), REACH);
+
+        expect(list?.some(entry => entry.energy !== undefined)).toBe(false);
+    });
+});
+
 describe('drawFromShortlist', () => {
     const LIST: ShortlistEntry[] = [
         { title: 'One', artist: 'Slayer', trackId: 't1', airedDaysAgo: 1 },
@@ -191,6 +239,16 @@ describe('drawFromShortlist', () => {
         expect(drawn.filter(pick => pick.artist === 'Slayer')).toHaveLength(2);
         expect(drawn[0]).toEqual({ title: 'One', artist: 'Slayer', trackId: 't1' });
         expect(new Set(drawn.map(pick => pick.title)).size).toBe(4);
+    });
+
+    it("draws a record in the refill's energy stage at twice the weight, and leaves the rest as they were", () => {
+        const marked: ShortlistEntry[] = [
+            { title: 'Calm', artist: 'A', trackId: 'c', energy: 'low' },
+            { title: 'Loud', artist: 'B', trackId: 'l', energy: 'high' },
+        ];
+        // Weights 1 and 2 under a high stage: anything past a third of the total lands on Loud.
+        expect(drawFromShortlist(marked, 1, 0, () => 0.34, 'high')[0]?.title).toBe('Loud');
+        expect(drawFromShortlist(marked, 1, 0, () => 0.34)[0]?.title).toBe('Calm');
     });
 
     it('draws everything with no cap', () => {

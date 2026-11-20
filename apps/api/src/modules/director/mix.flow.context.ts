@@ -1,4 +1,5 @@
 import type { MixFlow } from '#modules/schedule/types/mix.types.js';
+import { libraryThird, type Energy, type EnergyThird as EnergyBand } from '#modules/analysis/energy.rank.js';
 import { countThrough, type MixContext, type MixRecord } from './mix.flow.js';
 
 /** A record as the context builder is handed it: what aired, or what is queued to. */
@@ -20,6 +21,8 @@ export interface MixContextInputs {
     judged?: ReadonlyMap<string, ReadonlyMap<string, boolean>>;
     /** Release years by track id, for a split by decade: `CandidatesRepository.yearsFor`. */
     years?: ReadonlyMap<string, number>;
+    /** Energy as a third of the library by track id, for a split by energy: {@link energyBandsOf}. */
+    energies?: ReadonlyMap<string, EnergyBand>;
     /** The hour on the station's clock at an instant. */
     hourOf: (ms: number) => number;
     nowMs: number;
@@ -56,11 +59,15 @@ export function buildMixContext(inputs: MixContextInputs): MixContext {
     const progress = progressOf(inputs.show, inputs.nowMs);
     const records = [
         ...inputs.aired.map(record => ({
-            ...withYear(mixRecordOf(record, inputs.genres, inputs.judged), record, inputs.years),
+            ...withEnergy(withYear(mixRecordOf(record, inputs.genres, inputs.judged), record, inputs.years), record, inputs.energies),
             hour: inputs.hourOf(record.airedAtMs),
             progress: progressOf(inputs.show, record.airedAtMs),
         })),
-        ...inputs.queued.map(record => ({ ...withYear(mixRecordOf(record, inputs.genres, inputs.judged), record, inputs.years), hour, progress })),
+        ...inputs.queued.map(record => ({
+            ...withEnergy(withYear(mixRecordOf(record, inputs.genres, inputs.judged), record, inputs.years), record, inputs.energies),
+            hour,
+            progress,
+        })),
     ];
     return { hour, showProgress: progress, counted: countThrough(inputs.flow, records) };
 }
@@ -69,6 +76,22 @@ export function buildMixContext(inputs: MixContextInputs): MixContext {
 function withYear(record: MixRecord, source: MixSourceRecord, years: ReadonlyMap<string, number> | undefined): MixRecord {
     const year = source.trackId === undefined ? undefined : years?.get(source.trackId);
     return year === undefined ? record : { ...record, year };
+}
+
+/** A record with its energy band looked up, when the record is measured. */
+export function withEnergy(record: MixRecord, source: { trackId?: string }, energies: ReadonlyMap<string, EnergyBand> | undefined): MixRecord {
+    const energy = source.trackId === undefined ? undefined : energies?.get(source.trackId);
+    return energy === undefined ? record : { ...record, energy };
+}
+
+/** Whether a flow splits by energy anywhere it is switched on, which is the only reason to read the measurements. */
+export function splitsByEnergy(flow: MixFlow): boolean {
+    return flow.nodes.some(node => node.kind === 'split' && node.splitBy === 'energy' && node.bypassed !== true);
+}
+
+/** Each record's energy as a third of the LIBRARY, off `AnalysisRepository.energiesFor`. See `MixRecord.energy`. */
+export function energyBandsOf(energies: ReadonlyMap<string, Energy>): Map<string, EnergyBand> {
+    return new Map([...energies].map(([trackId, energy]) => [trackId, libraryThird(energy.percentile)]));
 }
 
 /** How far through the show an instant is, as a percent clamped to 0 and 100. */

@@ -233,6 +233,26 @@ describe('ScriptHistoryRepository.spokenBy', () => {
         expect(every.sql).not.toContain('and kind =');
     });
 
+    // A production asking what its speaker said BEFORE it. This was `is distinct from all (select …)`,
+    // which Postgres refuses as a syntax error, so every production's read failed on the live station
+    // and its speakers were never told a catchphrase was spent. Checked against a real Postgres 17: the
+    // clause below keeps the other programmes' lines and the rows whose segment has gone, and leaves
+    // out only the asking production's own beats.
+    it("leaves out the asking production's own beats with a clause Postgres accepts", async () => {
+        const PRODUCTION = '3c2b1a09-8f7e-4d6c-9b5a-4e3d2c1b0a9f';
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).spokenBy('garth', 3_600_000, 6, { excludingProduction: PRODUCTION });
+
+        expect(captured.sql).not.toContain('distinct from all');
+        expect(captured.sql).toContain('not exists');
+        expect(captured.sql).toContain('deadair.script_history.segment_id');
+        expect(captured.parameters).toContain(PRODUCTION);
+
+        const every: Captured = {};
+        await repositoryOver(fakeDb([], every)).spokenBy('garth', 3_600_000, 6);
+        expect(every.sql).not.toContain('deadair.segments');
+    });
+
     it('reads the latest written attempt per segment, newest first', async () => {
         const captured: Captured = {};
         const said = await repositoryOver(fakeDb([{ script: 'the newest' }, { script: 'the one before' }], captured)).spokenBy('garth', 3_600_000, 6);

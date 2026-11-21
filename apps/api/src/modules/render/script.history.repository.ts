@@ -510,7 +510,7 @@ export class ScriptHistoryRepository extends DataRepository {
                   ${
                       excludingProduction === undefined
                           ? sql``
-                          : sql`and segment_id is distinct from all (select id from deadair.segments where production_id = ${excludingProduction})`
+                          : sql`and not exists (select 1 from deadair.segments s where s.production_id = ${excludingProduction} and s.id = deadair.script_history.segment_id)`
                   }
                   ${notTheBreakBeingWritten(excludingSegment)}
                   and created_at >= now() - ${sql.lit(`${Math.floor(withinMs)} milliseconds`)}::interval

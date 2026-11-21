@@ -416,6 +416,11 @@ read through `ScriptHistoryRepository.spokenBy` with `excludingProduction`), acr
 catchphrase heard in a talk break is as spent as one heard in a banter. The programme's own beats are left out of
 that read because a re-draft must not be told its signature is spent by its own first attempt, which is
 `written` in the table by then. Best-effort: a failed read costs the rationing and never the programme.
+That is also what hid it: the read was `is distinct from all (select …)`, which Postgres rejects as a syntax
+error, so on the live station it failed on every production and the catch turned that into a warning until
+the clause became `not exists`. The repository test checks the SQL's shape and cannot run it, so run a change
+to this clause against a real Postgres, and read a steady `productions: could not read what a speaker said
+lately` in the log as this read broken rather than as noise.
 
 **The outline gets four minutes, not the beats' two** (`OUTLINE_BUDGET_MS`). It is the one call in the pass left
 at the model's default reasoning, and on the live station the outlines that came back took 70 to 111 seconds for

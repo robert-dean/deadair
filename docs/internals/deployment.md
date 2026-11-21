@@ -382,10 +382,14 @@ on npm has a tag and a release behind it, and npm trades the job's OIDC identity
 lasts one command and is accepted only from this repository's `release.yml`. npm configures that
 trust only on a package that already exists, so each package's first version is published once by
 hand with the bootstrap script, from its release tag; until that is run for a package the job warns
-about it and publishes nothing for it. The script skips a package that is still private at the
-newest tag, which is what the client SDK is until the first release that ships it public. The job
-packs with pnpm, which rewrites `workspace:` ranges, and publishes with npm, which does the OIDC
-exchange.
+about it and publishes nothing for it. The script needs npm 11.15.0 or later, the first with `npm
+trust`, which is newer than the 11.5.1 the job needs to publish with OIDC. It is safe to re-run: it
+treats only E404 from `npm view` as "not on npm" and stops on any other error, as the job does,
+replaces any trust config that is not exactly this repository's `release.yml` (allowed to publish,
+in no environment), and exits nonzero naming any package it could not publish or trust. The script
+skips a package that is still private at the newest tag, which is what the client SDK is until the
+first release that ships it public. The job packs with pnpm, which rewrites `workspace:` ranges, and
+publishes with npm, which does the OIDC exchange.
 
 **The version pull request is not `changesets/action`**, which the kits use. That action writes the
 pull request's body out of every bumped package's `CHANGELOG.md` and dies on the first that has

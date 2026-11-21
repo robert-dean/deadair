@@ -49,9 +49,11 @@ export type Neighbour = SimilarArtist & {
  * So every answer to {@link similarTo} and {@link topTracks} is written through to
  * `SimilarityStoreRepository` (`0119_similarity_store.sql`), and a question is
  * answered from there while the stored answer is younger than
- * {@link STORED_ANSWER_TTL_MS} and asked for at least as many. Filled ON DEMAND:
- * nothing here walks the library, so the store holds the artists the station
- * actually airs and walks toward. The map stays in front of it for the neighbours,
+ * {@link STORED_ANSWER_TTL_MS} and asked for at least as many. Filled on demand,
+ * and once ahead for every library artist by `SimilarityFill`, so that a source
+ * which stops answering has already said something to keep: when one fails,
+ * {@link similarTo} merges in what it said last time rather than letting the
+ * sources that did answer replace it. The map stays in front of it for the neighbours,
  * since the similar walk asks about the same artists constantly within a day. A
  * store that cannot be read or written costs the store and never the answer.
  *
@@ -180,7 +182,8 @@ export class SimilarityService {
         const cached = SimilarityService.cache.get(key);
         if (cached !== undefined) return cached.slice(0, limit);
 
-        const stored = serves(await this.read(() => this.store.neighbours(key)), limit);
+        const previous = await this.read(() => this.store.neighbours(key));
+        const stored = serves(previous, limit);
         if (stored !== undefined) {
             this.remember(key, stored);
             return stored.slice(0, limit);
@@ -203,6 +206,17 @@ export class SimilarityService {
                 );
             } catch (error) {
                 this.logger.info(`similarity: a plugin could not answer about "${ref.name}" (${plugin.record.id}: ${errorText(error)})`);
+                // What this source said last time stands in for what it could not say now, in its own
+                // place in the merge. Without it, the next source to answer replaces the stored answer
+                // whole and a source that has stopped answering (a refused key, a service gone) loses
+                // every name it ever gave, a week after it stopped. A failure has retracted nothing.
+                for (const neighbour of previous?.entries ?? []) {
+                    if (neighbour.source !== plugin.record.id) continue;
+                    const artistKey = normalizeKey(neighbour.name);
+                    if (artistKey.length === 0 || seen.has(artistKey)) continue;
+                    seen.add(artistKey);
+                    found.push(neighbour);
+                }
                 continue;
             }
             anyAnswered = true;

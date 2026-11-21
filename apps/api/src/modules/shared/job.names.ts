@@ -7,6 +7,7 @@ export type JobNames =
     | 'catalog.fetch_lyrics'
     | 'catalog.label_moods'
     | 'catalog.name_artist_genres'
+    | 'similarity.fill_library'
     | 'catalog.judge_mix'
     | 'catalog.label_subjects'
     | 'catalog.cache_art'

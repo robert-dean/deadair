@@ -238,6 +238,53 @@ export class SimilarityStoreRepository extends DataRepository {
         return new Set(rows.map(row => row.artistKey));
     }
 
+    /**
+     * Library artists nobody has asked the sources about, for at least `atLeast` neighbours, at any
+     * age: the fill's work list (`SimilarityFill`). Most played first, so a walk stopped part way has
+     * covered the artists the station leans on. An answer that has merely aged does not count as
+     * owed, because the fill asks once per artist and the callers keep asking after that.
+     */
+    async libraryArtistsUnasked(limit: number, atLeast: number): Promise<CatalogArtistKey[]> {
+        if (limit <= 0) return [];
+
+        return this.db
+            .selectFrom('deadair.artists as a')
+            .select(['a.id', 'a.name', 'a.artistKey'])
+            .where('a.mergedIntoId', 'is', null)
+            .where('a.artistKey', '<>', '')
+            .where(eb =>
+                eb.exists(
+                    eb.selectFrom('deadair.tracks as t').select('t.id').whereRef('t.artistId', '=', 'a.id').where('t.mergedIntoId', 'is', null),
+                ),
+            )
+            .where(eb =>
+                eb.not(
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.similarityAsks as ask')
+                            .select('ask.artistKey')
+                            .where('ask.stationKey', '=', this.station.stationKey)
+                            .where('ask.kind', '=', 'artists')
+                            .whereRef('ask.artistKey', '=', 'a.artistKey')
+                            .where('ask.askedLimit', '>=', atLeast),
+                    ),
+                ),
+            )
+            .orderBy(
+                eb =>
+                    // On `play_history_artist_idx`: this station's plays, keyed as the rotation keys them.
+                    eb
+                        .selectFrom('deadair.playHistory as ph')
+                        .select(eb.fn.countAll<number>().as('plays'))
+                        .where('ph.stationKey', '=', this.station.stationKey)
+                        .whereRef('ph.artistKey', '=', 'a.artistKey'),
+                'desc',
+            )
+            .orderBy('a.name')
+            .limit(limit)
+            .execute();
+    }
+
     /** Replace who resembles `artistKey` with a fresh answer, `neighbourKeys` beside each name. */
     async saveNeighbours(
         artistKey: string,

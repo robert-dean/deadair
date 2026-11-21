@@ -210,4 +210,27 @@ describe('SimilarityStoreRepository', () => {
             expect(captured.queries).toHaveLength(0);
         });
     });
+
+    describe("the fill's work list", () => {
+        it('lists library artists with no answer as deep as the fill asks for, most played first, for this station', async () => {
+            const { repository, captured } = repositoryAnswering([{ id: 'a1', name: 'Portishead', artistKey: 'portishead' }]);
+
+            expect(await repository.libraryArtistsUnasked(50, 12)).toEqual([{ id: 'a1', name: 'Portishead', artistKey: 'portishead' }]);
+            const [query] = captured.queries;
+            expect(query?.sql).toContain('from "deadair"."artists" as "a"');
+            expect(query?.sql).toContain('not exists (select "ask"."artist_key" from "deadair"."similarity_asks" as "ask"');
+            expect(query?.sql).toContain('"ask"."asked_limit" >= $');
+            // Never an age: an answer that has only grown old is the callers' to refresh, not the fill's.
+            expect(query?.sql).not.toContain('asked_at');
+            expect(query?.sql).toContain('from "deadair"."play_history" as "ph"');
+            expect(query?.parameters).toEqual(['', 'main', 'artists', 12, 'main', 50]);
+        });
+
+        it('asks nothing for no room', async () => {
+            const { repository, captured } = repositoryAnswering();
+
+            expect(await repository.libraryArtistsUnasked(0, 12)).toEqual([]);
+            expect(captured.queries).toHaveLength(0);
+        });
+    });
 });

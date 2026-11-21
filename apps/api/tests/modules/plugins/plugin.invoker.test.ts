@@ -8,6 +8,7 @@ import {
     PLUGIN_FAILURE_THRESHOLD,
     PLUGIN_RECOVERY_FIRST_MS,
     PLUGIN_RECOVERY_MAX_MS,
+    PLUGIN_REFUSED_RECHECK_MS,
     PROBE_OP,
     PluginInvoker,
 } from '../../../src/modules/plugins/plugin.invoker.js';
@@ -549,24 +550,47 @@ describe('PluginInvoker automatic recovery', () => {
         expect(registry.get('p')?.error).toBe('testConnection: Spotify replied HTTP 502.');
     });
 
-    it('does not probe a quarantine the plugin declared permanent', async () => {
-        // `auth` is the plugin saying the credential is dead. Asking again will not revive it, and
-        // the operator's own Test connection is still there for after they have fixed it.
+    it('asks a quarantine the plugin declared permanent again a day later, not on the outage backoff', async () => {
+        // `auth` and `config` say retrying the call will not help. They do not say the credential can
+        // never come back: a Last.fm key refused because its account lapsed from Pro works again the
+        // day the subscription is renewed, and nothing on the station changes to say so.
         const testConnection = vi.fn<Check>(async () => ({ ok: true }));
-        const { invoker } = setup(testConnection);
+        const { registry, invoker } = setup(testConnection);
+        const trippedAt = Date.now();
+        await expect(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('Suspended API key').withCode('config');
+            }),
+        ).rejects.toThrow();
+        expect(invoker.nextProbeAt('p')).toBe(trippedAt + PLUGIN_REFUSED_RECHECK_MS);
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_REFUSED_RECHECK_MS - 1);
+        expect(testConnection).not.toHaveBeenCalled();
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+        expect(registry.get('p')?.status).toBe('active');
+    });
+
+    it('keeps asking a refused plugin once a day while the refusal stands', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: false, message: 'Last.fm has suspended that API key.' }));
+        const { registry, invoker } = setup(testConnection);
         await expect(
             invoker.invoke('p', 'op', () => {
                 throw new PluginError('token revoked').withCode('auth');
             }),
         ).rejects.toThrow();
 
-        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+        await vi.advanceTimersByTimeAsync(3 * PLUGIN_REFUSED_RECHECK_MS);
 
-        expect(testConnection).not.toHaveBeenCalled();
+        expect(testConnection).toHaveBeenCalledTimes(3);
         expect(invoker.isBreakerOpen('p')).toBe(true);
+        expect(registry.get('p')?.error).toBe('testConnection: Last.fm has suspended that API key.');
     });
 
-    it('stops probing once a probe answers with a failure retrying cannot end', async () => {
+    it('moves a probe that answers with a refusal onto the daily recheck', async () => {
         const testConnection = vi.fn<Check>(async () => {
             throw new PluginError('token revoked').withCode('auth');
         });
@@ -576,9 +600,47 @@ describe('PluginInvoker automatic recovery', () => {
         await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_FIRST_MS);
         expect(testConnection).toHaveBeenCalledTimes(1);
 
-        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+        await vi.advanceTimersByTimeAsync(PLUGIN_REFUSED_RECHECK_MS - 1);
         expect(testConnection).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(testConnection).toHaveBeenCalledTimes(2);
         expect(invoker.isBreakerOpen('p')).toBe(true);
+    });
+
+    it('keeps a refused plugin on the daily recheck through transient throws from its probe', async () => {
+        // The failures before a refusal are spent when it trips the breaker. Counted on, two
+        // transient throws from the daily probe would read as three in a row and put a plugin whose
+        // key is still refused back on the outage backoff, probed every half hour.
+        const testConnection = vi.fn<Check>(async () => {
+            throw new Error('socket hang up');
+        });
+        const { invoker } = setup(testConnection);
+        await expect(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('Suspended API key').withCode('config');
+            }),
+        ).rejects.toThrow();
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_REFUSED_RECHECK_MS);
+        await vi.advanceTimersByTimeAsync(PLUGIN_REFUSED_RECHECK_MS);
+
+        // Two probes, a day apart: neither throw moved it onto the minute-scale backoff.
+        expect(testConnection).toHaveBeenCalledTimes(2);
+        expect(invoker.nextProbeAt('p')).toBe(Date.now() + PLUGIN_REFUSED_RECHECK_MS);
+    });
+
+    it('forgets the daily recheck once the plugin is reset by a settings save', async () => {
+        const { invoker } = setup(vi.fn<Check>(async () => ({ ok: true })));
+        await expect(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('no client id').withCode('config');
+            }),
+        ).rejects.toThrow();
+
+        invoker.reset('p');
+
+        expect(invoker.nextProbeAt('p')).toBeUndefined();
+        expect(invoker.isBreakerOpen('p')).toBe(false);
     });
 
     it('keeps probing through a probe that throws something retryable', async () => {

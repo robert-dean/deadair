@@ -8,7 +8,13 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError } from '@deadair/plugin-sdk';
 
-import { FactExtractionService, MODEL_FACTS_KEYS } from '../../../src/modules/enrichment/fact.extraction.service.js';
+import {
+    FactExtractionService,
+    MODEL_FACTS_KEYS,
+    VERIFY_BUDGET_MS,
+    VERIFY_OUTPUT_TOKENS,
+} from '../../../src/modules/enrichment/fact.extraction.service.js';
+import * as distil from '../../../src/modules/personas/persona.distil.service.js';
 import type { FactRepository, PendingDocument } from '../../../src/modules/enrichment/fact.repository.js';
 import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 
@@ -287,4 +293,24 @@ describe('when the station wants its model back', () => {
         expect(converse).toHaveBeenCalledTimes(2);
         expect(summary).toMatchObject({ yielded: true });
     });
+});
+
+// The verifier's allowance is squeezed from both sides, and both were measured on gemma4:26b at `low`
+// (the reasoning in `VERIFY_OUTPUT_TOKENS`'s docblock): too small and the model spends it all thinking
+// and answers nothing, too large and the wall clock cuts the call before the allowance does.
+describe('the verifiers’ output allowance', () => {
+    /** Tokens a second gemma4:26b produced on the station's GPU box. */
+    const MEASURED_TOKENS_PER_SECOND = 48;
+    /** Reasoning a live verification ran out at, in tokens: the 512 that dropped 16% of claims. */
+    const RAN_OUT_AT = 512;
+
+    for (const [name, tokens, budgetMs] of [
+        ['facts', VERIFY_OUTPUT_TOKENS, VERIFY_BUDGET_MS],
+        ['persona notes', distil.VERIFY_OUTPUT_TOKENS, distil.VERIFY_BUDGET_MS],
+    ] as const) {
+        it(`${name}: leaves room past where the model ran out, and can be spent inside the time budget`, () => {
+            expect(tokens).toBeGreaterThan(RAN_OUT_AT);
+            expect((tokens / MEASURED_TOKENS_PER_SECOND) * 1000).toBeLessThan(budgetMs);
+        });
+    }
 });

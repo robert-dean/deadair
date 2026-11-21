@@ -88,8 +88,20 @@ export const VERIFY_BUDGET_MS = 30_000;
  * allowance costs nothing, and too little costs every fact the model would have kept. It is not a
  * licence to ramble — `reasoningEffort` is `low` and the prompt asks for one word — it is headroom
  * for the thinking that happens before the word.
+ *
+ * It was `512`, and that was still too little for gemma4:26b at `low`. Over 2026-11-15 to 21 the live
+ * station dropped 59 of 366 claims (16%) as "the verifier answered nothing": every one finished on
+ * `length` after 1,816 to 2,264 characters of reasoning, the whole allowance. Run on the same model,
+ * a verification that finished took 156 to 436 tokens, and one in three runs of a plain
+ * "nicknamed The Velvet Fog" check still ran out at 512. The ceiling is not just "more", because
+ * {@link VERIFY_BUDGET_MS} cuts first: at the ~48 tokens a second measured there, 1024 is about 21
+ * seconds, inside the 30, where 2048 would be cut by the clock instead of the allowance.
+ *
+ * `reasoningEffort: 'none'` was measured too: two tokens, under a second, and right on four clear
+ * cases. It was not chosen, because on the close ones it said yes where the reasoning said no, and
+ * a verifier's whole job is the no.
  */
-export const VERIFY_OUTPUT_TOKENS = 512;
+export const VERIFY_OUTPUT_TOKENS = 1024;
 
 /** The words the extraction prompt uses for each level. */
 const SUBJECT_KIND: Record<FactSubjectType, ExtractionSubject['kind']> = { track: 'song', album: 'record', artist: 'artist' };

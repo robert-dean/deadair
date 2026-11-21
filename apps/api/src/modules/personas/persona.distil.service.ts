@@ -45,8 +45,12 @@ export const MODEL_BUDGET_MS = 120_000;
 /** How long a verification may take. Far shorter: it is a yes or a no about two short strings. */
 export const VERIFY_BUDGET_MS = 30_000;
 
-/** Room for the thinking that happens before the one word. See `VERIFY_OUTPUT_TOKENS` in the fact pass. */
-export const VERIFY_OUTPUT_TOKENS = 512;
+/**
+ * Room for the thinking that happens before the one word. See `VERIFY_OUTPUT_TOKENS` in the fact pass,
+ * which argues the figure. At 512 this verifier dropped 11 notes on the live station in a week, every
+ * one cut off on `length` after about 2,000 characters of reasoning.
+ */
+export const VERIFY_OUTPUT_TOKENS = 1024;
 
 /** One pass, for the job's log line and the activity row. */
 export interface DistilSummary {

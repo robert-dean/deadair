@@ -375,7 +375,10 @@ written to `/dev/shm/streamhls` inside the container instead: memory, a few mega
 gone when the container stops, which costs a listener one reconnect. Docker gives every container
 64 MB there, which is plenty; you do not need `--shm-size` for it (the Apple Music tags ask for
 `--shm-size=1g` for the browser, and that covers both). Only the small file that keeps the segment
-numbering between restarts stays on the volume, as `/data/streamstate/hls.json`.
+numbering between restarts stays on the volume, as `/data/streamstate/hls.json`. Versions before
+this one kept the segments in `/data/streamhls`; the first start after upgrading moves the
+numbering file across and removes that folder, leaving it only if it holds something the station
+did not write.
 
 `/data/streamarchive` is the one that can grow without your noticing. It is empty until
 **Record what airs** is switched on (Settings, Stream), and then holds an MP3 per live show, and

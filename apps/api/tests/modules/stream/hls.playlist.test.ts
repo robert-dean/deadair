@@ -8,14 +8,14 @@ import { describe, expect, it } from 'vitest';
 
 import { hlsPlaylistPath } from '../../../src/modules/stream/hls.playlist.js';
 
-const DIR = '/data/streamhls';
+const DIR = '/dev/shm/streamhls';
 
 describe('hlsPlaylistPath', () => {
     it('accepts the playlists Liquidsoap actually writes', () => {
         // The master and one media playlist per stream, named after the stream.
-        expect(hlsPlaylistPath(DIR, 'live.m3u8')).toBe('/data/streamhls/live.m3u8');
-        expect(hlsPlaylistPath(DIR, 'live_aac.m3u8')).toBe('/data/streamhls/live_aac.m3u8');
-        expect(hlsPlaylistPath(DIR, 'aac-128.m3u8')).toBe('/data/streamhls/aac-128.m3u8');
+        expect(hlsPlaylistPath(DIR, 'live.m3u8')).toBe('/dev/shm/streamhls/live.m3u8');
+        expect(hlsPlaylistPath(DIR, 'live_aac.m3u8')).toBe('/dev/shm/streamhls/live_aac.m3u8');
+        expect(hlsPlaylistPath(DIR, 'aac-128.m3u8')).toBe('/dev/shm/streamhls/aac-128.m3u8');
     });
 
     it('refuses anything that would leave the directory', () => {

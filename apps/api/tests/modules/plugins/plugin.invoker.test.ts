@@ -607,6 +607,28 @@ describe('PluginInvoker automatic recovery', () => {
         expect(invoker.isBreakerOpen('p')).toBe(true);
     });
 
+    it('keeps a refused plugin on the daily recheck through transient throws from its probe', async () => {
+        // The failures before a refusal are spent when it trips the breaker. Counted on, two
+        // transient throws from the daily probe would read as three in a row and put a plugin whose
+        // key is still refused back on the outage backoff, probed every half hour.
+        const testConnection = vi.fn<Check>(async () => {
+            throw new Error('socket hang up');
+        });
+        const { invoker } = setup(testConnection);
+        await expect(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('Suspended API key').withCode('config');
+            }),
+        ).rejects.toThrow();
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_REFUSED_RECHECK_MS);
+        await vi.advanceTimersByTimeAsync(PLUGIN_REFUSED_RECHECK_MS);
+
+        // Two probes, a day apart: neither throw moved it onto the minute-scale backoff.
+        expect(testConnection).toHaveBeenCalledTimes(2);
+        expect(invoker.nextProbeAt('p')).toBe(Date.now() + PLUGIN_REFUSED_RECHECK_MS);
+    });
+
     it('forgets the daily recheck once the plugin is reset by a settings save', async () => {
         const { invoker } = setup(vi.fn<Check>(async () => ({ ok: true })));
         await expect(

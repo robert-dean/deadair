@@ -422,14 +422,19 @@ export class EnrichmentService {
     ): void {
         const message = errorText(error);
         if (refusedCredentials(error)) {
-            this.logger.warn('enrichment provider refused its credentials; the walk stops asking it until its settings change or it passes a check', {
-                pluginId,
-                error: message,
-            });
+            this.logRefusal(pluginId, message);
             return;
         }
         failures.push({ pluginId, message });
         this.logger[level]('enrichment plugin failed', { pluginId, ...context, error: message });
+    }
+
+    /** The one line a refusal earns. See {@link fileFailure}. */
+    private logRefusal(pluginId: string, message: string): void {
+        this.logger.warn('enrichment provider refused its credentials; the walk stops asking it until its settings change or it passes a check', {
+            pluginId,
+            error: message,
+        });
     }
 
     /** The ids of {@link providers}, which is what the catalog stores as `provider`. */
@@ -574,7 +579,7 @@ export class EnrichmentService {
             });
         } catch (error) {
             if (refusedCredentials(error)) {
-                this.fileFailure(pluginId, error, [], {}, 'warn');
+                this.logRefusal(pluginId, errorText(error));
                 return;
             }
             const message = errorText(error);

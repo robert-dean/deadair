@@ -4,7 +4,7 @@
 // returns what was learned, which is the same path the job and any future
 // route drive.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, unanswered, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
 
@@ -977,6 +977,9 @@ describe('enrichBatch', () => {
 });
 
 describe('a provider whose credentials were refused', () => {
+    // A refusal arms the invoker's daily recheck; stop it so no test leaves a timer behind.
+    afterEach(() => invoker.stopRecovery());
+
     // The case this exists for: a Last.fm key the service stopped answering. Every lookup is refused,
     // and before this the walk filed a failure row and a warning against every artist, album and track
     // it reached, every pass, while the rows those lookups would have replaced sat there untouched.
@@ -1035,11 +1038,10 @@ describe('a provider whose credentials were refused', () => {
     it('still asks the other providers about every record', async () => {
         const musicbrainz = vi.fn(async () => ({ artist: 'Portishead', year: 1994 }));
         const other = vi.fn(async () => Promise.reject(refused()));
-        buildWithLogger([
+        const built = buildWithLogger([
             record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: musicbrainz }),
             record(OTHER, {}, { priority: 500, enrichTrack: other }),
-        ]);
-        const built = new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, stubLogger());
+        ]).service;
         repository.listTracksNeedingEnrichment.mockResolvedValue([
             pending(catalogTrack, [MUSICBRAINZ, OTHER]),
             pending({ ...catalogTrack, id: 'track-2' }, [MUSICBRAINZ, OTHER]),
@@ -1057,8 +1059,7 @@ describe('a provider whose credentials were refused', () => {
     it('is not filed against a batch either, and the batch is not re-asked one track at a time', async () => {
         const enrichTracks = vi.fn(async () => Promise.reject(refused()));
         const enrichTrack = vi.fn(async () => ({ artist: 'Portishead' }));
-        buildWithLogger([record(OTHER, {}, { enrichTracks, enrichTrack, maxBatchSize: 2 })]);
-        const built = new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, stubLogger());
+        const built = buildWithLogger([record(OTHER, {}, { enrichTracks, enrichTrack, maxBatchSize: 2 })]).service;
         repository.listTracksNeedingEnrichment.mockResolvedValue(
             ['track-1', 'track-2', 'track-3', 'track-4'].map(id => pending({ ...catalogTrack, id }, [OTHER])) as never,
         );
@@ -1074,8 +1075,7 @@ describe('a provider whose credentials were refused', () => {
 
     it('treats an `auth` refusal the same way', async () => {
         const enrichAlbum = vi.fn(async () => Promise.reject(new PluginError('token revoked').withCode('auth')));
-        buildWithLogger([record(OTHER, {}, { enrichAlbum })]);
-        const built = new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, stubLogger());
+        const built = buildWithLogger([record(OTHER, {}, { enrichAlbum })]).service;
         repository.listAlbumsNeedingEnrichment.mockResolvedValue(
             ['album-1', 'album-2'].map(id => ({ id, name: id, artistName: 'Portishead', outstanding: [OTHER], refs: {} })) as never,
         );
@@ -1088,6 +1088,8 @@ describe('a provider whose credentials were refused', () => {
 });
 
 describe('a provider the breaker quarantines part way through a pass', () => {
+    afterEach(() => invoker.stopRecovery());
+
     it('files the failures that tripped it, and nothing against the records it never asked about', async () => {
         const enrichArtist = vi.fn(async () => Promise.reject(new PluginError('upstream is down').withCode('upstream')));
         service = build([record(OTHER, {}, { enrichArtist })]);
@@ -1100,6 +1102,5 @@ describe('a provider the breaker quarantines part way through a pass', () => {
         // Three in a row trip it. The other two were never asked, so there is nothing to say about them.
         expect(enrichArtist).toHaveBeenCalledTimes(3);
         expect(repository.recordArtistEnrichmentFailure).toHaveBeenCalledTimes(3);
-        invoker.stopRecovery();
     });
 });

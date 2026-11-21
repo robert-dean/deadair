@@ -574,6 +574,10 @@ export class PluginInvoker {
                 this.refused.delete(pluginId);
                 this.scheduleRecovery(pluginId, pluginError.retryAfterMs);
             } else {
+                // The refusal has tripped the breaker on its own, so the failures before it are
+                // spent. Kept, they would let two transient throws from the daily probe count as
+                // three in a row and put a refused plugin back on the outage backoff.
+                this.consecutiveFailures.delete(pluginId);
                 this.cancelRecovery(pluginId);
                 this.refused.add(pluginId);
                 this.scheduleRecovery(pluginId);

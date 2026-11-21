@@ -199,7 +199,10 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
                 return { ok: false, message: 'Last.fm rejected that API key.' };
             }
             if (error instanceof LastfmRequestError && error.upstreamCode === LASTFM_ERROR.suspendedApiKey) {
-                return { ok: false, message: 'Last.fm has suspended that API key. Check that its account is on Last.fm Pro.' };
+                return {
+                    ok: false,
+                    message: 'Last.fm has suspended that API key. Check its status on your Last.fm account, and that the account is on Last.fm Pro.',
+                };
             }
             return { ok: false, message: errorText(error) };
         }

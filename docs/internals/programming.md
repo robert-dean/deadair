@@ -910,7 +910,7 @@ record is judged by are the ones it will air under.
 records three outcomes per provider per row: a payload, a miss under `ENRICHMENT_MISS_TTL_MS`, or a failure
 (`record*EnrichmentFailure`: the payload kept, `attempts` bumped, a doubling backoff from an hour to a week).
 A failure is evidence about the row or a bad minute upstream. A Last.fm key Last.fm has stopped answering
-(error 10, or 26 for a suspended key, both `config` in the plugin) is neither, and before this it was filed
+(error 10 for a key it does not know, 26 for a suspended one, both `config` in the plugin) is neither, and before this it was filed
 anyway: one failure row and one warning per artist, album and track the walk reached, every pass, for as
 long as the key stayed refused. Now `refusedCredentials` (`auth` or `config`) is logged once and written
 nowhere, and `EnrichmentService.stopped` checks the plugin's breaker before every ask, so the rest of the
@@ -921,10 +921,10 @@ for a call that was never made.
 **The breaker is the state, not a second record kept here.** A non-retryable failure quarantines the plugin
 on the spot, the capability view drops a plugin that is not `active`, and so the next pass does not list
 the source at all. What brings it back is what brings any quarantined plugin back: a settings save
-(reinit resets the breaker, and `enrichment.refresh.ts` expires the provider's rows so they are asked
-again), a Test connection that passes, or the breaker's own check, which for a refusal is once a day
-(`PLUGIN_REFUSED_RECHECK_MS`) because a key refused for a lapsed Last.fm Pro subscription comes back when
-it is renewed and nothing on the station changes to say so. The breaker lives in memory, so a restart
+(reinit resets the breaker, and `enrichment.refresh.ts` then expires the provider's rows so they are
+asked again; the two run in order through `AfterCommit`, so a save whose reinit fails expires nothing), a Test connection that passes, or the breaker's own check, which for a refusal is once a day
+(`PLUGIN_REFUSED_RECHECK_MS`) because a refusal can be lifted somewhere the station cannot see: a key
+refused for a lapsed Last.fm Pro subscription, for example, works again once it is renewed and nothing on the station changes to say so. The breaker lives in memory, so a restart
 costs one refused request before it trips again, which is cheaper than persisting it. The operator sees
 it where every quarantine shows: the plugin is Failed with the refusal as its error, and the check-up
 says when it will be asked again.
@@ -932,4 +932,3 @@ says when it will be asked again.
 **What a refused source collected before stays in use.** Nothing here touches a stored payload, and the
 genre readers in `candidates.repository.ts` read enrichment rows whatever their expiry, so a station
 whose Last.fm key lapses keeps every tag it already had.
-

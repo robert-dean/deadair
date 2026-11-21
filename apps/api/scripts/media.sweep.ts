@@ -1,10 +1,11 @@
 /**
  * Delete files in a content store that no database row claims.
  *
- * Three stores, one shape: each is a `ContentStore` keyed by the sha256 of its own bytes, and each
- * has exactly one table naming the checksums that are still wanted. So "what is down there that
- * nothing points at" is one query and one `list()`, and the only thing that differs per store is
- * which pair to use.
+ * Three stores, one shape: each is a `ContentStore` keyed by the sha256 of its own bytes, and the
+ * rows naming the files still wanted are read by `StorageRepository`. Most stores have one table
+ * behind them; the segment store has two, because the soundboard's pads are written into it as well.
+ * So "what is down there that nothing points at" is one read of claims and one `list()`, and the only
+ * thing that differs per store is which pair to use.
  *
  * **This is not an eviction policy.** It answers "what is unreachable", not "what is worth keeping":
  * a file with a row is left alone however old it is. See [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46) for the
@@ -40,7 +41,7 @@
  * the station's files actually are.
  */
 import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';
-import { Kysely, PostgresDialect, sql } from 'kysely';
+import { Kysely, PostgresDialect } from 'kysely';
 import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
 
 import type { ContentStore, StoredFile } from '../src/modules/shared/content.store.js';
@@ -48,27 +49,36 @@ import type { DB } from '../src/modules/data/db.js';
 import { ArtStore } from '../src/modules/art/art.store.js';
 import { SegmentStore } from '../src/modules/render/segment.store.js';
 import { TrackStore } from '../src/modules/playout/audio/track.store.js';
+import { StorageRepository, fileName } from '../src/modules/storage/storage.repository.js';
 
-/** A store, where its files live by default, and the one column that says a file is still wanted. */
+/**
+ * A store, where its files live by default, and what claims a file in it.
+ *
+ * The claims are {@link StorageRepository}'s, the same reads the nightly sweep and the storage report
+ * make, rather than a query of this script's own. This held three raw `select distinct` statements
+ * once, and the segment store's asked `segments` alone, so it called every pad on the soundboard an
+ * orphan exactly as the nightly job did: pads are written into the same store and `deadair.pads` is
+ * the only row naming them. One reader means a table that starts writing into a store is taught to
+ * both sweeps at once.
+ */
 const STORES = {
     segments: {
         dirKey: 'SEGMENT_DIR',
         dirDefault: './media/segments',
-        // `audio_checksum` on any row in any state: a `failed` segment keeps its old audio
-        // deliberately, and a segment that cannot air is still not a file to delete.
-        claims: 'select distinct audio_checksum as checksum from deadair.segments where audio_checksum is not null',
+        // Segment rows in any state (a `failed` segment keeps its old audio deliberately) and every pad.
+        claims: (repository: StorageRepository) => repository.segmentClaims(),
         make: (root: string) => new SegmentStore(root),
     },
     tracks: {
         dirKey: 'TRACKS_DIR',
         dirDefault: './media/tracks',
-        claims: 'select distinct checksum from deadair.track_audio where checksum is not null',
+        claims: (repository: StorageRepository) => repository.trackClaims(),
         make: (root: string) => new TrackStore(root),
     },
     art: {
         dirKey: 'ART_DIR',
         dirDefault: './media/art',
-        claims: 'select distinct checksum from deadair.art_assets where checksum is not null',
+        claims: (repository: StorageRepository) => repository.artClaims(),
         make: (root: string) => new ArtStore(root),
     },
 } as const;
@@ -109,8 +119,7 @@ const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }), plugins: [..
 const megabytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 try {
-    const rows = await sql<{ checksum: string }>`${sql.raw(store.claims)}`.execute(db);
-    const claimed = new Set(rows.rows.map(row => row.checksum));
+    const claims = await store.claims(new StorageRepository(db));
 
     const files = await (store.make(root) as ContentStore<string>).list();
     // Anything the store cannot name is left alone rather than swept: a `.tmp-` file an interrupted
@@ -121,11 +130,12 @@ try {
     // report a file's age, and the failure surfaced two lines down as a checksum that might be
     // undefined rather than here.
     const named = files.filter((file): file is StoredFile & { checksum: string; ext: string } => 'checksum' in file);
-    const orphans = named.filter(file => !claimed.has(file.checksum));
+    // By `<checksum>.<ext>`, as the nightly sweep compares, rather than by checksum alone.
+    const orphans = named.filter(file => !claims.names.has(fileName(file.checksum, file.ext)));
     const bytes = orphans.reduce((total, file) => total + file.bytes, 0);
 
     console.log(`\n${which}: ${root}`);
-    console.log(`  ${files.length} files, ${named.length} the store can name, ${claimed.size} checksums claimed by a row`);
+    console.log(`  ${files.length} files, ${named.length} the store can name, ${claims.names.size} files claimed by ${claims.rows} rows`);
     console.log(`  ${orphans.length} orphaned, ${megabytes(bytes)}`);
 
     if (orphans.length === 0) {

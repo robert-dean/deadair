@@ -19,8 +19,10 @@ services:
             # The HLS segments, served straight off the volume liquidsoap writes them to.
             # Read-only: nginx serves this directory and never produces it. The PLAYLISTS in
             # the same directory are proxied to the API instead, because a playlist request is
-            # how an HLS listener is counted — see nginx/snippets/hls.conf.
-            - ./.docvol/streamhls:/data/streamhls:ro
+            # how an HLS listener is counted — see nginx/snippets/hls.conf. At the path the
+            # image keeps them in RAM, so that one snippet serves both; here they are still on
+            # the host, because the app runs there and reads the playlists back.
+            - ./.docvol/streamhls:/dev/shm/streamhls:ro
         # Reach the host-run API (:3333) and Vite (:3002).
         extra_hosts:
             - 'host.docker.internal:host-gateway'

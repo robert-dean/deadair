@@ -2530,7 +2530,7 @@ if hls_dir != "" then
   # from zero again, and every connected player is holding a playlist whose numbers now point
   # at different audio — which is not a gap, it is a stall that only a manual reconnect clears.
   #
-  # **Beside the segments, and NOT on the streamstate volume.** It was written as
+  # **Beside the segments by default, and never on a path only one deployment has.** It was written as
   # `/streamstate/hls.json` on the argument that this is state the app cannot reproduce — which
   # is simply wrong: it is segment numbering, and losing it costs connected players one
   # reconnect, nothing more. What that mistake actually cost is worse than the reasoning: that
@@ -2538,6 +2538,18 @@ if hls_dir != "" then
   # tried to `mkdir /streamstate`, got EACCES, and refused to start — taking every Icecast mount
   # down with it on a station that had just switched HLS on. `hls_dir` is rendered per
   # deployment and is writable by construction, because the segments are already going there.
+  #
+  # **Unless the deployment names somewhere else**, which the single-container image does:
+  # its segments are in RAM, which empties when the container restarts, and a state file that
+  # emptied with them would number the next run from zero. Players cache a segment by name for
+  # an hour, so `aac_3.aac` from the last run would be served in place of the new one. The image
+  # passes `STREAM_HLS_STATE_AT` on the volume instead. Liquidsoap writes this file once, when the
+  # output stops, and reads it once when it starts, so where it lives costs the clock nothing.
+  # The price of keeping it past the segments is that the first playlist after a container
+  # restart lists a window of segments that are gone: a player arriving in those few seconds
+  # gets a 404 and asks again, and Liquidsoap logs that it could not delete each one as it rolls
+  # off. Both stop within one window.
+  hls_state_at = environment.get("STREAM_HLS_STATE_AT", default="")
   output.file.hls(
     playlist = "live.m3u8",
     segment_duration = env_float("STREAM_HLS_SEGMENT_SECONDS", 2.),
@@ -2550,7 +2562,7 @@ if hls_dir != "" then
     # playlist a moment before a segment rolled off is about to request that segment, and
     # deleting it the instant it left the window is a 404 in the middle of somebody's listening.
     segments_overhead = 5,
-    persist_at = "#{hls_dir}/state.json",
+    persist_at = if hls_state_at != "" then hls_state_at else "#{hls_dir}/state.json" end,
     hls_dir,
     hls_streams,
     bus

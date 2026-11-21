@@ -12,6 +12,10 @@ DATA="${DATA_DIR:-/data}"
 # One directory per thing the station keeps. Created rather than assumed, because the volume an
 # operator mounts is an empty directory on the first boot and every one of these is written to
 # before anything reads it back.
+#
+# One of them is not on the volume: the HLS segments are written to RAM (the Dockerfile says
+# why), and `/dev/shm` is a fresh, empty tmpfs in every container, so that folder is made on
+# every boot for a different reason from the rest.
 for dir in \
     "$DATA/logs" \
     "$DATA/inbox" \
@@ -19,7 +23,7 @@ for dir in \
     "$DATA/streamconfig" \
     "$DATA/streamlogs" \
     "$DATA/streamstate" \
-    "$DATA/streamhls" \
+    "${STREAM_HLS_LIQUIDSOAP_DIR:-/dev/shm/streamhls}" \
     "$DATA/streamarchive" \
     "$DATA/music" \
     "$DATA/voices" \
@@ -43,6 +47,41 @@ chown 99:100 "$DATA" 2>/dev/null || true
 # directories inside it and not the share they sit on.
 [ "$DEADAIR_MEDIA" = "/media" ] && { chown 99:100 /media 2>/dev/null \
     || echo "init-station: cannot take ownership of /media; if the station cannot cache records, chown that share to 99:100 on the host" >&2; }
+
+# Where HLS used to be. Older images wrote the segments to `$DATA/streamhls`, and nothing reads
+# them there any more, so the folder is emptied of what Liquidsoap wrote and removed, unless this
+# container is still configured to write there. Its numbering state is MOVED to where the state
+# lives now rather than deleted, so the first start after the upgrade carries on from the last
+# segment number instead of starting again at zero under names players may have cached.
+#
+# Only Liquidsoap's own files are deleted, by name, and the folder is removed only if that left it
+# empty: anything an operator put there stays, and so does a mount at that path.
+#
+# The rendered config is corrected first, because it is what Liquidsoap actually reads, and it
+# wins over this container's environment. The app that wrote it was the old one, so it names the
+# old folder; left alone, this boot's Liquidsoap would write there again, on the volume, until the
+# new app re-renders the file. Only the exact old value is replaced, and in place, so the file
+# keeps its owner and mode.
+old_hls="$DATA/streamhls"
+new_hls="${STREAM_HLS_LIQUIDSOAP_DIR:-}"
+radio_env="$DATA/streamconfig/radio.env"
+if [ -n "$new_hls" ] && [ "$new_hls" != "$old_hls" ] && [ -f "$radio_env" ] \
+    && grep -qx "STREAM_HLS_DIR='$old_hls'" "$radio_env"; then
+    sed -i "s|^STREAM_HLS_DIR='$old_hls'\$|STREAM_HLS_DIR='$new_hls'|" "$radio_env" \
+        || echo "init-station: could not point $radio_env at $new_hls; HLS stays on the volume until the app rewrites it" >&2
+fi
+if [ -d "$old_hls" ] \
+    && [ "${STREAM_HLS_LIQUIDSOAP_DIR:-}" != "$old_hls" ] \
+    && [ "${STREAM_HLS_DIR:-}" != "$old_hls" ] \
+    && ! grep -qx "STREAM_HLS_DIR='$old_hls'" "$radio_env" 2>/dev/null; then
+    if [ -f "$old_hls/state.json" ] && [ -n "${STREAM_HLS_STATE_AT:-}" ] && [ ! -e "$STREAM_HLS_STATE_AT" ]; then
+        mv "$old_hls/state.json" "$STREAM_HLS_STATE_AT" 2>/dev/null || true
+    fi
+    find "$old_hls" -maxdepth 1 -type f \( -name '*.aac' -o -name '*.mp3' -o -name '*.ts' \
+        -o -name '*.m3u8' -o -name 'state.json' -o -name 'liq*tmp' \) -delete 2>/dev/null || true
+    rmdir "$old_hls" 2>/dev/null \
+        || echo "init-station: left $old_hls in place; the station no longer uses it, but it is a mount or holds files the station did not write" >&2
+fi
 
 # The station is several processes that have always addressed each other by name, because they
 # have always been separate containers. In one container those names have nowhere to resolve — so

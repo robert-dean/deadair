@@ -368,10 +368,17 @@ Two things sit on the authored side that look like they belong with the media, a
 audio an operator drops in for the station to take in (`/data/inbox`), and any voice clip added by
 hand (`/data/voices`). Nothing regenerates those.
 
-`/data/streamhls` is the opposite of all of it and wants no thought at all: it holds the last few
-seconds of HLS segments while `stream.hlsEnabled` is on, is rewritten continuously, and is bounded
-by the segment settings. Losing it costs a listener one reconnect. It is in `/data` because
-Liquidsoap writes it and nginx serves it, and both of those live here.
+The HLS segments are not on `/data` at all. While `stream.hlsEnabled` is on, Liquidsoap rewrites a
+segment every two seconds, and it does that from the thread that keeps the station's audio on
+time, so a disk that pauses (an Unraid user share, a busy NAS) pauses the stream with it. They are
+written to `/dev/shm/streamhls` inside the container instead: memory, a few megabytes at most, and
+gone when the container stops, which costs a listener one reconnect. Docker gives every container
+64 MB there, which is plenty; you do not need `--shm-size` for it (the Apple Music tags ask for
+`--shm-size=1g` for the browser, and that covers both). Only the small file that keeps the segment
+numbering between restarts stays on the volume, as `/data/streamstate/hls.json`. Versions before
+this one kept the segments in `/data/streamhls`; the first start after upgrading moves the
+numbering file across and removes that folder, leaving it only if it holds something the station
+did not write.
 
 `/data/streamarchive` is the one that can grow without your noticing. It is empty until
 **Record what airs** is switched on (Settings, Stream), and then holds an MP3 per live show, and

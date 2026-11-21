@@ -208,6 +208,14 @@ three outcomes and clears the old measurements with it.
 PLACE in a sentence — but it is app-side in `render/pad.cues.ts` rather than in the plugin SDK, because no
 plugin ever sees one: the host reads it, strips it, and hands the mixer URLs.
 
+**A pad's bytes live in the segment store, so `deadair.pads` is a claim on it.** `PadLibrary.ingest` writes
+every pad through `SegmentStore.write`, and no segment row names those files, so `StorageRepository.segmentClaims()`
+reads `segments` and `pads` together for every reader of that store: the nightly orphan sweep
+(`storage.sweepOrphans`), the storage report and `scripts/media.sweep.ts`. A sweep that asked `segments` alone
+took the whole rack a day after the last boot wrote it, and every break that hit a pad aired its words alone. A
+pad whose bytes have gone comes back on the next boot scan or a re-scan of the library, both of which write
+every file in the library into the store again.
+
 **Two orderings are easy to get backwards and both were.** `keepPads` runs BEFORE `speakableScript`'s bracket
 strip and the strip spares what it left, or a pad admitted afterwards is admitted into a script already
 emptied of pads; and `transposeForSpeech` removes pads FIRST, because `SPARE_CUES`' character class contains

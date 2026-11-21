@@ -25,9 +25,9 @@ const empty = (): StoredClaims => ({ rows: 0, bytes: 0, names: new Set() });
 /**
  * What the database believes is on disk.
  *
- * One repository over three tables rather than a method added to each table's own, because the
- * question is not any of theirs: `track_audio`, `art_assets` and `segments` each know about their
- * own subject and none of them knows what a VOLUME holds. This is the reader that asks all three the
+ * One repository over four tables rather than a method added to each table's own, because the
+ * question is not any of theirs: `track_audio`, `art_assets`, `segments` and `pads` each know about
+ * their own subject and none of them knows what a VOLUME holds. This is the reader that asks all of them the
  * same question so a report can put their answers beside the directories they describe.
  *
  * Every read here is the same shape — rows that point at a file, and the names they point at — and
@@ -70,25 +70,39 @@ export class StorageRepository extends DataRepository {
     }
 
     /**
-     * Spoken segments, per segment row.
+     * Everything in the segment store: spoken segments per segment row, and the soundboard per pad.
      *
-     * No byte size, because `deadair.segments` has never held one — it holds a duration, which is
-     * what airing a break needs. So this answers rows and names and leaves `bytes` absent rather
-     * than inventing a total nothing measured.
+     * Pads are here because they are in the same directory. `PadLibrary.ingest` writes every pad's
+     * bytes through `SegmentStore.write`, and `deadair.pads` is the only row that names them, so a
+     * reading of this store that asked `segments` alone saw the whole rack as orphaned and the nightly
+     * sweep deleted it once the grace period passed. A pad's signed URL then answered 404, and every
+     * break that hit one fell back to its words alone.
+     *
+     * One answer for the store rather than a second entry beside it, because the report and the sweep
+     * are both keyed by DIRECTORY: a separate pads entry would walk the same files again and count
+     * every segment in it as a pad nobody claims. So `rows` is every row in either table that points
+     * at a file here, and `rowsWithNoFile` covers a pad whose bytes have gone as well as a segment's.
+     *
+     * Every pad counts whatever its state: a rejected pad is off the rack, and its bytes are still the
+     * row's to clear, as a `failed` segment keeps its old audio.
+     *
+     * No byte size, because neither table holds one: `segments` holds a duration, which is what airing
+     * a break needs, and `pads` the same. So this answers rows and names and leaves `bytes` absent
+     * rather than inventing a total nothing measured.
      *
      * The same file legitimately belongs to several rows: an ident is one recording that sits at
-     * three slots in an hour, and identical spoken words hash to one file. `names` is a set for that
-     * reason, and `rows` is deliberately the row count rather than the file count — they answer
-     * different questions and a report shows both.
+     * three slots in an hour, identical spoken words hash to one file, and a pad dropped into two
+     * boards is one file under two rows. `names` is a set for that reason, and `rows` is deliberately
+     * the row count rather than the file count: they answer different questions and a report shows
+     * both.
      */
     async segmentClaims(): Promise<StoredClaims> {
-        const rows = await this.db
-            .selectFrom('deadair.segments')
-            .select(['audioChecksum', 'audioExt'])
-            .where('audioChecksum', 'is not', null)
-            .execute();
+        const [segments, pads] = await Promise.all([
+            this.db.selectFrom('deadair.segments').select(['audioChecksum', 'audioExt']).where('audioChecksum', 'is not', null).execute(),
+            this.db.selectFrom('deadair.pads').select(['audioChecksum', 'audioExt']).execute(),
+        ]);
 
-        return rows.reduce<StoredClaims>(
+        return [...segments, ...pads].reduce<StoredClaims>(
             (claims, row) => {
                 if (row.audioChecksum == null || row.audioExt == null) return claims;
                 claims.rows += 1;

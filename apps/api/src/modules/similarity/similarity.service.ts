@@ -49,11 +49,11 @@ export type Neighbour = SimilarArtist & {
  * So every answer to {@link similarTo} and {@link topTracks} is written through to
  * `SimilarityStoreRepository` (`0119_similarity_store.sql`), and a question is
  * answered from there while the stored answer is younger than
- * {@link STORED_ANSWER_TTL_MS} and asked for at least as many. Filled ON DEMAND:
- * nothing here walks the library, so the store holds the artists the station
- * actually airs and walks toward. When a source fails, {@link similarTo} merges in
- * what it said last time rather than letting the sources that did answer replace
- * it. The map stays in front of it for the neighbours,
+ * {@link STORED_ANSWER_TTL_MS} and asked for at least as many. Filled on demand,
+ * and once ahead for every library artist by `SimilarityFill`, so that a source
+ * which stops answering has already said something to keep: when one fails,
+ * {@link similarTo} merges in what it said last time rather than letting the
+ * sources that did answer replace it. The map stays in front of it for the neighbours,
  * since the similar walk asks about the same artists constantly within a day. A
  * store that cannot be read or written costs the store and never the answer.
  *

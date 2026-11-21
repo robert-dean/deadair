@@ -10,6 +10,7 @@ import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { LyricsJob } from '#modules/lyrics/lyrics.job.js';
 import { LyricMoodsJob } from '#modules/lyrics/lyric.moods.job.js';
 import { ArtistGenreJob } from '#modules/director/artist.genre.job.js';
+import { SimilarityFillJob } from '#modules/similarity/similarity.fill.job.js';
 import { MixJudgeJob } from '#modules/director/mix.judge.job.js';
 import { LyricSubjectsJob } from '#modules/lyrics/lyric.subjects.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
@@ -201,6 +202,15 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'catalog.name_artist_genres': {
         job: ArtistGenreJob,
         cron: '8-59/15 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
+    },
+
+    // The library's similarity fill: asks once who resembles each library artist the store has never
+    // asked about, so what a source said survives it ceasing to answer. Idle (one query) once the
+    // library is filled. The enrichment walk's budget and policy, on its own minutes.
+    'similarity.fill_library': {
+        job: SimilarityFillJob,
+        cron: '6-59/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 

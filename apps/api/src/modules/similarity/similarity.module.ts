@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SimilarityService } from './similarity.service.js';
 import { SimilarityStoreRepository } from './similarity.store.repository.js';
 import { SimilarityGraphService } from './similarity.graph.service.js';
+import { SimilarityFill } from './similarity.fill.js';
 
 /**
  * Who else sounds like this, out of whatever similarity plugins are installed.
@@ -11,8 +12,9 @@ import { SimilarityGraphService } from './similarity.graph.service.js';
  * Registered after `PluginsModule` for the reason `ChartsModule` and `LlmModule`
  * are: everything here resolves `PluginRegistry` and `PluginInvoker`.
  *
- * It starts nothing and owns no loop. An artist is looked up because a refill or
- * a break writer asked, never because time passed.
+ * It starts nothing and owns no loop of its own. An artist is looked up because a
+ * refill or a break writer asked, or once by `similarity.fill_library`, which asks
+ * about each library artist the store has never asked about (see `SimilarityFill`).
  */
 export const SimilarityModule: ServerKitModule = {
     name: 'Similarity',
@@ -26,5 +28,7 @@ export const SimilarityModule: ServerKitModule = {
         registry.register(SimilarityStoreRepository).useClass(SimilarityStoreRepository).asScoped();
         // The store read back as a graph, for `GET /catalog/similarity`. Reads the store only.
         registry.register(SimilarityGraphService).useClass(SimilarityGraphService).asScoped();
+        // The once-per-artist fill behind `similarity.fill_library`. Scoped, over the two above.
+        registry.register(SimilarityFill).useClass(SimilarityFill).asScoped();
     },
 };

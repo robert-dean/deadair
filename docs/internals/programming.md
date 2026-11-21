@@ -128,6 +128,14 @@ replaces its old names, even with fewer; the cost is that kept names are never r
 fact that moves over months. Only who resembles whom works this way: an artist's records take the first
 usable answer, so another source answering simply replaces them.
 
+**The library is walked once, so there is something to keep.** On-demand filling holds only the artists
+the station has asked about, a couple of hundred on the live station against 3,300 in the library, and an
+artist nobody asked about before a source stopped answering never gets that source's names. So
+`similarity.fill_library` (`SimilarityFill`, every quarter hour inside an eleven-minute budget) asks, most
+played first, about each library artist that has no stored answer of at least `FILL_NEIGHBOURS` (twelve,
+the most any caller asks for). It owes an artist only until that first answer, whatever its age, so it
+never refreshes anything: that stays with the callers, and a filled library costs one query a run.
+
 **The store is drawn as a graph, and the drawing reads the store and nothing fresher.** `GET
 /catalog/similarity` (`SimilarityGraphService`) answers the stored neighbours as DIRECTED edges, one per
 `similar_artists` row, with the artists they name as nodes keyed by `normalizeKey` and joined to the catalog

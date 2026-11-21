@@ -975,3 +975,131 @@ describe('enrichBatch', () => {
         expect(enrichTracks.mock.calls[0]![0]).toEqual([withIsrc]);
     });
 });
+
+describe('a provider whose credentials were refused', () => {
+    // The case this exists for: a Last.fm key the service stopped answering. Every lookup is refused,
+    // and before this the walk filed a failure row and a warning against every artist, album and track
+    // it reached, every pass, while the rows those lookups would have replaced sat there untouched.
+    const refused = () => new PluginError('Last.fm artist.getInfo refused the request: Suspended API key (error 26)').withCode('config');
+    const artists = ['artist-1', 'artist-2', 'artist-3'].map(id => ({ id, name: id, outstanding: [OTHER], refs: {} }));
+
+    const buildWithLogger = (records: PluginRecord[]): { service: EnrichmentService; logger: Logger } => {
+        registry = new PluginRegistry();
+        registry.setAll(records);
+        repository = fakeRepository();
+        invoker = new PluginInvoker(registry, stubPluginLog().log);
+        const logger = stubLogger();
+        return { service: new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, logger), logger };
+    };
+
+    it('stops asking it for the rest of the pass, and writes no failure against any record', async () => {
+        const enrichArtist = vi.fn(async () => Promise.reject(refused()));
+        const built = buildWithLogger([record(OTHER, {}, { enrichArtist })]);
+        repository.listArtistsNeedingEnrichment.mockResolvedValue(artists as never);
+
+        await built.service.enrichPendingArtists(75);
+
+        expect(enrichArtist).toHaveBeenCalledTimes(1);
+        expect(repository.recordArtistEnrichmentFailure).not.toHaveBeenCalled();
+        expect(repository.saveArtistEnrichment).not.toHaveBeenCalled();
+        const refusals = vi.mocked(built.logger.warn).mock.calls.filter(([message]) => String(message).includes('refused its credentials'));
+        expect(refusals).toHaveLength(1);
+    });
+
+    it('is left out of the next pass, so the next pass asks it nothing at all', async () => {
+        const enrichArtist = vi.fn(async () => Promise.reject(refused()));
+        const built = buildWithLogger([record(OTHER, {}, { enrichArtist })]);
+        repository.listArtistsNeedingEnrichment.mockResolvedValue(artists as never);
+
+        await built.service.enrichPendingArtists(75);
+        await built.service.enrichPendingArtists(75);
+
+        expect(enrichArtist).toHaveBeenCalledTimes(1);
+        expect(built.service.artistProviderIds()).toEqual([]);
+    });
+
+    it('is asked again once it passes a check, which is how a renewed key recovers without a settings save', async () => {
+        const enrichArtist = vi.fn(async () => Promise.reject(refused()));
+        const built = buildWithLogger([record(OTHER, {}, { enrichArtist })]);
+        repository.listArtistsNeedingEnrichment.mockResolvedValue(artists as never);
+        await built.service.enrichPendingArtists(75);
+
+        enrichArtist.mockImplementation(async () => ({ name: 'artist', facts: ['Formed in Bristol.'] }) as never);
+        await invoker.probe(OTHER, 'testConnection', async () => ({ ok: true }));
+        await built.service.enrichPendingArtists(75);
+
+        expect(enrichArtist).toHaveBeenCalledTimes(1 + artists.length);
+        expect(repository.saveArtistEnrichment).toHaveBeenCalledTimes(artists.length);
+    });
+
+    it('still asks the other providers about every record', async () => {
+        const musicbrainz = vi.fn(async () => ({ artist: 'Portishead', year: 1994 }));
+        const other = vi.fn(async () => Promise.reject(refused()));
+        buildWithLogger([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: musicbrainz }),
+            record(OTHER, {}, { priority: 500, enrichTrack: other }),
+        ]);
+        const built = new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, stubLogger());
+        repository.listTracksNeedingEnrichment.mockResolvedValue([
+            pending(catalogTrack, [MUSICBRAINZ, OTHER]),
+            pending({ ...catalogTrack, id: 'track-2' }, [MUSICBRAINZ, OTHER]),
+            pending({ ...catalogTrack, id: 'track-3' }, [MUSICBRAINZ, OTHER]),
+        ] as never);
+
+        const summary = await built.enrichPending(75);
+
+        expect(musicbrainz).toHaveBeenCalledTimes(3);
+        expect(other).toHaveBeenCalledTimes(1);
+        expect(repository.recordTrackEnrichmentFailure).not.toHaveBeenCalled();
+        expect(summary).toMatchObject({ scanned: 3, enriched: 3, failed: 0 });
+    });
+
+    it('is not filed against a batch either, and the batch is not re-asked one track at a time', async () => {
+        const enrichTracks = vi.fn(async () => Promise.reject(refused()));
+        const enrichTrack = vi.fn(async () => ({ artist: 'Portishead' }));
+        buildWithLogger([record(OTHER, {}, { enrichTracks, enrichTrack, maxBatchSize: 2 })]);
+        const built = new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, stubLogger());
+        repository.listTracksNeedingEnrichment.mockResolvedValue(
+            ['track-1', 'track-2', 'track-3', 'track-4'].map(id => pending({ ...catalogTrack, id }, [OTHER])) as never,
+        );
+
+        const summary = await built.enrichPending(75);
+
+        expect(enrichTracks).toHaveBeenCalledTimes(1);
+        expect(enrichTrack).not.toHaveBeenCalled();
+        expect(repository.recordTrackEnrichmentFailure).not.toHaveBeenCalled();
+        // Nothing was heard about any of them, so none is counted and all four stay outstanding.
+        expect(summary).toMatchObject({ scanned: 0, failed: 0 });
+    });
+
+    it('treats an `auth` refusal the same way', async () => {
+        const enrichAlbum = vi.fn(async () => Promise.reject(new PluginError('token revoked').withCode('auth')));
+        buildWithLogger([record(OTHER, {}, { enrichAlbum })]);
+        const built = new EnrichmentService(registry, invoker, repository as never, settingsConfig({}).config, stubLogger());
+        repository.listAlbumsNeedingEnrichment.mockResolvedValue(
+            ['album-1', 'album-2'].map(id => ({ id, name: id, artistName: 'Portishead', outstanding: [OTHER], refs: {} })) as never,
+        );
+
+        await built.enrichPendingAlbums(75);
+
+        expect(enrichAlbum).toHaveBeenCalledTimes(1);
+        expect(repository.recordAlbumEnrichmentFailure).not.toHaveBeenCalled();
+    });
+});
+
+describe('a provider the breaker quarantines part way through a pass', () => {
+    it('files the failures that tripped it, and nothing against the records it never asked about', async () => {
+        const enrichArtist = vi.fn(async () => Promise.reject(new PluginError('upstream is down').withCode('upstream')));
+        service = build([record(OTHER, {}, { enrichArtist })]);
+        repository.listArtistsNeedingEnrichment.mockResolvedValue(
+            ['a-1', 'a-2', 'a-3', 'a-4', 'a-5'].map(id => ({ id, name: id, outstanding: [OTHER], refs: {} })) as never,
+        );
+
+        await service.enrichPendingArtists(75);
+
+        // Three in a row trip it. The other two were never asked, so there is nothing to say about them.
+        expect(enrichArtist).toHaveBeenCalledTimes(3);
+        expect(repository.recordArtistEnrichmentFailure).toHaveBeenCalledTimes(3);
+        invoker.stopRecovery();
+    });
+});

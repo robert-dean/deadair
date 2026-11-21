@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import {
     ENRICHMENT_MATCH_KEY_ARTIST_TITLE,
     ENRICHMENT_MATCH_KEY_ISRC,
+    isPluginError,
     isUnanswered,
     type AlbumEnrichment,
     type AlbumRef,
@@ -106,8 +107,10 @@ export const ENRICHMENT_MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /**
  * The first wait after a provider could not be asked at all, doubling per consecutive failure.
  *
- * An hour, because the failures worth recovering from quickly are outages — a timeout, a 503, a
- * plugin the breaker has quarantined — and every one of those is measured in minutes. Enrichment
+ * An hour, because the failures worth recovering from quickly are outages — a timeout, a 503 —
+ * and every one of those is measured in minutes. A plugin the breaker has quarantined is not one of
+ * them any more: the walk stops asking it rather than filing a failure per row (see
+ * `EnrichmentService.stopped`). Enrichment
  * has no deadline: nothing on air waits for it, so buying quiet with an hour costs a record
  * nothing it will notice.
  *
@@ -126,6 +129,17 @@ export const ENRICHMENT_FAILURE_RETRY_MS = 60 * 60 * 1000;
  * operator makes by uninstalling a plugin.
  */
 export const ENRICHMENT_FAILURE_MAX_RETRY_MS = ENRICHMENT_MISS_TTL_MS;
+
+/**
+ * Whether a plugin's failure says its credentials were refused, rather than anything about the record.
+ *
+ * `auth` and `config` are the two codes a plugin uses for "only the operator can fix this": a key the
+ * upstream will not accept, a token that was revoked, a setting that is missing. None of them is
+ * evidence about the track, artist or record that happened to be asked when it surfaced, so none of
+ * them is written against that row. The host's breaker has already quarantined the plugin on the
+ * spot (both codes are non-retryable), which is what keeps the rest of the walk from asking it.
+ */
+export const refusedCredentials = (error: unknown): boolean => isPluginError(error) && (error.code === 'auth' || error.code === 'config');
 
 /**
  * The `externalIds` sources the host promotes onto canonical columns.
@@ -344,6 +358,13 @@ export const canMatch = (plugin: EnrichmentPlugin, ref: TrackRef): boolean => {
  * not deny the station everything the others knew, so a failure is recorded
  * against its plugin and the pass continues; `PluginInvoker` is already
  * counting those failures towards the breaker that will stop it being asked.
+ *
+ * Two kinds of failure are NOT recorded against the row, because neither is
+ * about the row. A provider whose credentials were refused (see
+ * {@link refusedCredentials}) is logged once and left alone, and a provider
+ * whose breaker is open is not asked at all for the rest of the pass. Writing
+ * either against every record the walk reached afterwards is how a refused
+ * Last.fm key became a failure row and a warning per artist, album and track.
  */
 @Injectable()
 export class EnrichmentService {
@@ -371,6 +392,44 @@ export class EnrichmentService {
      */
     providers(): EnrichmentPlugin[] {
         return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.enrichment);
+    }
+
+    /**
+     * Whether the walk should stop asking this provider, for now.
+     *
+     * The breaker is the state, deliberately: it is what quarantined the plugin when its credentials
+     * were refused (or its upstream failed three times running), it is what lifts the quarantine on a
+     * settings save or a passing probe, and {@link providers} already drops a quarantined plugin from
+     * the next pass. Checking it between records is what stops the CURRENT pass, whose provider list
+     * was read before the quarantine.
+     */
+    private stopped(pluginId: string): boolean {
+        return this.pluginInvoker.isBreakerOpen(pluginId);
+    }
+
+    /**
+     * Files one failure, unless it is a refusal of the provider's credentials.
+     *
+     * A refusal is logged here, once per quarantine in practice: the breaker opens on it, and
+     * {@link stopped} keeps every later record from reaching the plugin to be refused again.
+     */
+    private fileFailure(
+        pluginId: string,
+        error: unknown,
+        failures: EnrichmentFailure[],
+        context: Record<string, unknown>,
+        level: 'warn' | 'debug',
+    ): void {
+        const message = errorText(error);
+        if (refusedCredentials(error)) {
+            this.logger.warn('enrichment provider refused its credentials; the walk stops asking it until its settings change or it passes a check', {
+                pluginId,
+                error: message,
+            });
+            return;
+        }
+        failures.push({ pluginId, message });
+        this.logger[level]('enrichment plugin failed', { pluginId, ...context, error: message });
     }
 
     /** The ids of {@link providers}, which is what the catalog stores as `provider`. */
@@ -468,14 +527,14 @@ export class EnrichmentService {
 
             if (plugin.enrichesBatches) {
                 for (let cursor = 0; cursor < applicable.length; cursor += plugin.maxBatchSize) {
-                    if (signal?.aborted) break;
+                    if (signal?.aborted || this.stopped(plugin.record.id)) break;
                     await this.askInBulk(plugin, applicable.slice(cursor, cursor + plugin.maxBatchSize), accumulators);
                 }
                 continue;
             }
 
             for (const { request, index } of applicable) {
-                if (signal?.aborted) break;
+                if (signal?.aborted || this.stopped(plugin.record.id)) break;
                 await this.askOne(plugin, request.ref, accumulators[index]!);
             }
         }
@@ -514,6 +573,10 @@ export class EnrichmentService {
                 timeoutMs: ENRICH_TRACK_BATCH_TIMEOUT_MS,
             });
         } catch (error) {
+            if (refusedCredentials(error)) {
+                this.fileFailure(pluginId, error, [], {}, 'warn');
+                return;
+            }
             const message = errorText(error);
             for (const { index } of chunk) accumulators[index]!.failures.push({ pluginId, message });
             this.logger.warn('enrichment plugin failed on a batch', { pluginId, refs: refs.length, error: message });
@@ -526,7 +589,10 @@ export class EnrichmentService {
                 asked: refs.length,
                 answered: Array.isArray(answers) ? answers.length : typeof answers,
             });
-            for (const { request, index } of chunk) await this.askOne(plugin, request.ref, accumulators[index]!);
+            for (const { request, index } of chunk) {
+                if (this.stopped(pluginId)) break;
+                await this.askOne(plugin, request.ref, accumulators[index]!);
+            }
             return;
         }
 
@@ -553,9 +619,7 @@ export class EnrichmentService {
             });
             this.record(plugin, answer, accumulator);
         } catch (error) {
-            const message = errorText(error);
-            accumulator.failures.push({ pluginId, message });
-            this.logger.warn('enrichment plugin failed', { pluginId, artist: ref.artist, title: ref.title, error: message });
+            this.fileFailure(pluginId, error, accumulator.failures, { artist: ref.artist, title: ref.title }, 'warn');
         }
     }
 
@@ -601,6 +665,7 @@ export class EnrichmentService {
         for (const plugin of this.artistProviders()) {
             if (signal?.aborted) break;
             if (only && !only.includes(plugin.record.id)) continue;
+            if (this.stopped(plugin.record.id)) continue;
 
             const pluginId = plugin.record.id;
             const scoped: ArtistRef = { ...ref, providerRef: refs?.[pluginId] };
@@ -621,10 +686,8 @@ export class EnrichmentService {
                 }
                 contributions.push({ pluginId, priority: plugin.priority, enrichment });
             } catch (error) {
-                const message = errorText(error);
-                failures.push({ pluginId, message });
                 // At debug, for the lyrics pass's reason: the invoker has already warned about this one.
-                this.logger.debug('artist enrichment plugin failed', { pluginId, artist: ref.name, error: message });
+                this.fileFailure(pluginId, error, failures, { artist: ref.name }, 'debug');
             }
         }
 
@@ -641,6 +704,7 @@ export class EnrichmentService {
         for (const plugin of this.albumProviders()) {
             if (signal?.aborted) break;
             if (only && !only.includes(plugin.record.id)) continue;
+            if (this.stopped(plugin.record.id)) continue;
 
             const pluginId = plugin.record.id;
             const scoped: AlbumRef = { ...ref, providerRef: refs?.[pluginId] };
@@ -658,10 +722,8 @@ export class EnrichmentService {
                 }
                 contributions.push({ pluginId, priority: plugin.priority, enrichment });
             } catch (error) {
-                const message = errorText(error);
-                failures.push({ pluginId, message });
                 // At debug, for the lyrics pass's reason: the invoker has already warned about this one.
-                this.logger.debug('album enrichment plugin failed', { pluginId, album: ref.name, artist: ref.artist, error: message });
+                this.fileFailure(pluginId, error, failures, { album: ref.name, artist: ref.artist }, 'debug');
             }
         }
 

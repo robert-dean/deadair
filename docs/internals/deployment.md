@@ -331,7 +331,7 @@ pull request waited for. A pull request's image build now exports nothing (`type
 ## Releasing
 
 **A release is a version the manifest names and the repository has no tag for.** Five things are
-versioned by changesets, each with its own changelog: the station (seventeen packages in one `fixed`
+versioned by changesets, each with its own changelog: the station (thirty-four packages in one `fixed`
 group, because they ship in one image), `@deadair/android`, `@deadair/desktop`, `@deadair/ios` and
 `@deadair/streamdeck`. The listener apps are published by their own workflows or by hand, under
 `<app>-v*` tags. The Stream Deck plugin releases itself by the station's rule below, from
@@ -389,7 +389,7 @@ exchange.
 
 **The version pull request is not `changesets/action`**, which the kits use. That action writes the
 pull request's body out of every bumped package's `CHANGELOG.md` and dies on the first that has
-none, and here seventeen have none: changesets' own changelog generator is off, because it writes a
+none, and here thirty-four have none: changesets' own changelog generator is off, because it writes a
 file per package and this tree has one station. `scripts/release.version.mjs` reads the pending
 changesets, lets `changeset version` bump, and writes one entry per release unit in the shape the
 `publish` job's awk cuts notes out of; a test runs that exact awk over a generated entry. The

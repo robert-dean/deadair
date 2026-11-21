@@ -11,7 +11,7 @@
 // The bump itself is changesets' own `changeset version`, so the fixed group and the bump
 // arithmetic are its rules and not a second copy of them. What it does not do is the changelogs:
 // `changelog` is false in `.changeset/config.json`, because its generator writes one file per
-// package and this tree has seventeen packages and one station. So this reads the changesets
+// package and the station alone is thirty-four packages. So this reads the changesets
 // BEFORE they are consumed, lets changesets bump, then writes one entry per unit that moved.
 //
 // If it fails after `changeset version` has run, the tree is half-applied. Put it back with

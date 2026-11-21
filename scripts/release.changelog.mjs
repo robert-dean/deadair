@@ -1,6 +1,7 @@
-// The pure half of `release.version.mjs`: what goes into a changelog entry, where it goes, and the
-// build file each app's version is mirrored into. Nothing here touches the disk, so
-// all of it is tested by `tests/release.changelog.test.ts`.
+// The pure half of `release.version.mjs`: what goes into a changelog entry, where it goes, the
+// build file each app's version is mirrored into, and what its arguments ask for. Nothing here
+// touches the disk, so all of it is tested, by `tests/release.changelog.test.ts` and (the
+// arguments) `tests/release.version.test.ts`.
 
 export const REPO = 'https://github.com/robert-dean/deadair';
 
@@ -193,4 +194,37 @@ export function pullRequestBody(released) {
         'Merging this releases the station: `release.yml` sees a version with no tag, tags it once the tests pass, and publishes the GitHub release from `CHANGELOG.md`. The Stream Deck plugin is released by the same run when its version moves, from `apps/streamdeck/CHANGELOG.md`, as a `streamdeck-v*` release with its installer. The listener apps are numbered here and published by their own workflows.',
         'This pull request was opened with the workflow token, so no checks run on it. The merge runs every one of them before anything is tagged. To change what an entry says, edit the changeset on `main`; this branch is rebuilt from `main` on every push.',
     ].join('\n\n');
+}
+
+export const USAGE = 'Usage: pnpm release:version [--summary <file>] | --sync | --check';
+
+/**
+ * What `release:version` was asked to do. Anything it does not recognise is an error rather than a
+ * bump, because a bump consumes the changesets and rewrites manifests and changelogs: a typo such as
+ * `--chek` used to do exactly that. `--check` and `--sync` take nothing else, and `--summary` takes
+ * one file that does not look like a flag.
+ *
+ * @param {string[]} args the arguments after the script's own path
+ * @returns {{ mode: 'check' } | { mode: 'sync' } | { mode: 'version', summary?: string }}
+ * @throws {Error} naming what was wrong, for printing above {@link USAGE}
+ */
+export function parseArguments(args) {
+    if (args.length === 1 && (args[0] === '--check' || args[0] === '--sync')) {
+        return { mode: args[0].slice(2) };
+    }
+    if (args.length === 0) {
+        return { mode: 'version' };
+    }
+    if (args[0] === '--summary') {
+        const summary = args[1];
+        if (summary === undefined || summary === '' || summary.startsWith('-')) {
+            throw new Error('--summary needs the file to write the pull request body to.');
+        }
+        if (args.length > 2) {
+            throw new Error(`Unexpected argument: ${args[2]}`);
+        }
+        return { mode: 'version', summary };
+    }
+    const unexpected = args.find(arg => arg !== '--check' && arg !== '--sync') ?? args[1];
+    throw new Error(`Unexpected argument: ${unexpected}`);
 }

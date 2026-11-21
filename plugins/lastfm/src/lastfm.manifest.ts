@@ -96,7 +96,9 @@ export const lastfmManifest: PluginManifest = {
             // from `configSchema`.
             type: 'secret',
             required: true,
-            help: 'Free, from last.fm/api/account/create. Everything below needs one. Their terms are non-commercial: fine for one person running one station, not for a service you charge for.',
+            // Not free since 1 December 2026: Last.fm refuses any key whose owner is not on Pro,
+            // and the owner here is always the operator, because every station brings its own.
+            help: 'From last.fm/api/account/create. Everything below needs one, and since 1 December 2026 Last.fm only accepts a key whose account has a Pro subscription. Pro covers personal use: fine for one person running one station. A service you charge for needs a commercial licence from Last.fm instead.',
         },
         {
             key: 'apiSecret',

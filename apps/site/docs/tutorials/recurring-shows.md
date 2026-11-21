@@ -15,7 +15,7 @@ Both are ordinary slots on the timetable, set up once and aired every week.
 for two different shapes of show.
 
 **You need** a station on air with music. The countdown needs the **Last.fm** plugin with an API key,
-because its charts come from Last.fm. It also needs **Play records the station does not own yet** on
+because its charts come from Last.fm, and the key's account needs a Last.fm Pro subscription. It also needs **Play records the station does not own yet** on
 under Settings → Rotation, because a chart names records your library mostly does not hold. The
 Boneyard is steered by its brief, which works best with **Let a model choose what plays** switched on
 under Settings → Words ([Give the station a model](./connect-a-model.md)).

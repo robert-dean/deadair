@@ -15,8 +15,8 @@ around one by naming it. [Specials](../features/programme.md#specials) explains 
 
 **You need** a station on air with music, and a character to host the show
 ([Write a character](./write-a-character.md)). To play acts your library does not hold, the station
-needs a plugin that can list an artist's top tracks: Deezer works with no key at all, and Last.fm,
-MusicBrainz and Spotify do too. Looking the festival up instead of typing it needs the
+needs a plugin that can list an artist's top tracks: Deezer works with no key at all, and Last.fm
+(with a key on a Pro account), MusicBrainz and Spotify do too. Looking the festival up instead of typing it needs the
 **Ticketmaster** plugin with a free API key ([Plugins](../features/plugins.md#the-bundled-twenty-seven)).
 
 ## 1. Add the festival

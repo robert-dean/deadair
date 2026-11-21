@@ -578,11 +578,26 @@ ENV NODE_ENV=production \
     # and the app are separate containers with their own mount points. Here they are the
     # same process tree and the same path, and it is nginx's `alias` target as well.
     #
-    # The directory itself is made by `init-station`, with every other thing the station
-    # keeps, and NOT by a `mkdir` in this file: `/data` is a volume an operator mounts, so
-    # anything the image puts under it is hidden the moment they do.
-    STREAM_HLS_DIR=/data/streamhls \
-    STREAM_HLS_LIQUIDSOAP_DIR=/data/streamhls \
+    # IN RAM, and not on the volume, because Liquidsoap writes a segment from its audio
+    # clock: every two seconds the thread that times the station's audio creates a file,
+    # writes it and renames it, and it waits for each of those to finish. On an Unraid
+    # user share `/data` goes through FUSE, and a sample of that thread on the live
+    # station in November 2026 found it waiting on FUSE once per segment. When the share
+    # stalls, the clock stalls with it, and Liquidsoap logs that it must catch up or
+    # resets its sources. `/dev/shm` is the one RAM filesystem every container has
+    # without the operator passing a flag: 64 MB by default, against at most 36 segments
+    # of 80 KB (30 listed and 5 kept past the window at 320 kbps, and one being written),
+    # about 3 MB. It empties when the container stops, which costs nothing: the segments
+    # are the last minute of audio and a listener reconnects.
+    #
+    # The numbering state is the exception and stays on the volume (see `persist_at` in
+    # radio.liq): it is written once when Liquidsoap stops and read once when it starts.
+    #
+    # The directory is made by `init-station` at boot, since `/dev/shm` is a fresh tmpfs
+    # in every container and nothing the image puts there survives to run time.
+    STREAM_HLS_DIR=/dev/shm/streamhls \
+    STREAM_HLS_LIQUIDSOAP_DIR=/dev/shm/streamhls \
+    STREAM_HLS_STATE_AT=/data/streamstate/hls.json \
     # The archive, on the same two-variables-one-directory arrangement as HLS. Made by
     # `init-station` for the same reason, and a host path an operator mounts over it (the
     # template's Archive field) is used as it is.

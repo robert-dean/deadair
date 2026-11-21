@@ -12,6 +12,10 @@ DATA="${DATA_DIR:-/data}"
 # One directory per thing the station keeps. Created rather than assumed, because the volume an
 # operator mounts is an empty directory on the first boot and every one of these is written to
 # before anything reads it back.
+#
+# One of them is not on the volume: the HLS segments are written to RAM (the Dockerfile says
+# why), and `/dev/shm` is a fresh, empty tmpfs in every container, so that folder is made on
+# every boot for a different reason from the rest.
 for dir in \
     "$DATA/logs" \
     "$DATA/inbox" \
@@ -19,7 +23,7 @@ for dir in \
     "$DATA/streamconfig" \
     "$DATA/streamlogs" \
     "$DATA/streamstate" \
-    "$DATA/streamhls" \
+    "${STREAM_HLS_LIQUIDSOAP_DIR:-/dev/shm/streamhls}" \
     "$DATA/streamarchive" \
     "$DATA/music" \
     "$DATA/voices" \

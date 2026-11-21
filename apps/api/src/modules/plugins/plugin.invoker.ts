@@ -45,6 +45,19 @@ export const PLUGIN_RECOVERY_FIRST_MS = 60_000;
  */
 export const PLUGIN_RECOVERY_MAX_MS = 30 * 60_000;
 
+/**
+ * How long a quarantine the plugin declared permanent (`auth`, `config`) waits before the host asks
+ * once more on its own, and the gap between those asks while it stays refused.
+ *
+ * It used to wait for ever, on the reasoning that the plugin had said the answer would not change.
+ * That holds for a typo in a form and not for a refusal the operator fixes somewhere else: a Last.fm
+ * key refused because its account lapsed from Last.fm Pro comes back when the subscription is
+ * renewed, and nothing on the station changes to tell the host so. A day is one `testConnection` a
+ * day against a provider that is refusing anyway, and a renewed key is back on air by tomorrow
+ * without anybody re-saving a form. A settings save still lifts the quarantine at once.
+ */
+export const PLUGIN_REFUSED_RECHECK_MS = 24 * 60 * 60_000;
+
 /** The op an automatic probe runs, and the one the Test connection route runs through `probe`. */
 export const PROBE_OP = 'testConnection';
 
@@ -151,9 +164,10 @@ const deadline = (timeoutMs: number, message: string, stoppedMessage: string, ca
  * {@link PLUGIN_RECOVERY_MAX_MS}. It has to: every capability accessor skips a
  * plugin whose status is not `active`, so no call ever arrives at a quarantined
  * plugin for the textbook half-open breaker to let through. A quarantine the
- * plugin declared permanent (`auth`, `config`) is not probed, because the
- * plugin has already said the answer will not change; the operator's Test
- * connection still asks it.
+ * plugin declared permanent (`auth`, `config`) is probed once a day rather than
+ * on the backoff (see {@link PLUGIN_REFUSED_RECHECK_MS}): the plugin has said
+ * retrying the CALL will not help, which is not the same as saying the
+ * credential can never come back. The operator's Test connection asks at once.
  *
  * A passing probe lifts the quarantine but not the backoff. An engine that
  * lists voices but cannot speak passes `testConnection` every time and fails
@@ -203,6 +217,13 @@ export class PluginInvoker {
      * lifts does not, by itself, read as proof the trouble is over.
      */
     private readonly lastFailureAt = new Map<string, number>();
+
+    /**
+     * Plugins whose quarantine is a refusal (`auth`, `config`), which {@link scheduleRecovery} spaces
+     * at {@link PLUGIN_REFUSED_RECHECK_MS} rather than on the outage backoff. Cleared with the rest of
+     * the recovery state, and by a retryable failure, since the latest failure decides.
+     */
+    private readonly refused = new Set<string>();
 
     /** Set by {@link PluginInvoker.stopRecovery}, so nothing torn down later schedules another probe. */
     private recoveryStopped = false;
@@ -408,6 +429,7 @@ export class PluginInvoker {
         this.consecutiveFailures.delete(pluginId);
         this.openBreakers.delete(pluginId);
         this.clearRecoveryTimer(pluginId);
+        this.refused.delete(pluginId);
         if (!wasOpen) return;
         this.lastFailureAt.set(pluginId, Date.now());
 
@@ -428,7 +450,7 @@ export class PluginInvoker {
 
         const attempts = this.recoveryAttempts.get(pluginId) ?? 0;
         const backoff = Math.min(PLUGIN_RECOVERY_FIRST_MS * 2 ** attempts, PLUGIN_RECOVERY_MAX_MS);
-        const delayMs = Math.max(backoff, notBeforeMs ?? 0);
+        const delayMs = Math.max(backoff, notBeforeMs ?? 0, this.refused.has(pluginId) ? PLUGIN_REFUSED_RECHECK_MS : 0);
         this.recoveryAttempts.set(pluginId, attempts + 1);
 
         const timer = setTimeout(() => void this.probeOnSchedule(pluginId), delayMs);
@@ -459,6 +481,7 @@ export class PluginInvoker {
     private cancelRecovery(pluginId: string): void {
         this.clearRecoveryTimer(pluginId);
         this.recoveryAttempts.delete(pluginId);
+        this.refused.delete(pluginId);
     }
 
     /**
@@ -545,9 +568,16 @@ export class PluginInvoker {
             this.pluginRegistry.setStatus(pluginId, 'failed', reason);
             this.pluginLog.for(pluginId).error('plugin quarantined', { op, failures, error: message });
             // The latest failure decides, including one from a probe: a plugin that was merely
-            // unreachable and now answers `auth` has told us the answer will not change.
-            if (pluginError.retryable) this.scheduleRecovery(pluginId, pluginError.retryAfterMs);
-            else this.cancelRecovery(pluginId);
+            // unreachable and now answers `auth` has told us retrying will not help, so whatever
+            // outage probe was pending gives way to the daily recheck a refusal gets.
+            if (pluginError.retryable) {
+                this.refused.delete(pluginId);
+                this.scheduleRecovery(pluginId, pluginError.retryAfterMs);
+            } else {
+                this.cancelRecovery(pluginId);
+                this.refused.add(pluginId);
+                this.scheduleRecovery(pluginId);
+            }
         } else {
             // Keep the current status (the plugin may still recover) but surface
             // the last error, so the settings UI can show what just went wrong.

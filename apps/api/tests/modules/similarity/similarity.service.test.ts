@@ -546,6 +546,98 @@ describe('keeping what the sources said', () => {
         ]);
     });
 
+    describe('when a source that answered before cannot answer now', () => {
+        const DEEZER = 'deadair.deezer';
+        const down = () =>
+            vi.fn(async () => {
+                throw new PluginError('Last.fm refused that API key').withCode('auth');
+            });
+
+        /** Last week's merged answer: Deezer asked first, Last.fm adding the names Deezer did not give. */
+        const lastWeek = (store: MemoryStore) =>
+            store.neighbourAnswers.set('portishead', {
+                askedLimit: 10,
+                ageMs: STORED_ANSWER_TTL_MS,
+                entries: [
+                    { name: 'Massive Attack', source: DEEZER },
+                    { name: 'Tricky', source: LASTFM, match: 0.9 },
+                    { name: 'Morcheeba', source: LASTFM, match: 0.8 },
+                ],
+            });
+
+        it('keeps what it said last time in its place, beside what the others say now', async () => {
+            const store = new MemoryStore();
+            lastWeek(store);
+            const service = build(
+                [
+                    record(DEEZER, { similarArtists: vi.fn(async () => named('Massive Attack', 'Sneaker Pimps')) }),
+                    record(LASTFM, { similarArtists: down() }),
+                ],
+                [],
+                store,
+            );
+
+            const answer = await service.similarTo({ name: 'Portishead' }, 10);
+
+            expect(answer.map(neighbour => [neighbour.name, neighbour.source])).toEqual([
+                ['Massive Attack', DEEZER],
+                ['Sneaker Pimps', DEEZER],
+                ['Tricky', LASTFM],
+                ['Morcheeba', LASTFM],
+            ]);
+            // Written through, so the names outlive the next week too rather than one more week.
+            expect(store.neighbourAnswers.get('portishead')?.entries.map(entry => entry.name)).toEqual([
+                'Massive Attack',
+                'Sneaker Pimps',
+                'Tricky',
+                'Morcheeba',
+            ]);
+        });
+
+        it('does not repeat a kept name another source has given since', async () => {
+            const store = new MemoryStore();
+            lastWeek(store);
+            const service = build(
+                [record(DEEZER, { similarArtists: vi.fn(async () => named('Tricky')) }), record(LASTFM, { similarArtists: down() })],
+                [],
+                store,
+            );
+
+            expect((await service.similarTo({ name: 'Portishead' }, 10)).map(neighbour => [neighbour.name, neighbour.source])).toEqual([
+                ['Tricky', DEEZER],
+                ['Morcheeba', LASTFM],
+            ]);
+        });
+
+        it('answers with what was kept when nobody answers, and writes nothing over it', async () => {
+            const store = new MemoryStore();
+            lastWeek(store);
+            const service = build([record(DEEZER, { similarArtists: down() }), record(LASTFM, { similarArtists: down() })], [], store);
+
+            expect((await service.similarTo({ name: 'Portishead' }, 10)).map(neighbour => neighbour.name)).toEqual([
+                'Massive Attack',
+                'Tricky',
+                'Morcheeba',
+            ]);
+            expect(store.neighbourAnswers.get('portishead')?.ageMs).toBe(STORED_ANSWER_TTL_MS);
+        });
+
+        it('lets a source that answers replace what it said before, even with less', async () => {
+            const store = new MemoryStore();
+            lastWeek(store);
+            const service = build(
+                [
+                    record(DEEZER, { similarArtists: vi.fn(async () => named('Massive Attack')) }),
+                    record(LASTFM, { similarArtists: vi.fn(async () => named('Tricky')) }),
+                ],
+                [],
+                store,
+            );
+
+            expect((await service.similarTo({ name: 'Portishead' }, 10)).map(neighbour => neighbour.name)).toEqual(['Massive Attack', 'Tricky']);
+        });
+    });
+
     it('asks the sources as before when the store cannot be read or written', async () => {
         const store = new MemoryStore();
         store.failing = true;

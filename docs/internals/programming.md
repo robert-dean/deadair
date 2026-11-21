@@ -115,10 +115,18 @@ resembles whom in a day-long map and asked for an artist's top tracks every time
 deploys itself on every push, so the map was empty several times a day. It now writes every answer to
 `similarity_asks`, `similar_artists` and `artist_records` (0119) and answers from there while the answer
 is under a week old (`STORED_ANSWER_TTL_MS`) and asked for at least as many; the map stays in front of the
-neighbours. **Nothing walks the library to fill it**: every answer is one some caller asked for anyway, so
-the store holds the artists the station actually airs and walks toward. An empty answer is kept, so an
-act nobody knows is not asked about on every refill; an outage is not. A store that cannot be read or
-written costs the store and never the answer.
+neighbours. An empty answer is kept, so an act nobody knows is not asked about on every refill; an outage
+is not. A store that cannot be read or written costs the store and never the answer.
+
+**A source that stops answering keeps what it said.** The answer is replaced whole when it is asked again,
+so until 2026-11-21 a source whose key was refused or whose service went away lost every name it had given
+a week later, as soon as any other source answered. Last.fm refusing keys without Pro from 1 December 2026
+is the case that made this real. Now, when a source fails, `similarTo` puts the names it gave last time
+(the stored rows whose `source` is that plugin) back into the merge at that source's place, and writes
+them through with the fresh answers, so they last as long as the source stays down. A source that answers
+replaces its old names, even with fewer; the cost is that kept names are never refreshed, which suits a
+fact that moves over months. Only who resembles whom works this way: an artist's records take the first
+usable answer, so another source answering simply replaces them.
 
 **The store is drawn as a graph, and the drawing reads the store and nothing fresher.** `GET
 /catalog/similarity` (`SimilarityGraphService`) answers the stored neighbours as DIRECTED edges, one per

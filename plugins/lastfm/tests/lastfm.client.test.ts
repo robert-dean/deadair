@@ -41,6 +41,14 @@ describe('a failure under HTTP 200, which is how most of them arrive', () => {
         await expect(failing.get('artist.getInfo')).rejects.toMatchObject({ code: 'config' });
     });
 
+    it('reads a suspended key the same way, rather than as the service being down', async () => {
+        // It used to fall through to `upstream`, which is retryable: the host kept asking a key
+        // Last.fm had stopped answering, three failures at a time.
+        const failing = client(200, { error: LASTFM_ERROR.suspendedApiKey, message: 'Suspended API key' });
+
+        await expect(failing.get('artist.getInfo')).rejects.toMatchObject({ code: 'config', upstreamCode: 26 });
+    });
+
     it('reads a rate limit as one, so the host backs off rather than retrying blind', async () => {
         const failing = client(200, { error: LASTFM_ERROR.rateLimit, message: 'Rate limit exceeded' });
 

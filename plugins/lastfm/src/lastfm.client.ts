@@ -43,8 +43,14 @@ import type { LastfmErrorResponse } from './lastfm.types.js';
 export const LASTFM_ERROR = {
     /** The request was malformed: this plugin's bug, not the operator's. */
     invalidParameters: 6,
-    /** Bad API key, or one that has been suspended. */
+    /** The API key is not one Last.fm knows. */
     invalidApiKey: 10,
+    /**
+     * The API key exists and Last.fm has stopped answering it. Every method refuses it, so it is
+     * the operator's to fix exactly as a wrong key is, and it used to fall through to `upstream`:
+     * retried as though the service were down, and reported on Test as a generic failure.
+     */
+    suspendedApiKey: 26,
     /** The signature did not verify. In practice: the wrong secret, or `format` in the signed set. */
     invalidSignature: 13,
     /** The session key is gone. The operator has to connect the account again. */
@@ -62,7 +68,7 @@ export const LASTFM_ERROR = {
 /**
  * How one of those numbers reads in the host's vocabulary.
  *
- * The three `config` cases matter most: a suspended key, a bad secret and a
+ * The `config` cases matter most: a wrong or suspended key, a bad secret and a
  * revoked session are all things only the operator can fix, and reporting them
  * as `upstream` would have the host's breaker quarantine the plugin as though
  * the service were down — which hides the one message that would have helped.
@@ -70,6 +76,7 @@ export const LASTFM_ERROR = {
 function codeForApiError(error: number): PluginErrorCode {
     switch (error) {
         case LASTFM_ERROR.invalidApiKey:
+        case LASTFM_ERROR.suspendedApiKey:
         case LASTFM_ERROR.invalidSignature:
         case LASTFM_ERROR.invalidSession:
         case LASTFM_ERROR.authenticationFailed:

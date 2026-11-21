@@ -9,6 +9,16 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.105.2] — 2026-11-21
+
+- The Last.fm plugin's settings no longer call its API key free. Since 1 December 2026 Last.fm only accepts a key whose account has a Last.fm Pro subscription, so the key field now says so. If your station uses Last.fm for tags, charts, similar artists or scrobbling and the account behind your key is not on Pro, all of those stop working until it is. Deezer and MusicBrainz still cover similar artists without it.
+- A listener or console page that disconnects while the station is still checking who is asking (a tab closed, a page left before it finished loading, a poll replaced by a newer one) no longer leaves a "Cannot resolve from a disposed container" error and a 500 in the station's log. Nobody is waiting for the answer by then, so the request is dropped quietly.
+- When a source of facts refuses its key, the station stops asking it. A refused Last.fm key used to cost a failed request, a warning in the log and a failure recorded against every artist, record and track the station looked up, on every pass; now the first refusal sets the plugin aside, and the plugin page and the check-up show why. Saving its settings brings it back at once, and the station also tries it again once a day, so a key that starts working again (a renewed Last.fm Pro subscription, say) recovers without a save. Everything it collected before stays in use. Last.fm's "suspended API key" is now reported as a key problem too, both while the station runs and on Test connection.
+- Who sounds like whom now survives a source that stops answering. When a similarity source fails (Last.fm refusing a key that is not on Pro, from 1 December 2026, or a service that goes away), the station keeps the similar artists it named last time instead of losing them a week later. A new background walk also asks once about every artist in your library that the station has never looked up, most played first, so there is something to keep. On a large library the first walk takes a few hours, spread over quarter-hour runs, and after that it only looks up artists you add.
+- Presenters in a production now remember what they said on air in the last hour, so a catchphrase they have already used stays spent in the next production. Until now that lookup failed every time and left "productions: could not read what a speaker said lately" in the station log, so productions were written without it.
+- The nightly **Delete media files nothing points at** housekeeping job (off by default) no longer deletes the soundboard's sounds. It used to treat every pad as unused, so a station running a day or more past its last restart could lose its pads, and breaks that hit one aired their words alone. If you have that job switched on, press **Re-scan the library** on the Pads page, or restart the station, to bring back any pad it removed.
+- The checks that confirm a fact or a presenter's note against its source now give the model enough room to finish thinking before it answers. With a reasoning model such as gemma4, about one claim in six was being thrown away unchecked, with "the verifier answered nothing" in the station log, so the station kept fewer facts about its records and its presenters than it should have.
+
 ## [0.105.1] — 2026-11-20
 
 - An analyzer plugin can now report a record's `brightnessHz` (`TrackTimbre`), the median spectral centroid of its sounding audio. The station ranks it with the loudness as the record's energy; an analyzer that does not report it leaves that energy resting on loudness alone.
@@ -2120,7 +2130,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.2...HEAD
+[0.105.2]: https://github.com/robert-dean/deadair/compare/v0.105.1...v0.105.2
 [0.105.1]: https://github.com/robert-dean/deadair/compare/v0.105.0...v0.105.1
 [0.105.0]: https://github.com/robert-dean/deadair/compare/v0.104.3...v0.105.0
 [0.104.3]: https://github.com/robert-dean/deadair/compare/v0.104.2...v0.104.3

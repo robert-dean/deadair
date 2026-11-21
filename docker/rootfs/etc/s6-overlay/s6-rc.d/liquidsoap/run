@@ -45,5 +45,17 @@ set +a
 HOME=/data/streamstate
 LOG_FILE="${LOG_FILE:-/data/streamlogs/liquidsoap.log}"
 export HOME LOG_FILE
+# HLS segments a run left behind without saying so. Liquidsoap saves its segment list when it
+# stops and deletes each segment as it rolls off; a run that was killed instead (the timeout
+# beside this file, a crash) saved nothing, so the next one starts numbering from zero and never
+# learns the old files exist. They sat in the data volume for days on the live station. The
+# folder is a 64 MB tmpfs shared with the rest of the container now, so they are cleared here:
+# no saved state means nothing in the folder belongs to the run about to start. Only
+# the files Liquidsoap writes, by name, and only at the top of the folder.
+if [ -n "${STREAM_HLS_DIR:-}" ] && [ -d "$STREAM_HLS_DIR" ] \
+    && [ ! -e "${STREAM_HLS_STATE_AT:-$STREAM_HLS_DIR/state.json}" ]; then
+    find "$STREAM_HLS_DIR" -maxdepth 1 -type f \( -name "*.aac" -o -name "*.mp3" -o -name "*.ts" \
+        -o -name "*.m3u8" -o -name "liq*tmp" \) -delete 2>/dev/null || true
+fi
 exec liquidsoap /radio/radio.liq
 ' sh "$config"

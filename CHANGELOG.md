@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.105.3] — 2026-11-21
+
+- The HLS output's segments are now kept in memory inside the container (`/dev/shm/streamhls`) instead of in `/data/streamhls`. Liquidsoap writes a segment every two seconds from the thread that keeps the station's audio on time, so a data volume that paused, as an Unraid user share does when the array is busy, paused the stream too: the log filled with "we must catchup" and, now and then, "Too much latency! Resetting active sources". The segments take a few megabytes of the 64 MB Docker gives every container there, so no `--shm-size` is needed. The small file that keeps segment numbering between restarts moves to `/data/streamstate/hls.json`. On the first start after upgrading, the station carries that numbering across and removes `/data/streamhls`, leaving the folder only if it holds something the station did not write. A container restart now empties the segments: anyone listening over HLS at that moment reconnects, as they already had to while the station restarted, and for the first few seconds after a restart a newly arriving player may be told a segment is missing and ask again. Nothing changes for the Icecast mounts or for anyone not using HLS.
+
 ## [0.105.2] — 2026-11-21
 
 - The Last.fm plugin's settings no longer call its API key free. Since 1 December 2026 Last.fm only accepts a key whose account has a Last.fm Pro subscription, so the key field now says so. If your station uses Last.fm for tags, charts, similar artists or scrobbling and the account behind your key is not on Pro, all of those stop working until it is. Deezer and MusicBrainz still cover similar artists without it.
@@ -2130,7 +2134,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.3...HEAD
+[0.105.3]: https://github.com/robert-dean/deadair/compare/v0.105.2...v0.105.3
 [0.105.2]: https://github.com/robert-dean/deadair/compare/v0.105.1...v0.105.2
 [0.105.1]: https://github.com/robert-dean/deadair/compare/v0.105.0...v0.105.1
 [0.105.0]: https://github.com/robert-dean/deadair/compare/v0.104.3...v0.105.0

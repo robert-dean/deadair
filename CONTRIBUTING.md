@@ -79,10 +79,11 @@ the code yet gets the `unscoped` label, and loses it once somebody designs it ag
 
 ## Releasing
 
-Four things are released from this tree, each with its own version and changelog: the station
+Five things are released from this tree, each with its own version and changelog: the station
 (every `@deadair/*` package under `apps/api`, `apps/web`, `packages/` and `plugins/`, which ship as one
 image and share one number), the Android listener (`@deadair/android`), the desktop app
-(`@deadair/desktop`) and the iOS listener (`@deadair/ios`).
+(`@deadair/desktop`), the iOS listener (`@deadair/ios`) and the Stream Deck plugin
+(`@deadair/streamdeck`).
 
 A change somebody running the station or listening to it would notice gets a changeset, in the same
 pull request:
@@ -103,10 +104,12 @@ pnpm changeset --minor @deadair/plugin-rss --patch @deadair/android -m 'RSS feed
 
 `pnpm release:version` consumes the pending changesets: changesets bumps the manifests, and the
 script writes one entry per unit into `CHANGELOG.md`, `apps/android/CHANGELOG.md`,
-`apps/desktop/CHANGELOG.md` and `apps/ios/CHANGELOG.md`, then copies each app's number into the file
-its build stamps (`app/build.gradle.kts`, `Directory.Build.props`, `Config/Version.xcconfig`).
-Change an app's version in its `package.json` and nowhere else; the build job fails when a copy
-disagrees.
+`apps/desktop/CHANGELOG.md`, `apps/ios/CHANGELOG.md` and `apps/streamdeck/CHANGELOG.md`, then copies
+each app's number into the file its build stamps (`app/build.gradle.kts`, `Directory.Build.props`,
+`Config/Version.xcconfig`, the Stream Deck plugin's `manifest.json`). Change an app's version in its
+`package.json` and nowhere else; the build job fails when a copy disagrees.
+`pnpm release:version --check` is that check, and the script refuses any argument it does not know
+rather than bumping.
 
 Nobody runs that by hand to release. Every push to `main` carrying a changeset has CI run it on a
 branch and open, or refresh, a pull request titled `chore: update versions` holding the bumps and the
@@ -114,6 +117,15 @@ entries. **Merging that pull request is the station's release.** The run on the 
 with no `v*` tag, builds and tests everything, publishes the images under the version and its
 major.minor line, then tags the commit and publishes a GitHub release of the changelog entry. If the
 tests fail nothing is tagged, and the next green push to `main` releases the same version.
+
+The same run publishes the two SDKs, `@deadair/plugin-sdk` and `@deadair/sdk`, to npm under the
+station's version, by npm's trusted publishing: no npm token is stored anywhere, and npm accepts the
+publish only from this repository's `release.yml`. npm sets that trust up only on a package that
+already exists, so each package's first version is published once, by hand, with
+`scripts/bootstrap.npm.packages.sh` (it needs npm 11.15.0 or later, an npm login that may publish
+to the `@deadair` scope, and 2FA). Until that has been run for a package, the release warns about it
+and publishes nothing for it. The script is safe to run again, and exits nonzero naming any package
+it could not publish or trust.
 
 The pull request runs no checks. CI opened it with the workflow token, and GitHub starts nothing for
 an event that token caused; the merge runs every check before anything is tagged. It is rebuilt from
@@ -126,6 +138,11 @@ is the Android release workflow run by hand (`apps/android/README.md` walks it).
 workflow, run by hand, cuts `desktop-v<version>` with the entry from `apps/desktop/CHANGELOG.md`.
 Pushing an `ios-v<version>` tag on main uploads that build to TestFlight through the iOS release
 workflow (`apps/ios/README.md` lists what Apple needs first).
+
+The Stream Deck plugin releases itself, by the station's rule: the push to `main` whose
+`apps/streamdeck/package.json` names a version with no `streamdeck-v*` tag, which is the merge of the
+version pull request, builds and tests it and then publishes its installer as a `streamdeck-v<version>`
+GitHub release. The Stream Deck release workflow can also be run by hand, from `main`, to retry one.
 
 ## Commit messages
 

@@ -6,10 +6,12 @@
 //     pnpm release:version --sync                 mirror the app versions only
 //     pnpm release:version --check                fail if a mirrored version disagrees with its manifest
 //
+// Anything else is refused before it touches the tree.
+//
 // The bump itself is changesets' own `changeset version`, so the fixed group and the bump
 // arithmetic are its rules and not a second copy of them. What it does not do is the changelogs:
 // `changelog` is false in `.changeset/config.json`, because its generator writes one file per
-// package and this tree has seventeen packages and one station. So this reads the changesets
+// package and the station alone is thirty-four packages. So this reads the changesets
 // BEFORE they are consumed, lets changesets bump, then writes one entry per unit that moved.
 //
 // If it fails after `changeset version` has run, the tree is half-applied. Put it back with
@@ -21,7 +23,18 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseChangesetFile } from '@changesets/parse';
-import { MIRRORS, UNITS, changesetsFor, insertEntry, pullRequestBody, readMirror, renderBullets, writeMirror } from './release.changelog.mjs';
+import {
+    MIRRORS,
+    UNITS,
+    USAGE,
+    changesetsFor,
+    insertEntry,
+    parseArguments,
+    pullRequestBody,
+    readMirror,
+    renderBullets,
+    writeMirror,
+} from './release.changelog.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const read = file => readFileSync(join(root, file), 'utf8');
@@ -112,12 +125,17 @@ function version(summaryFile) {
     }
 }
 
-const args = process.argv.slice(2);
-if (args.includes('--check')) {
+// Parsed before anything is read or run, so a mistyped argument changes nothing.
+let command;
+try {
+    command = parseArguments(process.argv.slice(2));
+} catch (error) {
+    fail(`${error.message}\n${USAGE}`);
+}
+if (command.mode === 'check') {
     check();
-} else if (args.includes('--sync')) {
+} else if (command.mode === 'sync') {
     mirrorVersions();
 } else {
-    const at = args.indexOf('--summary');
-    version(at >= 0 ? args[at + 1] : undefined);
+    version(command.summary);
 }

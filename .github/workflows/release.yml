@@ -667,7 +667,7 @@ jobs:
     #
     # Not `changesets/action`, which is what ServerKit and ContractKit use. It writes the pull
     # request's body by reading a CHANGELOG.md out of every package it bumped and fails on the first
-    # that has none, and here seventeen have none: the changelogs are written per release unit by
+    # that has none, and here thirty-four have none: the changelogs are written per release unit by
     # `pnpm release:version` instead. What remains of the action is a branch, a commit and one `gh`
     # call, and those are below.
     #

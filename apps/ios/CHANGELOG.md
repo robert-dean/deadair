@@ -148,3 +148,30 @@ station's own changes are in the [root changelog](../../CHANGELOG.md).
 - Now playing names the show and who presents it, on a line above the record ("Late Static · with Cass"). While the station talks between records, the title says the host is on the mic and the break's own label goes underneath, where the artist would be; the lock screen and Control Center say the same instead of a title over nothing. It needs a station new enough to say what is on, and against an older one the screen looks exactly as it did.
 - A sleep timer: while the station is playing, the moon under the play button stops it after 15, 30, 45 or 60 minutes, or at the end of the record that is on. The sound fades out over the last ten seconds, and the next press of play is at full volume. "After this record" waits for the end you actually hear, a few seconds after the station's own. The countdown shows beside the moon, and stopping by hand turns the timer off.
 - Signed in, Now playing gains a What's on button: the block on now with how far through it is and who presents it, what is up next and after that, or how long the station has between blocks. If somebody has put something else on by hand, the block says "Due now" rather than "On air".
+
+[Unreleased]: https://github.com/robert-dean/deadair/compare/ios-v0.17.0...HEAD
+[0.17.0]: https://github.com/robert-dean/deadair/compare/ios-v0.16.0...ios-v0.17.0
+[0.16.0]: https://github.com/robert-dean/deadair/compare/ios-v0.15.1...ios-v0.16.0
+[0.15.1]: https://github.com/robert-dean/deadair/compare/ios-v0.15.0...ios-v0.15.1
+[0.15.0]: https://github.com/robert-dean/deadair/compare/ios-v0.14.1...ios-v0.15.0
+[0.14.1]: https://github.com/robert-dean/deadair/compare/ios-v0.14.0...ios-v0.14.1
+[0.14.0]: https://github.com/robert-dean/deadair/compare/ios-v0.13.1...ios-v0.14.0
+[0.13.1]: https://github.com/robert-dean/deadair/compare/ios-v0.13.0...ios-v0.13.1
+[0.13.0]: https://github.com/robert-dean/deadair/compare/ios-v0.12.2...ios-v0.13.0
+[0.12.2]: https://github.com/robert-dean/deadair/compare/ios-v0.12.1...ios-v0.12.2
+[0.12.1]: https://github.com/robert-dean/deadair/compare/ios-v0.12.0...ios-v0.12.1
+[0.12.0]: https://github.com/robert-dean/deadair/compare/ios-v0.11.0...ios-v0.12.0
+[0.11.0]: https://github.com/robert-dean/deadair/compare/ios-v0.10.0...ios-v0.11.0
+[0.10.0]: https://github.com/robert-dean/deadair/compare/ios-v0.9.0...ios-v0.10.0
+[0.9.0]: https://github.com/robert-dean/deadair/compare/ios-v0.8.3...ios-v0.9.0
+[0.8.3]: https://github.com/robert-dean/deadair/compare/ios-v0.8.2...ios-v0.8.3
+[0.8.2]: https://github.com/robert-dean/deadair/compare/ios-v0.8.1...ios-v0.8.2
+[0.8.1]: https://github.com/robert-dean/deadair/compare/ios-v0.8.0...ios-v0.8.1
+[0.8.0]: https://github.com/robert-dean/deadair/compare/ios-v0.7.0...ios-v0.8.0
+[0.7.0]: https://github.com/robert-dean/deadair/compare/ios-v0.6.0...ios-v0.7.0
+[0.6.0]: https://github.com/robert-dean/deadair/compare/ios-v0.5.0...ios-v0.6.0
+[0.5.0]: https://github.com/robert-dean/deadair/compare/ios-v0.4.0...ios-v0.5.0
+[0.4.0]: https://github.com/robert-dean/deadair/compare/ios-v0.3.0...ios-v0.4.0
+[0.3.0]: https://github.com/robert-dean/deadair/compare/ios-v0.2.1...ios-v0.3.0
+[0.2.1]: https://github.com/robert-dean/deadair/compare/ios-v0.2.0...ios-v0.2.1
+[0.2.0]: https://github.com/robert-dean/deadair/releases/tag/ios-v0.2.0

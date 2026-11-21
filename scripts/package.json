@@ -1,0 +1,6 @@
+{
+    "name": "deadair-release-scripts",
+    "private": true,
+    "type": "module",
+    "description": "The release scripts and their tests. Not a workspace member: this file exists so Node and Vite read the folder's files as ES modules."
+}

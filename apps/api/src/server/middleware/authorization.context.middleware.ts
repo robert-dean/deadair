@@ -201,6 +201,72 @@ const guestActor = async (
         });
 };
 
+/**
+ * Who this request is acting as. Throws the 401s the branches decide on; never touches the scope's
+ * `AuthorizationContext`, which the middleware installs once it knows the response is still open.
+ */
+const resolveActor = async (
+    container: ScopedContainer,
+    ctx: ServerKitContext,
+    auth: ServerKitContext['authenticationSession'],
+    sessionToken: string,
+    apiKeyClaim: ApiKeySessionClaim | undefined,
+): Promise<Actor> => {
+    // `@maroonedsoftware/authentication` always assigns a session — for
+    // unauthenticated requests it assigns the `invalidAuthenticationSession`
+    // sentinel rather than `undefined`. Reference equality with the sentinel
+    // is the canonical way to detect "unauthenticated"; a truthiness check
+    // would never fire because the sentinel is a populated object.
+    if (auth === invalidAuthenticationSession) {
+        return { kind: 'system', sessionToken, source: 'http' };
+    } else if (apiKeyClaim && apiKeyClaim.owner.kind === 'user') {
+        return await apiKeyActor(container, ctx, apiKeyClaim, sessionToken);
+    } else if (auth.claims.actorType === 'user') {
+        const actorId = auth.subject;
+
+        // Sessions live in Redis, actors live in Postgres, and the two can diverge: a database
+        // rebuild drops every actor while the browser's httpOnly refresh cookie and its Redis
+        // session sail straight through it. The resulting token still verifies and still names
+        // a subject, so without this check the request continues as a user who no longer
+        // exists — one that holds no tuples, and therefore silently fails every permission
+        // gate with a 403 instead of the 401 that would send the client to the login screen.
+        // Revoke the session rather than merely rejecting it, so the dead token stops coming
+        // back, and clear the cookie directly: refreshCookieMiddleware runs inside this one, so
+        // the ResponseCookieJar it drains never gets the chance when we throw here.
+        if (!isSessionBootstrapPath(ctx.path) && (!actorId || !(await container.get(ActorsRepository).existsActive(actorId)))) {
+            await container
+                .get(AuthenticationSessionService)
+                .deleteSession(sessionToken, 'expiry')
+                .catch(() => undefined);
+            clearRefreshCookie(ctx);
+            throw httpError(401)
+                .withDetails({ code: ErrorCodes.SESSION_ACTOR_MISSING, message: 'the session refers to an actor that no longer exists' })
+                .withInternalDetails({ message: `session ${sessionToken} names missing or inactive actor ${actorId ?? '(none)'}` });
+        }
+
+        const [platformRoles, grant] = actorId
+            ? await Promise.all([loadPlatformRoles(container, actorId), loadGrantCeiling(container, auth, actorId)])
+            : [new Set<PlatformRoleName>(), undefined];
+
+        return {
+            kind: 'user',
+            sessionToken,
+            actorId,
+            platformRoles,
+            factors: auth.factors,
+            ...(grant ? { grant } : {}),
+        };
+    } else if (auth.claims.actorType === 'guest') {
+        return await guestActor(container, sessionToken, auth.subject, auth.claims.partyPassId);
+    } else {
+        // Unknown actorType. Classified as an `http`-sourced system actor,
+        // which `AccessControlService` denies object-level access rather
+        // than trusting: this is a request it could not resolve to a user,
+        // not a trusted subsystem call.
+        return { kind: 'system', sessionToken, source: 'http', actorId: auth.subject };
+    }
+};
+
 export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
     return async (ctx, next) => {
         const container = ctx.container as ScopedContainer;
@@ -210,59 +276,20 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
 
         let actor: Actor;
 
-        // `@maroonedsoftware/authentication` always assigns a session — for
-        // unauthenticated requests it assigns the `invalidAuthenticationSession`
-        // sentinel rather than `undefined`. Reference equality with the sentinel
-        // is the canonical way to detect "unauthenticated"; a truthiness check
-        // would never fire because the sentinel is a populated object.
-        if (auth === invalidAuthenticationSession) {
-            actor = { kind: 'system', sessionToken, source: 'http' };
-        } else if (apiKeyClaim && apiKeyClaim.owner.kind === 'user') {
-            actor = await apiKeyActor(container, ctx, apiKeyClaim, sessionToken);
-        } else if (auth.claims.actorType === 'user') {
-            const actorId = auth.subject;
-
-            // Sessions live in Redis, actors live in Postgres, and the two can diverge: a database
-            // rebuild drops every actor while the browser's httpOnly refresh cookie and its Redis
-            // session sail straight through it. The resulting token still verifies and still names
-            // a subject, so without this check the request continues as a user who no longer
-            // exists — one that holds no tuples, and therefore silently fails every permission
-            // gate with a 403 instead of the 401 that would send the client to the login screen.
-            // Revoke the session rather than merely rejecting it, so the dead token stops coming
-            // back, and clear the cookie directly: refreshCookieMiddleware runs inside this one, so
-            // the ResponseCookieJar it drains never gets the chance when we throw here.
-            if (!isSessionBootstrapPath(ctx.path) && (!actorId || !(await container.get(ActorsRepository).existsActive(actorId)))) {
-                await container
-                    .get(AuthenticationSessionService)
-                    .deleteSession(sessionToken, 'expiry')
-                    .catch(() => undefined);
-                clearRefreshCookie(ctx);
-                throw httpError(401)
-                    .withDetails({ code: ErrorCodes.SESSION_ACTOR_MISSING, message: 'the session refers to an actor that no longer exists' })
-                    .withInternalDetails({ message: `session ${sessionToken} names missing or inactive actor ${actorId ?? '(none)'}` });
-            }
-
-            const [platformRoles, grant] = actorId
-                ? await Promise.all([loadPlatformRoles(container, actorId), loadGrantCeiling(container, auth, actorId)])
-                : [new Set<PlatformRoleName>(), undefined];
-
-            actor = {
-                kind: 'user',
-                sessionToken,
-                actorId,
-                platformRoles,
-                factors: auth.factors,
-                ...(grant ? { grant } : {}),
-            };
-        } else if (auth.claims.actorType === 'guest') {
-            actor = await guestActor(container, sessionToken, auth.subject, auth.claims.partyPassId);
-        } else {
-            // Unknown actorType. Classified as an `http`-sourced system actor,
-            // which `AccessControlService` denies object-level access rather
-            // than trusting: this is a request it could not resolve to a user,
-            // not a trusted subsystem call.
-            actor = { kind: 'system', sessionToken, source: 'http', actorId: auth.subject };
+        // Every branch of `resolveActor` awaits before it resolves its next service, and ServerKit
+        // disposes this request's scope when the response CLOSES, which is also when the client hangs
+        // up (a page navigated away, a poll superseded). A `container.get` or `override` after that
+        // throws "Cannot resolve from a disposed container", and hang-ups were being logged as 500s
+        // on whatever route they landed on. There is nobody left to answer, so a failure once the
+        // response has closed is dropped rather than reported, and so is the rest of the request.
+        // `refreshCookieMiddleware` and `auditContextMiddleware` guard the same edge.
+        try {
+            actor = await resolveActor(container, ctx, auth, sessionToken, apiKeyClaim);
+        } catch (err) {
+            if (ctx.res?.closed) return;
+            throw err;
         }
+        if (ctx.res?.closed) return;
 
         container.override(
             AuthorizationContext,

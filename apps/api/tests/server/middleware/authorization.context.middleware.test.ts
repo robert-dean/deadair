@@ -180,6 +180,56 @@ describe('authorizationContextMiddleware', () => {
         expect(actor).toEqual(expect.objectContaining({ kind: 'system', source: 'http' }));
     });
 
+    describe('a client that hangs up while the actor is being read', () => {
+        // ServerKit disposes the request's scope on the response's `close`, which is also a hang-up.
+        // This harness's scope then refuses exactly as injectkit's does, so a resolve after the close
+        // fails the way it did in the log: as a 500 on a route nobody was waiting on.
+        const hangUpDuringLookup = (options: HarnessOptions = {}) => {
+            const h = harness(options);
+            const res = { closed: false };
+            h.ctx.res = res;
+            const { get, override } = h.ctx.container;
+            const refuseOnceClosed =
+                <A extends unknown[], R>(fn: (...args: A) => R) =>
+                (...args: A): R => {
+                    if (res.closed) throw new Error('Cannot resolve from a disposed container');
+                    return fn(...args);
+                };
+            h.ctx.container = { get: refuseOnceClosed(get), override: refuseOnceClosed(override) };
+            h.existsActive.mockImplementation(async () => {
+                res.closed = true;
+                return options.actorExists ?? true;
+            });
+            return h;
+        };
+
+        it('drops the request instead of failing it once the scope is gone', async () => {
+            const h = hangUpDuringLookup();
+
+            await expect(authorizationContextMiddleware()(h.ctx, h.next)).resolves.toBeUndefined();
+
+            expect(h.next).not.toHaveBeenCalled();
+            expect(h.overrides.has(AuthorizationContext)).toBe(false);
+        });
+
+        it('drops the dead-actor branch too, whose revoke resolves a service after the lookup', async () => {
+            const h = hangUpDuringLookup({ actorExists: false });
+
+            await expect(authorizationContextMiddleware()(h.ctx, h.next)).resolves.toBeUndefined();
+
+            expect(h.next).not.toHaveBeenCalled();
+        });
+
+        it('still answers a 401 to a client that is still there', async () => {
+            const h = harness({ actorExists: false });
+            h.ctx.res = { closed: false };
+
+            const error = await authorizationContextMiddleware()(h.ctx, h.next).catch((e: unknown) => e);
+
+            expect(IsHttpError(error) && error.statusCode).toBe(401);
+        });
+    });
+
     describe('a party guest', () => {
         const PASS_ID = '22222222-2222-4222-8222-222222222222';
         const guestSession = (claims: Record<string, unknown> = { actorType: 'guest', partyPassId: PASS_ID }) => ({

@@ -1,6 +1,6 @@
 {
     "name": "@deadair/error-codes",
-    "version": "0.105.3",
+    "version": "0.105.4",
     "type": "module",
     "private": true,
     "main": "./dist/index.js",

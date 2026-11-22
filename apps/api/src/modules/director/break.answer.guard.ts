@@ -252,6 +252,24 @@ const PAST_TENSES = [
 const JUST_PLAYED = new RegExp(`^(?:(?:has|have) )?just (?:now|\\p{L}+ed|${PAST_TENSES.join('|')})(?: |$)`, 'u');
 
 /**
+ * The words that, straight AFTER a record's name, say it is still to come: "Ghost is next".
+ *
+ * The name-first half of {@link FORWARD_FRAMES}, as {@link JUST_PLAYED} is of the back-announce frames.
+ * Added after 22 November, `Talk break: Dance Macabre - Carpenter Brut Remix into Mr. Speed - Eddie
+ * Kramer 2026 Mix`, which closed "Ghost is next, with Dance Macabre" about the record that had just
+ * finished. Every forward frame puts the cue in front of the name, so it was never read; the same
+ * afternoon's correct breaks said "Blue Öyster Cult is next" and "Iron Maiden is coming up next", so
+ * this is how the model ordinarily phrases a forward cue rather than a one-off.
+ *
+ * Matched against the text straight after the name, so it starts with the space or the apostrophe.
+ * "'s next" alone is left out, because "Ghost's next single" is a possessive and says nothing about
+ * the running order; "'s up next" and "'s coming up" are not possessives. "Next to" is left out for
+ * the same reason.
+ */
+const COMES_NEXT =
+    /^(?:(?: is| are| comes| come)(?: up| on)? next(?! to(?: |$))|(?:'s|'re) up next|(?: is| are|'s|'re) coming (?:up|next|your way))(?: |$)/u;
+
+/**
  * Whether a window's words cue a record in the direction opposite to the one being judged, so "that's
  * Lovefool coming up" is read as the forward cue it is rather than as "that's" about the next record.
  */
@@ -406,15 +424,24 @@ export function misCuedIn(script: string, cues: BreakCues): boolean {
     );
     if (frameFirst) return true;
 
-    // The name-first shape, which only ever claims a record PLAYED, so only the next record can be
-    // wrong in it. Read from the words straight after each place the name is said.
+    // The name-first shapes, read from the words straight after each place the name is said: a claim
+    // that a record PLAYED, which only the next record can be wrong in, and a claim that one is still
+    // to COME, which only the previous one can.
     const padded = ` ${spoken} `;
-    return telling(next).some(one => {
-        for (let at = padded.indexOf(` ${one} `); at !== -1; at = padded.indexOf(` ${one} `, at + 1)) {
-            if (JUST_PLAYED.test(padded.slice(at + one.length + 2))) return true;
-        }
-        return false;
-    });
+    const followedBy = (records: string[], after: RegExp, from: (at: number, one: string) => number): boolean =>
+        records.some(one => {
+            for (let at = padded.indexOf(` ${one}`); at !== -1; at = padded.indexOf(` ${one}`, at + 1)) {
+                if (after.test(padded.slice(from(at, one)))) return true;
+            }
+            return false;
+        });
+
+    // `JUST_PLAYED` reads from the word after the name's trailing space; `COMES_NEXT` from the
+    // character straight after the name, so it can see "'s up next" as well as " is next".
+    return (
+        followedBy(telling(next), JUST_PLAYED, (at, one) => (padded.startsWith(` ${one} `, at) ? at + one.length + 2 : padded.length)) ||
+        followedBy(telling(previous), COMES_NEXT, (at, one) => at + one.length + 1)
+    );
 }
 
 /**

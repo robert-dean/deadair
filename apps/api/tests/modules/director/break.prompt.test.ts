@@ -2173,6 +2173,37 @@ describe('readAnswer, against the side of the break a record is on', () => {
         expect(readAnswer(script, { cues })).toBe(script);
     });
 
+    it('declines the name-first forward cue of the record that already finished', () => {
+        // Aired on 22 November, between Ghost and KISS, about the record that had just finished.
+        const cues = {
+            previous: { title: 'Dance Macabre - Carpenter Brut Remix', artist: 'Ghost' },
+            next: { title: 'Mr. Speed - Eddie Kramer 2026 Mix', artist: 'KISS' },
+        };
+        const script =
+            "That Ghost track was totally enchanting, you guys, honestly. It felt a little bit like the way Damien from Accounts looked at me during our second date at that little bistro near the Lake of Fire, right before he totally stopped replying on Thursday. [sigh] I'm working on me. Ghost is next, with Dance Macabre.";
+
+        expect(readAnswer(script, { cues })).toBeUndefined();
+        expect(readAnswer('Madhouse is up next, so hold on.', { cues: between })).toBeUndefined();
+        expect(readAnswer("Madhouse's coming up, and it does not knock.", { cues: between })).toBeUndefined();
+        expect(readAnswer('Anthrax are coming your way.', { cues: between })).toBeUndefined();
+    });
+
+    it('takes the name-first forward cue of the record actually coming up', () => {
+        // The two correct breaks either side of it on 22 November, in the same word order.
+        const reaper = {
+            previous: { title: 'Over the Mountain', artist: 'Ozzy Osbourne' },
+            next: { title: "(Don't Fear) The Reaper", artist: 'Blue Öyster Cult' },
+        };
+
+        expect(readAnswer('Blue Öyster Cult is next, and that lovely melody is playing right now.', { cues: reaper })).toBeDefined();
+        expect(readAnswer('Iron Maiden is coming up next, and it is so flattering.', { cues: between })).toBeDefined();
+    });
+
+    it('does not read a possessive or "next to" as a forward cue', () => {
+        expect(readAnswer("Anthrax's next record took them four years, and Iron Maiden never waited that long.", { cues: between })).toBeDefined();
+        expect(readAnswer('Madhouse is next to nothing in this town for sheer nerve. Run to the Hills now.', { cues: between })).toBeDefined();
+    });
+
     it('does not read "just" as a back-announce unless a past tense or "now" follows it', () => {
         const script = 'Run to the Hills, just the thing for a Friday, and Run to the Hills is just about to start.';
 

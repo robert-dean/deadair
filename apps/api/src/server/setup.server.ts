@@ -13,7 +13,6 @@ import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { setLogStore } from '#src/logging/log.store.js';
 import { setTraceRoot } from '#modules/shared/trace.spans.js';
 import { requiredNumber } from '#modules/shared/setting.numbers.js';
-import { installCrashHandlers } from './crash.handlers.js';
 
 export const setupServer = async () => {
     const serverBuilder = new ServerKitServerBuilder();
@@ -64,7 +63,6 @@ export const setupServer = async () => {
     setTraceRoot(String(boot.get('LOGS_DIR', './logs')));
 
     const logger = new DeadairLogger(new ConsoleLogger(), logStore);
-    installCrashHandlers(logger);
 
     // The real config: the same environment layer, plus `deadair.settings` on top of it, held in a
     // store that rebuilds itself whenever that table changes. The settings source is added second
@@ -116,5 +114,11 @@ export const setupServer = async () => {
     // it without a restart anyway, so reading it live would only suggest otherwise.
     const port = boot.get('PORT', 3333);
 
-    return await serverBuilder.start(port);
+    // `gracefulCrash` turns an `uncaughtException` or `unhandledRejection` into a logged line naming
+    // it, exit code 1 and the same orderly close a `SIGTERM` takes, so every module still tears down
+    // and the log store flushes the line that says why. Registering a handler suppresses Node's own
+    // exit, which is why a rejection without one used to keep the process up rather than restart it.
+    // ServerKit installs it when the socket is bound: before that there is nothing to close in order,
+    // and a failure in setup rejects the `await` above and exits the process with Node's own report.
+    return await serverBuilder.start(port, { gracefulCrash: true });
 };

@@ -161,10 +161,11 @@ and answered `/health` 200 while the running order ran out with nothing to fill 
 catches the failure, sets `process.exitCode = 1` and sends itself `SIGTERM`: the same graceful close a
 supervisor's stop takes, so every module still tears down in order and the log store flushes the line
 that says why. Nothing else in the list has earned that; a new hook that does should copy the shape
-rather than call `process.exit`, which skips both. `setup.server.ts` installs the same shape on
-`unhandledRejection` and `uncaughtException` right after the logger exists
-(`server/crash.handlers.ts`), so a rejection that used to take the process down silently now names
-itself first.
+rather than call `process.exit`, which skips both. `setup.server.ts` starts the server with
+ServerKit's `gracefulCrash`, which gives `unhandledRejection` and `uncaughtException` the same
+shape: a line naming the cause, exit code 1, the orderly close. It is installed when the socket is
+bound, so a failure before that (a module's `setup`, the config build) exits with Node's own report
+on stdout and is not in `logs/`.
 
 **Logging is process-level and predates DI.** `RotatingLogStore` is constructed in
 `setup.server.ts` before any container exists, published through `setLogStore`, and wrapped by

@@ -1,7 +1,8 @@
-// ServerKit awaits every shutdown hook in order and catches nothing, so one hook that throws or
-// hangs strands every module after it AND the `process.exit()` past the end of the loop. What that
-// left behind on this install was a process that would not die and went on driving its loops for
-// hours, with credentials that had since been rotated.
+// ServerKit's shutdown budget is shared by every hook, so one hook that hangs spends it and every
+// module after it is skipped. Before ServerKit had a budget, the same hang stranded the
+// `process.exit()` past the end of the loop too, and what that left behind on this install was a
+// process that would not die and went on driving its loops for hours, with credentials that had
+// since been rotated. The loop below catches nothing, which is the worst case the guard has to hold.
 
 import { describe, expect, it, vi } from 'vitest';
 import type { ServerKitModule } from '@maroonedsoftware/koa';
@@ -13,7 +14,7 @@ import { withBoundedShutdown } from '../../../src/modules/shared/shutdown.guard.
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 const container = { get: (token: unknown) => (token === Logger ? logger : undefined) } as unknown as Container;
 
-/** The loop as ServerKit runs it: in order, awaited, and catching nothing of its own. */
+/** A shutdown loop at its worst: in order, awaited, and catching nothing of its own. */
 async function shutdownAll(modules: ServerKitModule[]): Promise<string[]> {
     const finished: string[] = [];
     for (const module of modules) {

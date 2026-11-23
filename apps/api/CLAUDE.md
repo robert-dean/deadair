@@ -146,9 +146,11 @@ in one log. Both are shutdown-only modules, so sitting ahead of `HealthModule` c
 `JobsModule` sits after `PluginsModule` for the same reason read the other way: registering later is what
 stops the workers before the plugin instances under them are disposed.
 
-And **no hook may cost the others their teardown, or the process its exit**: the reversal did not touch this,
-the shutdown loop still catches nothing and bounds nothing, unlike the `ready` loop above it, so
-`withBoundedShutdown` wraps every hook at the list. A hook that hung left fourteen processes in that log still
+And **no hook may cost the others their teardown, or the process its exit**. ServerKit's shutdown loop
+carries on past a hook that throws, and `setup.server.ts` gives the whole shutdown a 30 second
+`shutdownBudgetMs` with a last-resort exit behind it. That budget is shared, so a hook that hung would
+spend it and skip every hook after it, the log store's included; `withBoundedShutdown` wraps every hook
+at the list to hold each one to 5 seconds of its own. A hook that hung left fourteen processes in that log still
 running their loops after being told to stop, one of them probing Liquidsoap for hours on a rotated secret.
 `apps/api/tests/modules/modules.test.ts` holds the whole ordering, and reads every assertion through a
 `tearsDownBefore` helper rather than through raw positions.

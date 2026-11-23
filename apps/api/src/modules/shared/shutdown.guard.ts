@@ -4,49 +4,39 @@ import { Logger } from '@maroonedsoftware/logger';
 import { errorText } from './error.text.js';
 
 /**
- * Keep one module's teardown from stranding every module after it.
+ * Keep one module's teardown from costing every module after it theirs.
  *
- * ServerKit runs the shutdown hooks in reverse registration order, awaiting each one, and — unlike
- * the `ready` loop directly above it in the same file, which wraps every hook in a `try` — it
- * catches nothing and bounds nothing:
+ * ServerKit runs the shutdown hooks in reverse registration order, awaiting each one. Since
+ * servercore 0.5 a hook that throws is logged and the rest still run, and `shutdownBudgetMs`
+ * (set in `setup.server.ts`) puts one limit on the whole shutdown with a last-resort exit behind it.
+ * What it does not do is bound a hook on its own: a hook that never settles is abandoned only when
+ * the whole budget is spent, and every hook after it is then skipped. For this app that is the
+ * transport loop, the audience poll, the config watch, the pools and, last of all, the log store.
  *
- * ```js
- * for (const module of [...this.modules].reverse()) {
- *     if (module.shutdown) { … await module.shutdown(this.container); }
- * }
- * this.logger.info('Server closed');
- * process.exit();
- * ```
+ * The bound here is per hook, so a hang costs its own module and nothing else. The budget is what
+ * guarantees the exit; this is what keeps the teardowns that matter from being the price of it.
  *
- * The direction changed in koa 3.0.5 and none of what follows did: the loop is as unguarded as it
- * was, so this file is needed exactly as much.
+ * Why the exit and the order both matter was measured on this install, before either existed: a
+ * `SIGINT` logged `Shutting down Data` and then `Redis` and `Kysely` from inside that hook, and
+ * nothing after it, ever: no later module, no `Server closed`. The process stayed up, kept
+ * reconciling, and kept probing Liquidsoap with the bridge secret it had booted with, which by then
+ * had been rotated. A day of restarts left enough of those behind to put 20 requests a second into an
+ * endpoint whose p50 is 9ms, which starved the lease of the process that was actually meant to be
+ * running and took the station off air.
  *
- * So a hook that throws or never settles takes three things with it. Every later module's hook
- * never runs, which for this app means the transport loop, the audience poll and the config watch
- * are never stopped. `process.exit()` is never reached. And those loops keep the process ALIVE and
- * still working: they are `unref`ed, which stops them holding the event loop open by themselves but
- * does not stop them firing while something else does.
+ * The defence is here rather than in each hook because the property wanted is about the LIST, not
+ * about any one module: no hook may cost another one its teardown. Wrapping at the seam also covers a
+ * module added later by someone who never reads this.
  *
- * That is not a theory. Measured on this install: a `SIGINT` logged `Shutting down Data` and then
- * `Redis` and `Kysely` from inside that hook, and nothing after it, ever — no later module, no
- * `Server closed`. The process stayed up, kept reconciling, and kept probing Liquidsoap with the
- * bridge secret it had booted with, which by then had been rotated. A day of restarts left enough
- * of those behind to put 20 requests a second into an endpoint whose p50 is 9ms, which starved the
- * lease of the process that was actually meant to be running and took the station off air.
- *
- * The station's own defence is here rather than in each hook because the property wanted is about
- * the LIST, not about any one module: no hook may cost another one its teardown. Wrapping at the
- * seam also covers a module added later by someone who never reads this.
- *
- * A hook that overruns is abandoned, not cancelled — there is no way to cancel it, and its promise
- * stays pending until the exit below kills the process. That is the right trade at this point in
- * the process's life: whatever it was holding is about to be released by the kernel anyway, and the
- * alternative on the evidence above is a process that never dies at all.
+ * A hook that overruns is abandoned, not cancelled. There is no way to cancel it, and its promise
+ * stays pending until the exit kills the process. That is the right trade at this point in the
+ * process's life: whatever it was holding is about to be released by the kernel anyway.
  */
-export const SHUTDOWN_BUDGET_MS = 5_000;
+/** The most one module's `shutdown` hook may take before the next one runs without it. */
+export const SHUTDOWN_HOOK_BUDGET_MS = 5_000;
 
 /** Wrap a module's `shutdown` so it cannot throw or hang past its budget. Returns it unchanged when it has none. */
-export function withBoundedShutdown(module: ServerKitModule, budgetMs = SHUTDOWN_BUDGET_MS): ServerKitModule {
+export function withBoundedShutdown(module: ServerKitModule, budgetMs = SHUTDOWN_HOOK_BUDGET_MS): ServerKitModule {
     const hook = module.shutdown;
     if (!hook) return module;
 

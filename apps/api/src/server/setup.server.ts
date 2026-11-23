@@ -14,6 +14,9 @@ import { setLogStore } from '#src/logging/log.store.js';
 import { setTraceRoot } from '#modules/shared/trace.spans.js';
 import { requiredNumber } from '#modules/shared/setting.numbers.js';
 
+/** The most the whole shutdown may take, from the signal to the exit. */
+export const SHUTDOWN_BUDGET_MS = 30_000;
+
 export const setupServer = async () => {
     const serverBuilder = new ServerKitServerBuilder();
 
@@ -120,5 +123,11 @@ export const setupServer = async () => {
     // exit, which is why a rejection without one used to keep the process up rather than restart it.
     // ServerKit installs it when the socket is bound: before that there is nothing to close in order,
     // and a failure in setup rejects the `await` above and exits the process with Node's own report.
-    return await serverBuilder.start(port, { gracefulCrash: true });
+    //
+    // `shutdownBudgetMs` is the guarantee that the process exits: one limit on the drain and every
+    // hook together, with a last-resort `process.exit` behind it. The drain takes up to ServerKit's
+    // 10 second grace, which leaves 20 for the hooks; each of those is held to its own 5 seconds by
+    // `withBoundedShutdown` (`modules/shared/shutdown.guard.ts`), so one that hangs costs its own
+    // teardown rather than every one after it.
+    return await serverBuilder.start(port, { gracefulCrash: true, shutdownBudgetMs: SHUTDOWN_BUDGET_MS });
 };

@@ -21,7 +21,7 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@maroonedsoftware/telegram": "^2.1.2"
+        "@maroonedsoftware/telegram": "^2.1.3"
     },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",

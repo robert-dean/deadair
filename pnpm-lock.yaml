@@ -33,8 +33,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@contractkit/prettier-plugin':
-        specifier: ^0.14.15
-        version: 0.14.15(prettier@3.9.10)
+        specifier: ^0.14.17
+        version: 0.14.17(prettier@3.9.10)
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -68,65 +68,65 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/appconfig':
-        specifier: ^2.6.1
-        version: 2.6.1(pg@8.23.1)(yaml@2.9.1)
+        specifier: ^2.7.1
+        version: 2.7.1(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/authentication':
-        specifier: ^6.8.0
-        version: 6.8.0(ioredis@6.0.0)
+        specifier: ^6.8.1
+        version: 6.8.1(ioredis@6.0.0)
       '@maroonedsoftware/cache':
-        specifier: ^0.6.0
-        version: 0.6.0(ioredis@6.0.0)
+        specifier: ^0.6.1
+        version: 0.6.1(ioredis@6.0.0)
       '@maroonedsoftware/comms':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.3.1
+        version: 0.3.1
       '@maroonedsoftware/encryption':
-        specifier: ^0.5.13
-        version: 0.5.13
+        specifier: ^0.5.14
+        version: 0.5.14
       '@maroonedsoftware/errors':
-        specifier: ^1.9.1
-        version: 1.9.1
+        specifier: ^1.9.2
+        version: 1.9.2
       '@maroonedsoftware/eventbus':
         specifier: ^0.1.8
         version: 0.1.8
       '@maroonedsoftware/jobbroker':
-        specifier: ^1.12.2
-        version: 1.12.2(pg-boss@12.38.0(@opentelemetry/api@1.9.1))
+        specifier: ^1.15.1
+        version: 1.15.1(pg-boss@12.39.0(@opentelemetry/api@1.9.1))
       '@maroonedsoftware/koa':
-        specifier: ^4.1.3
-        version: 4.1.3(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.8.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.1)
+        specifier: ^4.1.5
+        version: 4.1.5(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.8.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.7(@maroonedsoftware/logger@1.1.10))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/kysely':
-        specifier: ^0.7.11
-        version: 0.7.11
+        specifier: ^0.10.1
+        version: 0.10.1
       '@maroonedsoftware/logger':
-        specifier: ^1.1.9
-        version: 1.1.9
+        specifier: ^1.1.10
+        version: 1.1.10
       '@maroonedsoftware/mcp':
-        specifier: ^0.8.0
-        version: 0.8.0(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.7)
+        specifier: ^0.9.0
+        version: 0.9.0(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.7)
       '@maroonedsoftware/multipart':
-        specifier: ^1.3.8
-        version: 1.3.8
+        specifier: ^1.3.9
+        version: 1.3.9
       '@maroonedsoftware/permissions':
-        specifier: ^0.4.0
-        version: 0.4.0
-      '@maroonedsoftware/policies':
-        specifier: ^0.6.9
-        version: 0.6.9
-      '@maroonedsoftware/servercore':
         specifier: ^0.4.1
-        version: 0.4.1(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)
+        version: 0.4.1
+      '@maroonedsoftware/policies':
+        specifier: ^0.6.10
+        version: 0.6.10
+      '@maroonedsoftware/servercore':
+        specifier: ^0.5.1
+        version: 0.5.1(@maroonedsoftware/serverfeed@0.1.7(@maroonedsoftware/logger@1.1.10))(pg@8.23.1)(yaml@2.9.1)
       '@maroonedsoftware/serverfeed':
-        specifier: ^0.1.6
-        version: 0.1.6(@maroonedsoftware/logger@1.1.9)
+        specifier: ^0.1.7
+        version: 0.1.7(@maroonedsoftware/logger@1.1.10)
       '@maroonedsoftware/telemetry':
         specifier: ^0.3.0
-        version: 0.3.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace@2.12.0(@opentelemetry/api@1.9.1))(kysely@0.29.7)
+        version: 0.3.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace@2.12.0(@opentelemetry/api@1.9.1))(kysely@0.29.9)
       '@maroonedsoftware/utilities':
-        specifier: ^1.11.5
-        version: 1.11.5
+        specifier: ^1.11.6
+        version: 1.11.6
       '@maroonedsoftware/zod':
-        specifier: ^0.8.0
-        version: 0.8.0
+        specifier: ^0.8.1
+        version: 0.8.1
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@4.6.7)
@@ -161,8 +161,8 @@ importers:
         specifier: ^3.2.1
         version: 3.2.1
       kysely:
-        specifier: ^0.29.7
-        version: 0.29.7
+        specifier: ^0.29.9
+        version: 0.29.9
       luxon:
         specifier: ^3.7.2
         version: 3.7.2
@@ -179,8 +179,8 @@ importers:
         specifier: ^8.23.1
         version: 8.23.1
       pg-boss:
-        specifier: ^12.38.0
-        version: 12.38.0(@opentelemetry/api@1.9.1)
+        specifier: ^12.39.0
+        version: 12.39.0(@opentelemetry/api@1.9.1)
       rate-limiter-flexible:
         specifier: ^11.2.3
         version: 11.2.3
@@ -201,20 +201,20 @@ importers:
         version: 4.6.7
     devDependencies:
       '@contractkit/cli':
-        specifier: ^0.11.10
-        version: 0.11.10(prettier@3.9.10)
+        specifier: ^0.12.1
+        version: 0.12.1(prettier@3.9.10)
       '@contractkit/plugin-csharp':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.4.2
+        version: 0.4.2
       '@contractkit/plugin-docs':
-        specifier: ^0.9.0
-        version: 0.9.0
+        specifier: ^0.10.0
+        version: 0.10.0
       '@contractkit/plugin-kotlin':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.3.2
+        version: 0.3.2
       '@contractkit/plugin-swift':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.3.2
+        version: 0.3.2
       '@contractkit/plugin-typescript':
         specifier: ^0.44.0
         version: 0.44.0
@@ -225,8 +225,8 @@ importers:
         specifier: workspace:*
         version: link:../../plugins/spotify
       '@maroonedsoftware/permissions-dsl':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.1
+        version: 0.6.1
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -265,7 +265,7 @@ importers:
         version: 2.37.0
       kysely-codegen:
         specifier: ^0.20.0
-        version: 0.20.0(kysely@0.29.7)(pg@8.23.1)(typescript@6.0.3)
+        version: 0.20.0(kysely@0.29.9)(pg@8.23.1)(typescript@6.0.3)
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
@@ -720,8 +720,8 @@ importers:
   plugins/discord:
     dependencies:
       '@maroonedsoftware/discord':
-        specifier: ^2.1.2
-        version: 2.1.2(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)
+        specifier: ^2.1.3
+        version: 2.1.3(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.1)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -980,8 +980,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/rhapsode-sdk':
-        specifier: ^0.1.28
-        version: 0.1.28
+        specifier: ^0.1.29
+        version: 0.1.29
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -1016,8 +1016,8 @@ importers:
   plugins/slack:
     dependencies:
       '@maroonedsoftware/slack':
-        specifier: ^3.3.2
-        version: 3.3.2(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)
+        specifier: ^3.3.3
+        version: 3.3.3(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.1)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -1060,8 +1060,8 @@ importers:
   plugins/telegram:
     dependencies:
       '@maroonedsoftware/telegram':
-        specifier: ^2.1.2
-        version: 2.1.2(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)
+        specifier: ^2.1.3
+        version: 2.1.3(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.1)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -1896,33 +1896,33 @@ packages:
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
 
-  '@cbor-extract/cbor-extract-darwin-arm64@2.2.2':
-    resolution: {integrity: sha512-ZKZ/F8US7JR92J4DMct6cLW/Y66o2K576+zjlEN/MevH70bFIsB10wkZEQPLzl2oNh2SMGy55xpJ9JoBRl5DOA==}
+  '@cbor-extract/cbor-extract-darwin-arm64@2.2.3':
+    resolution: {integrity: sha512-qpUy9Yoisi6a7QHOVa+AlnqfN7eVstSRhpLwiLnwi6i3SNLkM5D2Z7MXl4LC5nUGA77mZEt479cPH3u8GD163Q==}
     cpu: [arm64]
     os: [darwin]
 
-  '@cbor-extract/cbor-extract-darwin-x64@2.2.2':
-    resolution: {integrity: sha512-32b1mgc+P61Js+KW9VZv/c+xRw5EfmOcPx990JbCBSkYJFY0l25VinvyyWfl+3KjibQmAcYwmyzKF9J4DyKP/Q==}
+  '@cbor-extract/cbor-extract-darwin-x64@2.2.3':
+    resolution: {integrity: sha512-6bZbK7dyKn8BUNmG3UfzSnM4L/OzJ8xGAtBHYycprl+bgvtZmZoQC7CucWXuF/oHJP5skzqkqFr6BLSSGIkoWw==}
     cpu: [x64]
     os: [darwin]
 
-  '@cbor-extract/cbor-extract-linux-arm64@2.2.2':
-    resolution: {integrity: sha512-wfqgzqCAy/Vn8i6WVIh7qZd0DdBFaWBjPdB6ma+Wihcjv0gHqD/mw3ouVv7kbbUNrab6dKEx/w3xQZEdeXIlzg==}
+  '@cbor-extract/cbor-extract-linux-arm64@2.2.3':
+    resolution: {integrity: sha512-QAuFuQkOw0cm4MNc+QwxH9aiMxmrczESnVEu33B8m2Du9fBuH/1AvJfmO8YajpeWLoHqt2iUG3d1/gIWAKY8IQ==}
     cpu: [arm64]
     os: [linux]
 
-  '@cbor-extract/cbor-extract-linux-arm@2.2.2':
-    resolution: {integrity: sha512-tNg0za41TpQfkhWjptD+0gSD2fggMiDCSacuIeELyb2xZhr7PrhPe5h66Jc67B/5dmpIhI2QOUtv4SBsricyYQ==}
+  '@cbor-extract/cbor-extract-linux-arm@2.2.3':
+    resolution: {integrity: sha512-joCovTc7uEYCL9XxdAJJpGIH7Vvc31Fi7vh3HnlY5zgkLSU/64WxYl5iUi/puE21qT3bmxMfOZEZUbnqVKeJTQ==}
     cpu: [arm]
     os: [linux]
 
-  '@cbor-extract/cbor-extract-linux-x64@2.2.2':
-    resolution: {integrity: sha512-rpiLnVEsqtPJ+mXTdx1rfz4RtUGYIUg2rUAZgd1KjiC1SehYUSkJN7Yh+aVfSjvCGtVP0/bfkQkXpPXKbmSUaA==}
+  '@cbor-extract/cbor-extract-linux-x64@2.2.3':
+    resolution: {integrity: sha512-IQMPVLulOvFv9Had7J1idJyfQzsFamDVdjH37qW7suHI7mgO4w1Oo3MisL7AjnWARxo0/ZmEEQ3i81WA7y34Ug==}
     cpu: [x64]
     os: [linux]
 
-  '@cbor-extract/cbor-extract-win32-x64@2.2.2':
-    resolution: {integrity: sha512-dI+9P7cfWxkTQ+oE+7Aa6onEn92PHgfWXZivjNheCRmTBDBf2fx6RyTi0cmgpYLnD1KLZK9ZYrMxaPZ4oiXhGA==}
+  '@cbor-extract/cbor-extract-win32-x64@2.2.3':
+    resolution: {integrity: sha512-fGFfq6F3l0GCoKOZeyjjm3q+NHO7jo8ILtQ93U3rYJOgG2BGLS/QmBdoFLNEsoWPjyxAS8svWhTyo73MTDawog==}
     cpu: [x64]
     os: [win32]
 
@@ -1999,8 +1999,8 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@contractkit/cli@0.11.10':
-    resolution: {integrity: sha512-TTAXIWlmRIch6jnRHx7wHEXNExkWyIHyP7CdfbDEenVMb7Vfz607c337KAo9SIG8oeTEmWPQNQkeSnnBSfolNg==}
+  '@contractkit/cli@0.12.1':
+    resolution: {integrity: sha512-ySew4J3GKJg1aiBMqTeF3asxcXbboDUANoqyISzAa5lyiLnVk4JaE4b5emfxsNxNM8ob+kW6+QfDRyyMDJzqaA==}
     hasBin: true
     peerDependencies:
       prettier: '>=3.0.0'
@@ -2008,32 +2008,29 @@ packages:
       prettier:
         optional: true
 
-  '@contractkit/core@0.35.0':
-    resolution: {integrity: sha512-93Cu8D5kaSyQDIHKkt/2UD9GMzpPX00377DjZkWqD8iBa1vNpzaxU863+xgvp3gC35lF4y8P6VZHagxSvT9uWw==}
-
   '@contractkit/core@0.37.0':
     resolution: {integrity: sha512-mz0KeJZMR1FxC7Hfi7V7ueriEW71QNPESUlcwLLL5MD0lcxb0lJrImW0pvato2bQSJSRTp9Jnxuyof1WpR33sg==}
 
-  '@contractkit/openapi-to-ck@0.12.12':
-    resolution: {integrity: sha512-BmMICFSlC206KWPaDFSrj7br5xjswxwQBnGYISYqtGbdKsswAxGX76kI2U04QnytXVH8QP7QhAQrutwoqbqrsw==}
+  '@contractkit/openapi-to-ck@0.12.14':
+    resolution: {integrity: sha512-gLgGQu2clMXVKFx3HejbKSKdezLxhk6cunbdQAyHSUj6262z/LnpsFvliVR5vYCHAm7yeQMPVN7RJJxdqO7qyg==}
 
-  '@contractkit/plugin-csharp@0.4.0':
-    resolution: {integrity: sha512-93hFrCJr1jfmncLH3IiQqEhVRZGNjTI2Habc0Zlwegx4RNMQwKvbN/dLhE5e6/tMJ5UWVz5J5EzfB7fc8mtAew==}
+  '@contractkit/plugin-csharp@0.4.2':
+    resolution: {integrity: sha512-Wo0JQny5IsvQVO/By+uwuQnQTC/xKI2608UEoJllBQL25Cp3BwXWLTitKo9JbJgN2R9U36mZNe8fK4HNB06f+g==}
 
-  '@contractkit/plugin-docs@0.9.0':
-    resolution: {integrity: sha512-0uGMSDfB4qKWpjKTdN+l16cJc1QHczUuHRO6YPlnfosPGyKbz+vnjS0PGu/7mllJBDsVOXYNNLCK+JmQqoustg==}
+  '@contractkit/plugin-docs@0.10.0':
+    resolution: {integrity: sha512-ayqaTAnSPRFSbtt57dzG/r55Zr3lqCXDkXn77ks4cfAwg+lEJMnLSgpUvOmykBupYIhC6d6LCy/l4/vBv/a26Q==}
 
-  '@contractkit/plugin-kotlin@0.3.0':
-    resolution: {integrity: sha512-0UbDG1k/isdo6L6VZpzHgB+x+bVM+kaCFOgKy5qOWhPrRTwbeyGG5WMeUrbpzXn7DoP7rhWbqsHI5hboVujFcg==}
+  '@contractkit/plugin-kotlin@0.3.2':
+    resolution: {integrity: sha512-0oW/v4nZdCqNatuPOEWqxVbUtO1YNo30ZrkiWUEH6nyXQV86x39mXqJbtfUMvjQ7Wdp7fTXbe+fIyaeUk56Qjg==}
 
-  '@contractkit/plugin-swift@0.3.0':
-    resolution: {integrity: sha512-yu1yV6QjOq08aeleVUr+Onc4WaUReswo+oF7YQb4SX8wzAG7uL3CB1MgKdS3wglw9aZmo1A7mQAqPDzarQ2knA==}
+  '@contractkit/plugin-swift@0.3.2':
+    resolution: {integrity: sha512-xGmgwE7tfpbKeC4F/djJXPLz9ITmP7d6LJnb0Sj5hAidvEAHs1jmWLR4eCP7YOSsvrh9POS1t+u4W6/ZELtl0Q==}
 
   '@contractkit/plugin-typescript@0.44.0':
     resolution: {integrity: sha512-Gv6lwUzz87ePpgnj4YWcZUxjW9CRslqqDUxUnVXf83jLO6Pyrc5lE8+4xI3wS0+XUG4axrEez/26BLJTjR/JJQ==}
 
-  '@contractkit/prettier-plugin@0.14.15':
-    resolution: {integrity: sha512-EyjX+fHC+d2756BTs/e/hnF85Hyknbp4Ek8Q9jS2YgvHRGQT0IreVvwO/xNshljWQDHZgKOhnmw8/LLJCtS6iQ==}
+  '@contractkit/prettier-plugin@0.14.17':
+    resolution: {integrity: sha512-Pl01W6+Drr6S8dS5RwniC18AqjUbQDGFQsD8fhelymCVqEniuZ8v7J+XjHqm9xlbZys6Nl33asRJf5dNbDHhTQ==}
     peerDependencies:
       prettier: ^3.0.0
 
@@ -2878,8 +2875,8 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@fastify/busboy@3.2.4':
-    resolution: {integrity: sha512-lQS8xcXT54rdJb+wlG/Q7SMSdtkZEpLPHooSDUZyyZm9LJD7X1kONPhVoPaHq+dsPtWUGGLIz9gBNhs9qKbylw==}
+  '@fastify/busboy@3.2.6':
+    resolution: {integrity: sha512-UPXdyAMbz/gNvjS8HONpJR2TDaHM3wQKMtSRPFkoh2LTeRRtnm+ICVYKgBYkTwlPOVzDNynOd34EH8qapwfelQ==}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -3112,6 +3109,9 @@ packages:
 
   '@isaacs/nonrecursive-glob-match@1.0.3':
     resolution: {integrity: sha512-SI7kyKHq4XXDRozw+r9GlRZkia1ZkFrpLW98r2IC2Bpr8YkFGE3fvjzmxCG0x78A++69HmDNrDvSMYBZmHGpKA==}
+
+  '@isaacs/nonrecursive-glob-match@1.1.0':
+    resolution: {integrity: sha512-GPm/Dbvk5RLmhRnxXIa7nTpK0xtl4E0wj0MslsuNiJ1FIROU+2+9lgUC/dgF7Ey4QCWhfEsgxilMRMCdHPfDfw==}
 
   '@jest/schemas@29.6.3':
     resolution: {integrity: sha512-mo5j5X+jIZmJQveBKeS/clAueipV7KgiX1vMgCxam1RNYiqE1w62n0/tJJnHtjW8ZHcQco5gY85jA3mi0L+nSA==}
@@ -3378,8 +3378,8 @@ packages:
     resolution: {integrity: sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ==}
     engines: {node: '>=20.0.0'}
 
-  '@maroonedsoftware/appconfig@2.6.1':
-    resolution: {integrity: sha512-w9IEudLnC9KorVJ7QgiIU7yh6eAeKeVwAI+H93IeWB0QVDPlO7cw0mbmFtCTK91UhjNd5b4GWegFjWCjyLZh6g==}
+  '@maroonedsoftware/appconfig@2.7.1':
+    resolution: {integrity: sha512-HbgBDX+SFjz26rVuU6AT3mi2bjoX9TC2qGDFahe7UnxyPIsztyLRJUx+4hImurTZDcUd9Iut9bU28QKBXgoeng==}
     engines: {node: '>=22'}
     peerDependencies:
       '@aws-sdk/client-secrets-manager': ^3.1057.0
@@ -3396,12 +3396,12 @@ packages:
       yaml:
         optional: true
 
-  '@maroonedsoftware/authentication@6.8.0':
-    resolution: {integrity: sha512-5t/+m2K2ePtk4JIvY1wNZMOGW9sFHXgrqlQS9DPGD6UTqLR5FuqQBpl7xQy10hxoR8TjCdpAuBRpCaRty2fqgQ==}
+  '@maroonedsoftware/authentication@6.8.1':
+    resolution: {integrity: sha512-pY1ZWQfdpC1iZ1x1Xcy8jpXg9kJldwkN6EonKd9p4t4Amp80JED8DAr08Zh/YCfdPjBk0HLimc0U74ypGjmrTA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/cache@0.6.0':
-    resolution: {integrity: sha512-yX3Bg1ZKRTkHF6kmOUd/JNSOLTIqyIKr7Qyn3IKasAOqzWd078c/n7F0socFuBExCKpVwz/bBS9gVHzjNgugGA==}
+  '@maroonedsoftware/cache@0.6.1':
+    resolution: {integrity: sha512-yIlAbxVp+XFAj+9ht69Cxqm/UHXDHxJyAzPFDznQY6cZye6tyXT0tkEbNTBZzjNKae9+jAddmpTVU7+YkWq2sA==}
     engines: {node: '>=22'}
     peerDependencies:
       ioredis: ^5.10.1 || ^6.0.0
@@ -3409,129 +3409,129 @@ packages:
       ioredis:
         optional: true
 
-  '@maroonedsoftware/comms@0.3.0':
-    resolution: {integrity: sha512-Ou4YViiSIOXCC572dM4ZnHNFICvO2BUYl/0siHMHrO4upxTH1JV3uCIiEi8MuTD1FTtgL5lMh0UVrbL47JmRsA==}
+  '@maroonedsoftware/comms@0.3.1':
+    resolution: {integrity: sha512-Ab38mZvxgjqBdj4FqUAxQ96pluSJhMChMVvlddq70Xrb1SM8il31w6qyMVNpc684twJQUcRfaBFyYc+K5rJqgg==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/discord@2.1.2':
-    resolution: {integrity: sha512-5j+xZMdF5kRREcKUFbMnCj0DOFgUvXeCSHedy39fVQv2TVjHL/rD9y/8mBYMLQVFN/zRGq+X0TrXwZjfeQO/TQ==}
+  '@maroonedsoftware/discord@2.1.3':
+    resolution: {integrity: sha512-7T4S1InHJOUFHlP3o/48dcsjGwS5vqWEtQVnQYqdoaxAqNL+GC60QzDaPVsLM+qskPO8ot0Ga45DJJD8j8HYqQ==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/cache': 0.6.0
-      '@maroonedsoftware/comms': 0.3.0
+      '@maroonedsoftware/cache': 0.6.1
+      '@maroonedsoftware/comms': 0.3.1
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
       '@maroonedsoftware/comms':
         optional: true
 
-  '@maroonedsoftware/encryption@0.5.13':
-    resolution: {integrity: sha512-8UqZcYUOSNCeFptHH8OxtTFYdYZklUg7jyq5D338V25zRQF0T5Gqk42Fd6bTQHAbKiDLM3u8AAI52IujJsyt0g==}
+  '@maroonedsoftware/encryption@0.5.14':
+    resolution: {integrity: sha512-AxQts60/UZrxVONei3ujPRhwpYZ4/pcou/AmeOXd/y6x45Kzft4oBcTspWypzHntLtxCTqGkwZi1XrKb3200SQ==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/errors@1.9.1':
-    resolution: {integrity: sha512-V2P8iHoxfuFJZ8XrhWzo9SDyEA8tDUv6DzuNntxTWVohHy8NWoZrcjYw4/LFG2NxmQTPeUt0nNLBKRPEV/9R8g==}
+  '@maroonedsoftware/errors@1.9.2':
+    resolution: {integrity: sha512-PE8i3Vat2KxmM5X1uqHwydET68qx+Dgo9z2Nveooe8hc4YvO2TDtAM8QfmcqMosqXbf74S66TSJ+jeGXst8WSw==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/eventbus@0.1.8':
     resolution: {integrity: sha512-GJVGQIjZH58KHJF9YiOnUc2R6p7JUOtgZOQ7PalyJUwISpjPqWvljJl2f8q3uoeNIiot4bfRbvZKXa9nYYfkBQ==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/jobbroker@1.12.2':
-    resolution: {integrity: sha512-hAvvHTaoNXIwvRfiyOqtDyUYjCIbNssqdXJGVsF4RXPcaVM5wBHVnj3cumaMrRa5IzeDBhBSvf8h/HoKmbINWQ==}
+  '@maroonedsoftware/jobbroker@1.15.1':
+    resolution: {integrity: sha512-6xe7J69rO20YAOhtp18cn6K/a/+mT1A0c8Mksu85373ugYJLXUtzZIjE1RgFSrLS8UTFk5sd+Ggj8VyHKEQeTw==}
     engines: {node: '>=22'}
     peerDependencies:
-      pg-boss: ^12.21.0
+      pg-boss: ^12.38.2
     peerDependenciesMeta:
       pg-boss:
         optional: true
 
-  '@maroonedsoftware/koa@4.1.3':
-    resolution: {integrity: sha512-ivlhE/lsear6z/tWNDsgrGU0PTc72+3lBzkM0HUl0NwLWR3EwBZEVjFYk3Iimt5sllEeP3zPBtensksYPzT5EQ==}
+  '@maroonedsoftware/koa@4.1.5':
+    resolution: {integrity: sha512-kJ7IpMvTSlpIBq1HVBRmXYkR9ghBxVUeZ8WviOhq9xH44qTm1k/qKLYJy8/7/ciEmVVwlADq2aafR48Wv0+tIw==}
     engines: {node: '>=22'}
     peerDependencies:
       '@koa/cors': ^5.0.0
       '@koa/router': ^15.2.0
-      '@maroonedsoftware/authentication': ^6.3.1
-      '@maroonedsoftware/serverfeed': 0.1.6
+      '@maroonedsoftware/authentication': ^6.8.1
+      '@maroonedsoftware/serverfeed': 0.1.7
       koa: ^3.1.1
     peerDependenciesMeta:
       '@maroonedsoftware/serverfeed':
         optional: true
 
-  '@maroonedsoftware/kysely@0.7.11':
-    resolution: {integrity: sha512-2wshLM+qldy0dzXWM/VGZLRsE0ebD9vaWjYOQRqX7SbJRmBkxh5TtGsJnFl/myiNkPOOHeUQw70L7I9o623e/Q==}
+  '@maroonedsoftware/kysely@0.10.1':
+    resolution: {integrity: sha512-s5aeLz6yZcuCU6wz4ANU/W6a4s9U/g4CWwpNiGiNQ0uBk2EbY2mqvJ2Vd2uXtMcvqwFyv3/p2Ve3iOyPnZt65g==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/logger@1.1.9':
-    resolution: {integrity: sha512-eEksDYu/PAWC/mIwLzxFqcF9tOnYURqyP9BDUlSgconUZ/I6MJrXvZ/cYOjCtQ6YEr/8k4GRMvwxIaOwSVaQ4w==}
+  '@maroonedsoftware/logger@1.1.10':
+    resolution: {integrity: sha512-y6QCxLNEOpSUgzCNAzzyJoRqlUCZ2ksBAqjZq7/zPBmO6pR7j3EWp/SBNsjznjdxchq9/JevfuVaZzxGnPiVbw==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/mcp@0.8.0':
-    resolution: {integrity: sha512-eZWH1SJ37+bg5EksYXAYZJLMWVGRTe/c/PpGp3W2/EKMovdafb+utcp9FFyv7C8v97eA8GMuciSBpT9nPDBCBg==}
+  '@maroonedsoftware/mcp@0.9.0':
+    resolution: {integrity: sha512-JABXVvtJXk7gVkBrT0S43fNkt+yTzk9noLwnj9wsUwFANsf6GRo5vE0qeXDYU5RR4bFmPKSrbE5SDcPgnSrF7g==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/cache': 0.6.0
+      '@maroonedsoftware/cache': 0.6.1
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
 
-  '@maroonedsoftware/multipart@1.3.8':
-    resolution: {integrity: sha512-k4bD2+iqZ7IAL2CMxK7Tt4UQEjhEbRblRxN6hS8OAYF/sbXf0HDBNziUzI6YMmux+G26tDCokIBe9Ph8rSuQ9Q==}
+  '@maroonedsoftware/multipart@1.3.9':
+    resolution: {integrity: sha512-YcMi3rfCQ8fxGJQi+cxJ4MfraKU4bpHSvapFNfASRR1lDEzO+421maAYIO4y0RtBSRz29WersTFFjYKKofdIqw==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/permissions-dsl@0.6.0':
-    resolution: {integrity: sha512-eHhDIrIfbfqXNRjs7tx7HoIlOo//5Lu0kyEawk3EiDoPnSh926MZJtqKEC4FIaRraLEzSEPBvIl0lEM7jB+RkA==}
+  '@maroonedsoftware/permissions-dsl@0.6.1':
+    resolution: {integrity: sha512-I7D0J2KipiBxKR4KnvktUyrdkqEJzRb3TuWY+mrsqW6ulec9XefVeJJCdtQiCqXx0qZxeRDJbxpyVk2CxbT4EA==}
     engines: {node: '>=22'}
     hasBin: true
 
-  '@maroonedsoftware/permissions@0.4.0':
-    resolution: {integrity: sha512-FudCx8I/pqRsvnO4bQsC3AzWJPlT9UDLEBeQDxRbaTMjTaSkX+pCT8s+H29t4Ubx/7E9b1jKfw8+hwf+7e/oDA==}
+  '@maroonedsoftware/permissions@0.4.1':
+    resolution: {integrity: sha512-ZWj6F04MV/bfMCXVyyIuKKZo9CTbBj1I4rNaPYMzPpS2PtDO0mxhywPBqKuMNJdXqx/sGRmMMMooF56Ge1pcCA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/policies@0.6.9':
-    resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
+  '@maroonedsoftware/policies@0.6.10':
+    resolution: {integrity: sha512-QeU4H9jWxNDrkEEQ4eSjJnNVSJl7pMvOO5onFdkFwpgvhf08A4OpVxrUa1ojV7xruKeCKRVDE2ZUvsQPMKT6eg==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.28':
-    resolution: {integrity: sha512-mle3mmSuQ5syWDiIV/4Pq59/LITJVGVJk4nHAJbFUbTZnIr6Uzo9ZV618hUhq9+AkTRb5sl+lWaK73LezDHGYQ==}
+  '@maroonedsoftware/rhapsode-sdk@0.1.29':
+    resolution: {integrity: sha512-8hIDqwdseSfgCOSguu7AnlY5AB1bE8xTU6ygGDeIXlH6hcyi8MvFBHnOa+4SC8H5AEnYPSQeRcslVK8f4rXkCQ==}
 
-  '@maroonedsoftware/servercore@0.4.1':
-    resolution: {integrity: sha512-X+GyadVe4N6qh/C14Vzp/E8P1pRriTy0aZCNChPMA8a9Nn3GSgNUoWhE7fCFtc34Qo23JG1NKGmAv4x0sv/tPQ==}
+  '@maroonedsoftware/servercore@0.5.1':
+    resolution: {integrity: sha512-BwfZpdvZt75FdSCCwHrDnvuMV9bQGG7pbgCItlPpnPLtCsLyEKfffIOh0LQvoOz2ivl+0ey1LLJLUopDhZenAw==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/serverfeed': 0.1.6
+      '@maroonedsoftware/serverfeed': 0.1.7
     peerDependenciesMeta:
       '@maroonedsoftware/serverfeed':
         optional: true
 
-  '@maroonedsoftware/serverfeed@0.1.6':
-    resolution: {integrity: sha512-9whY1qjJrTMn4o1JafCJvG3ZO7ef05mW5b0Bix1Pm4kzNhDV0R4sSM+3ZlKupLpSlE8sOpf2WivNWykuh7TVIQ==}
+  '@maroonedsoftware/serverfeed@0.1.7':
+    resolution: {integrity: sha512-tPffrXZuoUjGURCGjVxAlpLjd3hheDy+ZcKcI9BDolbR4R6+K6pwxVVXKwyLr7kOlBqNIwjqYYLrfdEeMDUgnw==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/logger': 1.1.10
     peerDependenciesMeta:
       '@maroonedsoftware/logger':
         optional: true
 
-  '@maroonedsoftware/slack@3.3.2':
-    resolution: {integrity: sha512-eGIpJsZ2/KbVMQO6oHNrJCTZ8ddFm6JVeDe1ikp86Rt0wyhaxW26zk31lkur2J2/5KghvpHKAf22T38/tOFkTw==}
+  '@maroonedsoftware/slack@3.3.3':
+    resolution: {integrity: sha512-XwKdEDzTUxbtBxX+TUMGFXhrWz4lFwEo+MhhDpkxhuQzyVDdsPERN8J+TcGy1wBLzFokdVwiu+JGebkq3J7s7w==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/cache': 0.6.0
-      '@maroonedsoftware/comms': 0.3.0
+      '@maroonedsoftware/cache': 0.6.1
+      '@maroonedsoftware/comms': 0.3.1
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
       '@maroonedsoftware/comms':
         optional: true
 
-  '@maroonedsoftware/telegram@2.1.2':
-    resolution: {integrity: sha512-0vvuYSjipwgqL/3Ak87jK/0GdEXlacM6SfRes419by21vt1I5R2bbVaoPwlG/SXMWxiw9tar9t1s5GWn8SGGjg==}
+  '@maroonedsoftware/telegram@2.1.3':
+    resolution: {integrity: sha512-PXLKNMxweaP1gOTmpf3bwVYYGoota5Wx//0BWIwE9MlDtEJOPbtg8lDC7jni7j4q6YBNQ6oKtfcdtLkW4IfMzQ==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/cache': 0.6.0
-      '@maroonedsoftware/comms': 0.3.0
+      '@maroonedsoftware/cache': 0.6.1
+      '@maroonedsoftware/comms': 0.3.1
     peerDependenciesMeta:
       '@maroonedsoftware/cache':
         optional: true
@@ -3565,12 +3565,12 @@ packages:
       kysely:
         optional: true
 
-  '@maroonedsoftware/utilities@1.11.5':
-    resolution: {integrity: sha512-hkH6nYsz+CdBcexBRzlv2ve0h+6VlkEGbWJXhqofPOBhrnThIfkUYwCPnFDnWRB7ZyL4ImLSQnXmHMvlTuJ6QQ==}
+  '@maroonedsoftware/utilities@1.11.6':
+    resolution: {integrity: sha512-9XEOBJhG0Z9DyzkL3v5scwJv0TzxXEi+wrZ1Jk6hdbKdUM4cQwMYhDeuSFNzOIf0thPcI6GFCNzWdQqlGCYhkA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/zod@0.8.0':
-    resolution: {integrity: sha512-7k58EeeTpyWGY4IPJR/jp6E66v4BBx5T31k3vOgh3kmwG9A1URc3Vxm51QBHPCGl9yOoX121D6Chc6PO+kfmog==}
+  '@maroonedsoftware/zod@0.8.1':
+    resolution: {integrity: sha512-zh4fKi5NVzNeMuhO//PI9A69tZu3xDdAdQS+EnlS83no6SPQIIAszLVDu6VfUW/dIvAzWX/e8hnVhJq9ACZ9fw==}
     engines: {node: '>=22'}
     peerDependencies:
       fast-json-stringify: ^7.0.0
@@ -4533,12 +4533,12 @@ packages:
     resolution: {integrity: sha512-VGXhmmgsAo9shdQYh4tFDndd+7nsgp0Y5h0UPDaUp8K359pBasI6YdkMqFW3mCOxLQkq09qj7o7cq6f3DuXcJQ==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
-  '@slack/types@3.2.0':
-    resolution: {integrity: sha512-IN4gdtlzQt8UJoj+1v+qAHeR4TxHO0KMlIs841SFfDQAcFFnsrWaGsEAE4goxVt8O/JOAFaGGdrFTzhNBop/Fg==}
+  '@slack/types@3.3.1':
+    resolution: {integrity: sha512-F4JJd1SY5Nro1O6O4izMrBv0/IOpr+a8GGewr23tnP8zO1t9mWFLBjpNPv6nxuxhhw4JVRM9CPltBnLkZj7Ucw==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
-  '@slack/web-api@8.2.0':
-    resolution: {integrity: sha512-bIW8/8BLD/HLuHLIA2LfA7AhSokzui4swCbMJuwoRJxn/kzHVla6YEKLvN1nCFHK/DfX7g+4Wj3ess/ZSh/tWQ==}
+  '@slack/web-api@8.5.0':
+    resolution: {integrity: sha512-mbqNGN/geNqV4j0VB8pq/HR5RA2KpvwPxuSe3Y0VZtel9b419hZNeIyEx4aluuIaxXSEhEZiFnp0QniBsk8/SA==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
   '@slorber/react-helmet-async@1.3.0':
@@ -5492,20 +5492,20 @@ packages:
     resolution: {integrity: sha512-WlaVKzdqBK+RF3bdiXZWbdCnvGB6PdO4IHC1mn/2Yfl3bASgqUNegnU3+PNg61iecwoPfUi5BgLUPqBukXpyWw==}
     engines: {bun: '>=0.7.0', deno: '>=1.0.0', node: '>=18.0.0'}
 
-  '@zxcvbn-ts/core@4.2.0':
-    resolution: {integrity: sha512-tuwzwOcYVca9MufHuUvzKGRyL04iP52OjCNoRDuGXjzzrtPiPcl8r5QtOotbx0AyTR/CMcDTU9qLkN16b9fXiw==}
+  '@zxcvbn-ts/core@4.3.0':
+    resolution: {integrity: sha512-Y5Nes+T9TweCdA/X1zji6KZiepThNP52kNXAo9omdyI5fltlDqIBgFeIwEepehzVUiGdYvL+YsbCYyyS3yn2nw==}
 
   '@zxcvbn-ts/dictionary-compression@3.0.1':
     resolution: {integrity: sha512-p3KyPzxGc3vWSap5hHA6SllbUCmh7s+NtpGyC3qEWrxYJT9t9TUAzjPm48Okipo+UUyPQfDlIvTcs9JRShBFiQ==}
 
-  '@zxcvbn-ts/language-common@4.1.3':
-    resolution: {integrity: sha512-g2bg4skmlJG9aJqC/nWziZzgYpSe/f3rKeGobrkdFiOrfZVFqqzUgC6BUQWuX54Sua9j0Jxxt+1bf4f/Mal1Kg==}
+  '@zxcvbn-ts/language-common@4.2.0':
+    resolution: {integrity: sha512-LPcIu73i+ZV2fYPRDAd/JfaBblFUMVXSjupxkr0NU04wViVkYuzZ6ncw6pDgUdm7MMM5llMMzkbzhKrwXgv1tg==}
 
-  '@zxcvbn-ts/language-en@4.1.1':
-    resolution: {integrity: sha512-6UdzuBd3Uex8TKubohcn+uXRVAH34Zjs2eCfT4hQVo9zeTy7AkQRQfdV4OnHR5hQfW/XBrK/AGTZk7VBWh7wwQ==}
+  '@zxcvbn-ts/language-en@4.1.2':
+    resolution: {integrity: sha512-VICTXVOYrfSCtmrLLv41x4nx34H+BEJO2FPYMUXK3DGYxVtBfqUKx9Xq9WfxBpDAvvlQ4DocUA9bqNN18zKMXA==}
 
-  '@zxcvbn-ts/matcher-pwned@4.1.3':
-    resolution: {integrity: sha512-V2n6xyZP6eRaMP/FVkFb3Kcvw8ydaY+jaDHMu8ut8ikLnOINqce1dEsIAQGUWSsk4AYuKAC+KAmXFuLxu76/Ww==}
+  '@zxcvbn-ts/matcher-pwned@4.1.4':
+    resolution: {integrity: sha512-wLhqN7f5bWVOXT+GEbS/Iq59aq1rUzDxYeldqAYHiuNnzd6Hxo0Mzm4YxRKHawGm49CDaTkPifqi/Vn2OriUJw==}
 
   accepts@1.3.8:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
@@ -5808,6 +5808,10 @@ packages:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
     engines: {node: 20 || >=22}
 
+  brace-expansion@5.0.13:
+    resolution: {integrity: sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==}
+    engines: {node: 20 || >=22}
+
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
@@ -5901,12 +5905,12 @@ packages:
   caniuse-lite@1.0.30001820:
     resolution: {integrity: sha512-gfWD6MxqVCqAOwmODfZf7DchWvlrA+SRdNX7ceLfg3xRqe5ssjjpF7EgslC/0tiLiNTajdaNN/q8c/5u/7Gz8w==}
 
-  cbor-extract@2.2.2:
-    resolution: {integrity: sha512-hlSxxI9XO2yQfe9g6msd3g4xCfDqK5T5P0fRMLuaLHhxn4ViPrm+a+MUfhrvH2W962RGxcBwEGzLQyjbDG1gng==}
+  cbor-extract@2.2.3:
+    resolution: {integrity: sha512-zTOCEYwiQDChj5DV/sUqccv3jhdZqbhymztwcrW2LncIG2fPPkb1ceK5rmr0bdtxzJCXoWzZ95shA+uaSH8cKw==}
     hasBin: true
 
-  cbor-x@1.6.8:
-    resolution: {integrity: sha512-wUtIwq2J+Y2bEvDpdJj0z9QIX+PGMzms489HFvNwr0V8Zq3ejqOdZKTaTe6Zru8WU0IwuRDtpys3nUF4LDRKAQ==}
+  cbor-x@1.6.9:
+    resolution: {integrity: sha512-TCT9XHLb4iPGQ99fpQjcTRncbus6cXHvSD/RY+bPrDACBCJKiQLmAM6r7/BgQcI5i+8h4gwp4vjfb6S6T8bPGw==}
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -6191,8 +6195,8 @@ packages:
       typescript:
         optional: true
 
-  cron-parser@5.10.2:
-    resolution: {integrity: sha512-JfAYMY0LZaWQTuict8PhtF/ksSnq8xefSDmQUnnoqvkPYkU/y3UP0DTWzJKFBz0P1IXsDG8q0vY3zHkoFZOhvw==}
+  cron-parser@5.10.6:
+    resolution: {integrity: sha512-kpoxgQyveO1l29nw+FWdvmotyV7eOSzGHQpxiXOEZIDOjqO1iR6kfgJ0PVHTuV26uBemKq3ppzma7dHFAG7viw==}
     engines: {node: '>=18'}
 
   cross-spawn@7.0.6:
@@ -7173,8 +7177,8 @@ packages:
     peerDependencies:
       tslib: '2'
 
-  glob@14.0.3:
-    resolution: {integrity: sha512-A1vjIwC3qpdCso45Iw127gnp7sPhqgY8lUQhDrArIs+GbmfaaVPFuoyy7WyLT9EPZCRZ7j7aLdwUhQmHWesEow==}
+  glob@14.0.6:
+    resolution: {integrity: sha512-OwXjVP2svY5EyLY75Vek96C8qK43gqrt4xsZ+qSILdnaEiJPXkd62mcfUSNx/TQErQRdu5uM5kF67sfONragKw==}
     engines: {node: 18 || 20 || >=22}
 
   global-dirs@3.0.1:
@@ -7818,6 +7822,9 @@ packages:
   jose@6.2.14:
     resolution: {integrity: sha512-3JasLuki1NRLQvY4wCoC37KZk4qxoBx2k2aFqLxT84IezqW0bkJKnNtxnZj/Fu1xsQivoc/lytxaRHJoGLjJ1A==}
 
+  jose@6.2.18:
+    resolution: {integrity: sha512-doV4thUwgkrycJH4yLeqwTGIIZphHl+pk7CPReuMIhYhncmgzdko85MaCG4YQFTxqMFr1/oEH32tZuKKovcDEg==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -7956,8 +7963,8 @@ packages:
       tedious:
         optional: true
 
-  kysely@0.29.7:
-    resolution: {integrity: sha512-fmIq+7kv4WbFm2tcfznRzikqB4cuNpgZ40PSU2fAJ2/OO5XhojqnTPrmgrCjYSRJVwBln03XcRXJGnw9H099IQ==}
+  kysely@0.29.9:
+    resolution: {integrity: sha512-K48ErswC3MlIcBqR0pYIIEl+n9rIgwxgzaM1FxKHMXn7egxr1NHj7bCeF98mXl9A3/QoL5I7mo5S/mLXgeDgGA==}
     engines: {node: '>=22.0.0'}
 
   latest-version@7.0.0:
@@ -8466,6 +8473,10 @@ packages:
     resolution: {integrity: sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==}
     engines: {node: 20 || >=22}
 
+  minimatch@11.0.9:
+    resolution: {integrity: sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==}
+    engines: {node: 20 || >=22}
+
   minimatch@3.1.5:
     resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
 
@@ -8634,8 +8645,8 @@ packages:
     peerDependencies:
       webpack: ^4.0.0 || ^5.0.0
 
-  oauth4webapi@3.8.8:
-    resolution: {integrity: sha512-8N28E+a/oxfXWBgOMt+ZP/JUf/XR+IFbvkAEPP3gznXOMv9BpAAwiIj0TFNz3tGTPc0ZQ8zmWBNgN1nAys0gng==}
+  oauth4webapi@3.8.9:
+    resolution: {integrity: sha512-gyn4jpaxyYFm1epl3mwqc1sFShLjT9eq/63JW+Nvk286Lz6FC72pVv/SyhJHxo+sQiHEcjIHs4TtFKX/+Md07A==}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -8643,6 +8654,10 @@ packages:
 
   object-inspect@1.13.4:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
+    engines: {node: '>= 0.4'}
+
+  object-inspect@1.14.0:
+    resolution: {integrity: sha512-IVgHNlp/jwQX271+Xzoq9LZNTWXxZK+cEOrGBOBxXNbn7fapnZ+Ts6TVMgNOuAezwG2wdtnMX97tTPK6VEnuOQ==}
     engines: {node: '>= 0.4'}
 
   object-keys@1.1.1:
@@ -8703,8 +8718,8 @@ packages:
     resolution: {integrity: sha512-ur5UIdyw5Y7yEj9wLzhqXiy6GZ3Mwx0yGI+5sMn2r0N0v3cKJvUmFH5yPP+WXh9e0xfyzyJX95D8l088DNFj7A==}
     hasBin: true
 
-  openid-client@6.8.8:
-    resolution: {integrity: sha512-ZsucJA5Ad04Uv7YN4ql+s4GXNmb9uAYQwyJTsJx7CH/MX3JZioLE2pVKi1SC+YrbSLA4Px3Gi30dMjgOZtb6pA==}
+  openid-client@6.9.1:
+    resolution: {integrity: sha512-wysSRjtNRRpu1S/HCVaQ7LRPSNc42lhS1szB1SihVTcA2kAarpzKyvAd+sjFX41ky7iDblGerORC8ASwpt3zqA==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -8861,8 +8876,8 @@ packages:
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
-  pg-boss@12.38.0:
-    resolution: {integrity: sha512-felA3fyPSJwWk5cb/VwAgnudCAzWEdgBjjf+eukXm8pExlwkhjdBbOMukMyG5s8uZHO6fZZZcaIaTa3oKpfSCg==}
+  pg-boss@12.39.0:
+    resolution: {integrity: sha512-4KE+T1JVr5tmMa9Blg9ILBli4ZdfleA55PiVthGuQu7neHgnr0JD/VJseCET/Sms3HscghDPVo6z5dhPpB2e7g==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
@@ -9412,6 +9427,11 @@ packages:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
 
+  prettier@3.10.1:
+    resolution: {integrity: sha512-70vp3ZUYoPlFbF9uiTdXHUUCGEIp7d4+6p+8DYbkm2jP7x/3i/paXVF6dopSI3zd/CEitrZN1rc4i85xWmmXlg==}
+    engines: {node: '>=14'}
+    hasBin: true
+
   prettier@3.9.10:
     resolution: {integrity: sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA==}
     engines: {node: '>=14'}
@@ -9522,6 +9542,9 @@ packages:
 
   rate-limiter-flexible@11.2.3:
     resolution: {integrity: sha512-w4HX4toAsEbu1VksOauZwI9d6URb6/4WqJJ5Hg1bESihMt2KJfQ2iTwvDkhIg+y2HetLh65DGu/8xIkUz/xNPA==}
+
+  rate-limiter-flexible@11.5.0:
+    resolution: {integrity: sha512-i4+ReS4/nJ+MQgpXLZQH8S5DDRQ8gCI+fJ+jgAExlbJgIP94zczX/1t26XfVVnUoSav+DW2u8lWAMfGnkYot4w==}
 
   raw-body@2.5.3:
     resolution: {integrity: sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA==}
@@ -9878,8 +9901,8 @@ packages:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
 
-  rrule-temporal@2.2.8:
-    resolution: {integrity: sha512-+wWUe0J02oMh1UWKIt1RTu2H0Cz+gP11O/iweK0MN2UP6JLGeepTUkbSBa90Hxq0W+ywSxM9IlJNouIUdMOwhg==}
+  rrule-temporal@2.3.0:
+    resolution: {integrity: sha512-5V5n6ZtD/0eRbMdOeiOqJ3GlIEy/qSWVq0d0zxjgZoD1HcujPT1TMeklwxsPokBnHdxTSlfgWYf7lefrwNKlaA==}
 
   rrule@2.8.1:
     resolution: {integrity: sha512-hM3dHSBMeaJ0Ktp7W38BJZ7O1zOgaFEsn41PDk+yHoEtfLV+PoJt9E9xAlZiWgf/iqEqionN0ebHFZIDAp+iGw==}
@@ -9979,6 +10002,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.6:
+    resolution: {integrity: sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   send@0.19.2:
     resolution: {integrity: sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==}
     engines: {node: '>= 0.8.0'}
@@ -9987,8 +10015,8 @@ packages:
     resolution: {integrity: sha512-1gnZf7DFcoIcajTjTwjwuDjzuz4PPcY2StKPlsGAQ1+YH20IRVrBaXSWmdjowTJ6u8Rc01PoYOGHXfP1mYcZNQ==}
     engines: {node: '>= 18'}
 
-  serialize-error@13.0.2:
-    resolution: {integrity: sha512-G+YKwp9I6IvWMe5RlwqxdmTPIcq/G8HK/sU51gdV1XAJznYkRSTB0ph+zB9AfSxG0fx6xrqYA6i9HeIcHFTXow==}
+  serialize-error@13.1.0:
+    resolution: {integrity: sha512-FT1EL2Pz7lAWA48I6Qb1qHEvGT9ZGz2pb1sYZ9Dhu2t+RmHN6O12WMu7HzFcqFRQaUWEl3Q+++EYBTrZpCoykQ==}
     engines: {node: '>=20'}
 
   serialize-javascript@7.1.4:
@@ -10483,6 +10511,9 @@ packages:
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  tslib@2.9.1:
+    resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
 
   tsscmp@1.0.6:
     resolution: {integrity: sha512-LxhtAkPDTkVCMQjt2h6eBVY28KCjikZqZfMcC15YBeNjkgUpdCfBu5HoiOTDu86v6smE8yOjyEktJ8hlbANHQA==}
@@ -12111,22 +12142,22 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@cbor-extract/cbor-extract-darwin-arm64@2.2.2':
+  '@cbor-extract/cbor-extract-darwin-arm64@2.2.3':
     optional: true
 
-  '@cbor-extract/cbor-extract-darwin-x64@2.2.2':
+  '@cbor-extract/cbor-extract-darwin-x64@2.2.3':
     optional: true
 
-  '@cbor-extract/cbor-extract-linux-arm64@2.2.2':
+  '@cbor-extract/cbor-extract-linux-arm64@2.2.3':
     optional: true
 
-  '@cbor-extract/cbor-extract-linux-arm@2.2.2':
+  '@cbor-extract/cbor-extract-linux-arm@2.2.3':
     optional: true
 
-  '@cbor-extract/cbor-extract-linux-x64@2.2.2':
+  '@cbor-extract/cbor-extract-linux-x64@2.2.3':
     optional: true
 
-  '@cbor-extract/cbor-extract-win32-x64@2.2.2':
+  '@cbor-extract/cbor-extract-win32-x64@2.2.3':
     optional: true
 
   '@changesets/apply-release-plan@8.1.1':
@@ -12248,50 +12279,46 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@contractkit/cli@0.11.10(prettier@3.9.10)':
+  '@contractkit/cli@0.12.1(prettier@3.9.10)':
     dependencies:
-      '@contractkit/core': 0.35.0
-      '@contractkit/openapi-to-ck': 0.12.12
-      glob: 14.0.3
+      '@contractkit/core': 0.37.0
+      '@contractkit/openapi-to-ck': 0.12.14
+      glob: 14.0.6
     optionalDependencies:
       prettier: 3.9.10
-
-  '@contractkit/core@0.35.0':
-    dependencies:
-      ohm-js: 17.5.0
 
   '@contractkit/core@0.37.0':
     dependencies:
       ohm-js: 17.5.0
 
-  '@contractkit/openapi-to-ck@0.12.12':
+  '@contractkit/openapi-to-ck@0.12.14':
     dependencies:
-      '@contractkit/core': 0.35.0
+      '@contractkit/core': 0.37.0
       yaml: 2.9.1
 
-  '@contractkit/plugin-csharp@0.4.0':
+  '@contractkit/plugin-csharp@0.4.2':
     dependencies:
-      '@contractkit/core': 0.35.0
+      '@contractkit/core': 0.37.0
 
-  '@contractkit/plugin-docs@0.9.0':
+  '@contractkit/plugin-docs@0.10.0':
     dependencies:
-      '@contractkit/core': 0.35.0
+      '@contractkit/core': 0.37.0
 
-  '@contractkit/plugin-kotlin@0.3.0':
+  '@contractkit/plugin-kotlin@0.3.2':
     dependencies:
-      '@contractkit/core': 0.35.0
+      '@contractkit/core': 0.37.0
 
-  '@contractkit/plugin-swift@0.3.0':
+  '@contractkit/plugin-swift@0.3.2':
     dependencies:
-      '@contractkit/core': 0.35.0
+      '@contractkit/core': 0.37.0
 
   '@contractkit/plugin-typescript@0.44.0':
     dependencies:
       '@contractkit/core': 0.37.0
 
-  '@contractkit/prettier-plugin@0.14.15(prettier@3.9.10)':
+  '@contractkit/prettier-plugin@0.14.17(prettier@3.9.10)':
     dependencies:
-      '@contractkit/core': 0.35.0
+      '@contractkit/core': 0.37.0
       prettier: 3.9.10
 
   '@corvu/utils@0.4.2(solid-js@1.9.17)':
@@ -13071,7 +13098,7 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       schema-dts: 1.1.5
-      tslib: 2.8.1
+      tslib: 2.9.1
       utility-types: 3.11.0
       webpack: 5.112.2(@swc/core@1.16.20(@swc/helpers@0.5.23))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.32)
     transitivePeerDependencies:
@@ -13533,7 +13560,7 @@ snapshots:
       prism-react-renderer: 2.4.1(react@19.3.1)
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
-      tslib: 2.8.1
+      tslib: 2.9.1
       utility-types: 3.11.0
     transitivePeerDependencies:
       - '@minify-html/node'
@@ -13970,7 +13997,7 @@ snapshots:
     optionalDependencies:
       '@noble/hashes': 2.4.0
 
-  '@fastify/busboy@3.2.4': {}
+  '@fastify/busboy@3.2.6': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:
@@ -14179,6 +14206,8 @@ snapshots:
       minipass: 7.1.3
 
   '@isaacs/nonrecursive-glob-match@1.0.3': {}
+
+  '@isaacs/nonrecursive-glob-match@1.1.0': {}
 
   '@jest/schemas@29.6.3':
     dependencies:
@@ -14487,10 +14516,10 @@ snapshots:
       tinyglobby: 0.2.17
       yaml: 2.9.1
 
-  '@maroonedsoftware/appconfig@2.6.1(pg@8.23.1)(yaml@2.9.1)':
+  '@maroonedsoftware/appconfig@2.7.1(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
       deepmerge-ts: 8.0.2
       dotenv: 17.4.2
       injectkit: 1.7.1
@@ -14498,210 +14527,210 @@ snapshots:
       pg: 8.23.1
       yaml: 2.9.1
 
-  '@maroonedsoftware/authentication@6.8.0(ioredis@6.0.0)':
+  '@maroonedsoftware/authentication@6.8.1(ioredis@6.0.0)':
     dependencies:
-      '@maroonedsoftware/cache': 0.6.0(ioredis@6.0.0)
-      '@maroonedsoftware/encryption': 0.5.13
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
-      '@maroonedsoftware/utilities': 1.11.5
+      '@maroonedsoftware/cache': 0.6.1(ioredis@6.0.0)
+      '@maroonedsoftware/encryption': 0.5.14
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/policies': 0.6.10
+      '@maroonedsoftware/utilities': 1.11.6
       '@node-rs/argon2': 2.2.2
-      '@zxcvbn-ts/core': 4.2.0
-      '@zxcvbn-ts/language-common': 4.1.3
-      '@zxcvbn-ts/language-en': 4.1.1
-      '@zxcvbn-ts/matcher-pwned': 4.1.3
+      '@zxcvbn-ts/core': 4.3.0
+      '@zxcvbn-ts/language-common': 4.2.0
+      '@zxcvbn-ts/language-en': 4.1.2
+      '@zxcvbn-ts/matcher-pwned': 4.1.4
       arctic: 3.7.0
       deepmerge-ts: 8.0.2
       fido2-lib: 3.5.9
       injectkit: 1.7.1
       jsonwebtoken: 9.0.3
       luxon: 3.7.2
-      openid-client: 6.8.8
+      openid-client: 6.9.1
       qrcode: 1.5.4
-      rate-limiter-flexible: 11.2.3
+      rate-limiter-flexible: 11.5.0
       zxcvbn-ts: 2.4.0
     transitivePeerDependencies:
       - ioredis
 
-  '@maroonedsoftware/cache@0.6.0(ioredis@6.0.0)':
+  '@maroonedsoftware/cache@0.6.1(ioredis@6.0.0)':
     dependencies:
       injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
       ioredis: 6.0.0
 
-  '@maroonedsoftware/comms@0.3.0':
+  '@maroonedsoftware/comms@0.3.1':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
       injectkit: 1.7.1
 
-  '@maroonedsoftware/discord@2.1.2(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)':
+  '@maroonedsoftware/discord@2.1.3(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.1)':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/policies': 0.6.10
       injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
-      '@maroonedsoftware/cache': 0.6.0(ioredis@6.0.0)
-      '@maroonedsoftware/comms': 0.3.0
+      '@maroonedsoftware/cache': 0.6.1(ioredis@6.0.0)
+      '@maroonedsoftware/comms': 0.3.1
 
-  '@maroonedsoftware/encryption@0.5.13':
+  '@maroonedsoftware/encryption@0.5.14':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/errors': 1.9.2
       '@node-rs/argon2': 2.2.2
       injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/errors@1.9.1': {}
+  '@maroonedsoftware/errors@1.9.2': {}
 
   '@maroonedsoftware/eventbus@0.1.8':
     dependencies:
       injectkit: 1.7.1
 
-  '@maroonedsoftware/jobbroker@1.12.2(pg-boss@12.38.0(@opentelemetry/api@1.9.1))':
+  '@maroonedsoftware/jobbroker@1.15.1(pg-boss@12.39.0(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
       injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
-      pg-boss: 12.38.0(@opentelemetry/api@1.9.1)
+      pg-boss: 12.39.0(@opentelemetry/api@1.9.1)
 
-  '@maroonedsoftware/koa@4.1.3(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.8.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.1)':
+  '@maroonedsoftware/koa@4.1.5(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@6.8.1(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.7(@maroonedsoftware/logger@1.1.10))(koa@3.2.1)(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)
-      '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.1)
-      '@maroonedsoftware/authentication': 6.8.0(ioredis@6.0.0)
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
-      '@maroonedsoftware/servercore': 0.4.1(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)
+      '@maroonedsoftware/appconfig': 2.7.1(pg@8.23.1)(yaml@2.9.1)
+      '@maroonedsoftware/authentication': 6.8.1(ioredis@6.0.0)
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/policies': 0.6.10
+      '@maroonedsoftware/servercore': 0.5.1(@maroonedsoftware/serverfeed@0.1.7(@maroonedsoftware/logger@1.1.10))(pg@8.23.1)(yaml@2.9.1)
       injectkit: 1.7.1
       koa: 3.2.1
       luxon: 3.7.2
     optionalDependencies:
-      '@maroonedsoftware/serverfeed': 0.1.6(@maroonedsoftware/logger@1.1.9)
+      '@maroonedsoftware/serverfeed': 0.1.7(@maroonedsoftware/logger@1.1.10)
     transitivePeerDependencies:
       - '@aws-sdk/client-secrets-manager'
       - '@google-cloud/secret-manager'
       - pg
       - yaml
 
-  '@maroonedsoftware/kysely@0.7.11':
+  '@maroonedsoftware/kysely@0.10.1':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/utilities': 1.11.5
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/utilities': 1.11.6
       injectkit: 1.7.1
-      kysely: 0.29.7
+      kysely: 0.29.9
       luxon: 3.7.2
       pg: 8.23.1
     transitivePeerDependencies:
       - pg-native
 
-  '@maroonedsoftware/logger@1.1.9':
+  '@maroonedsoftware/logger@1.1.10':
     dependencies:
       injectkit: 1.7.1
 
-  '@maroonedsoftware/mcp@0.8.0(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.7)':
+  '@maroonedsoftware/mcp@0.9.0(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(ioredis@6.0.0)(zod@4.6.7)':
     dependencies:
-      '@maroonedsoftware/authentication': 6.8.0(ioredis@6.0.0)
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
+      '@maroonedsoftware/authentication': 6.8.1(ioredis@6.0.0)
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/policies': 0.6.10
       '@modelcontextprotocol/sdk': 1.32.2(zod@4.6.7)
       injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
-      '@maroonedsoftware/cache': 0.6.0(ioredis@6.0.0)
+      '@maroonedsoftware/cache': 0.6.1(ioredis@6.0.0)
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - ioredis
       - supports-color
       - zod
 
-  '@maroonedsoftware/multipart@1.3.8':
+  '@maroonedsoftware/multipart@1.3.9':
     dependencies:
-      '@fastify/busboy': 3.2.4
-      '@maroonedsoftware/errors': 1.9.1
+      '@fastify/busboy': 3.2.6
+      '@maroonedsoftware/errors': 1.9.2
 
-  '@maroonedsoftware/permissions-dsl@0.6.0':
+  '@maroonedsoftware/permissions-dsl@0.6.1':
     dependencies:
-      '@maroonedsoftware/permissions': 0.4.0
+      '@maroonedsoftware/permissions': 0.4.1
       ohm-js: 17.5.0
-      prettier: 3.9.10
+      prettier: 3.10.1
       yaml: 2.9.1
       zod: 4.6.7
 
-  '@maroonedsoftware/permissions@0.4.0':
+  '@maroonedsoftware/permissions@0.4.1':
     dependencies:
       injectkit: 1.7.1
       zod: 4.6.7
 
-  '@maroonedsoftware/policies@0.6.9':
+  '@maroonedsoftware/policies@0.6.10':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/errors': 1.9.2
       injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/rhapsode-sdk@0.1.28': {}
+  '@maroonedsoftware/rhapsode-sdk@0.1.29': {}
 
-  '@maroonedsoftware/servercore@0.4.1(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.23.1)(yaml@2.9.1)':
+  '@maroonedsoftware/servercore@0.5.1(@maroonedsoftware/serverfeed@0.1.7(@maroonedsoftware/logger@1.1.10))(pg@8.23.1)(yaml@2.9.1)':
     dependencies:
       '@hapi/bourne': 4.0.1
-      '@maroonedsoftware/appconfig': 2.6.1(pg@8.23.1)(yaml@2.9.1)
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/multipart': 1.3.8
-      '@maroonedsoftware/policies': 0.6.9
-      '@maroonedsoftware/utilities': 1.11.5
+      '@maroonedsoftware/appconfig': 2.7.1(pg@8.23.1)(yaml@2.9.1)
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/multipart': 1.3.9
+      '@maroonedsoftware/policies': 0.6.10
+      '@maroonedsoftware/utilities': 1.11.6
       inflation: 2.1.0
       injectkit: 1.7.1
       luxon: 3.7.2
       qs: 6.17.1
-      rate-limiter-flexible: 11.2.3
+      rate-limiter-flexible: 11.5.0
       raw-body: 4.0.0
       type-is: 2.1.0
     optionalDependencies:
-      '@maroonedsoftware/serverfeed': 0.1.6(@maroonedsoftware/logger@1.1.9)
+      '@maroonedsoftware/serverfeed': 0.1.7(@maroonedsoftware/logger@1.1.10)
     transitivePeerDependencies:
       - '@aws-sdk/client-secrets-manager'
       - '@google-cloud/secret-manager'
       - pg
       - yaml
 
-  '@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9)':
+  '@maroonedsoftware/serverfeed@0.1.7(@maroonedsoftware/logger@1.1.10)':
     dependencies:
       luxon: 3.7.2
     optionalDependencies:
-      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/logger': 1.1.10
 
-  '@maroonedsoftware/slack@3.3.2(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)':
+  '@maroonedsoftware/slack@3.3.3(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.1)':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
-      '@slack/web-api': 8.2.0
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/policies': 0.6.10
+      '@slack/web-api': 8.5.0
       injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
-      '@maroonedsoftware/cache': 0.6.0(ioredis@6.0.0)
-      '@maroonedsoftware/comms': 0.3.0
+      '@maroonedsoftware/cache': 0.6.1(ioredis@6.0.0)
+      '@maroonedsoftware/comms': 0.3.1
 
-  '@maroonedsoftware/telegram@2.1.2(@maroonedsoftware/cache@0.6.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.0)':
+  '@maroonedsoftware/telegram@2.1.3(@maroonedsoftware/cache@0.6.1(ioredis@6.0.0))(@maroonedsoftware/comms@0.3.1)':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
-      '@maroonedsoftware/logger': 1.1.9
-      '@maroonedsoftware/policies': 0.6.9
+      '@maroonedsoftware/errors': 1.9.2
+      '@maroonedsoftware/logger': 1.1.10
+      '@maroonedsoftware/policies': 0.6.10
       injectkit: 1.7.1
     optionalDependencies:
-      '@maroonedsoftware/cache': 0.6.0(ioredis@6.0.0)
-      '@maroonedsoftware/comms': 0.3.0
+      '@maroonedsoftware/cache': 0.6.1(ioredis@6.0.0)
+      '@maroonedsoftware/comms': 0.3.1
 
-  '@maroonedsoftware/telemetry@0.3.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace@2.12.0(@opentelemetry/api@1.9.1))(kysely@0.29.7)':
+  '@maroonedsoftware/telemetry@0.3.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace@2.12.0(@opentelemetry/api@1.9.1))(kysely@0.29.9)':
     dependencies:
       injectkit: 1.7.1
       luxon: 3.7.2
@@ -14711,13 +14740,13 @@ snapshots:
       '@opentelemetry/resources': 2.12.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-metrics': 2.12.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace': 2.12.0(@opentelemetry/api@1.9.1)
-      kysely: 0.29.7
+      kysely: 0.29.9
 
-  '@maroonedsoftware/utilities@1.11.5': {}
+  '@maroonedsoftware/utilities@1.11.6': {}
 
-  '@maroonedsoftware/zod@0.8.0':
+  '@maroonedsoftware/zod@0.8.1':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/errors': 1.9.2
       zod: 4.6.7
 
   '@mdx-js/mdx@3.1.1':
@@ -15232,7 +15261,7 @@ snapshots:
     dependencies:
       '@peculiar/utils': 2.0.3
       asn1js: 3.1.0
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   '@peculiar/asn1-x509-attr@2.11.1':
     dependencies:
@@ -15250,18 +15279,18 @@ snapshots:
 
   '@peculiar/json-schema@1.1.12':
     dependencies:
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   '@peculiar/utils@2.0.3':
     dependencies:
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   '@peculiar/webcrypto@1.5.0':
     dependencies:
       '@peculiar/asn1-schema': 2.11.1
       '@peculiar/json-schema': 1.1.12
       pvtsutils: 1.3.6
-      tslib: 2.8.1
+      tslib: 2.9.1
       webcrypto-core: 1.9.2
 
   '@peculiar/x509@1.14.3':
@@ -15501,12 +15530,12 @@ snapshots:
     dependencies:
       '@types/node': 26.6.6
 
-  '@slack/types@3.2.0': {}
+  '@slack/types@3.3.1': {}
 
-  '@slack/web-api@8.2.0':
+  '@slack/web-api@8.5.0':
     dependencies:
       '@slack/logger': 5.0.0
-      '@slack/types': 3.2.0
+      '@slack/types': 3.3.1
       '@types/node': 26.6.6
       '@types/retry': 0.12.5
       eventemitter3: 5.0.4
@@ -15783,7 +15812,7 @@ snapshots:
 
   '@swc/helpers@0.5.23':
     dependencies:
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   '@swc/html-darwin-arm64@1.16.20':
     optional: true
@@ -16553,23 +16582,23 @@ snapshots:
 
   '@zip.js/zip.js@2.24.0': {}
 
-  '@zxcvbn-ts/core@4.2.0':
+  '@zxcvbn-ts/core@4.3.0':
     dependencies:
       fastest-levenshtein: 1.0.16
 
   '@zxcvbn-ts/dictionary-compression@3.0.1': {}
 
-  '@zxcvbn-ts/language-common@4.1.3':
+  '@zxcvbn-ts/language-common@4.2.0':
     dependencies:
       '@zxcvbn-ts/dictionary-compression': 3.0.1
 
-  '@zxcvbn-ts/language-en@4.1.1':
+  '@zxcvbn-ts/language-en@4.1.2':
     dependencies:
       '@zxcvbn-ts/dictionary-compression': 3.0.1
 
-  '@zxcvbn-ts/matcher-pwned@4.1.3':
+  '@zxcvbn-ts/matcher-pwned@4.1.4':
     dependencies:
-      '@zxcvbn-ts/core': 4.2.0
+      '@zxcvbn-ts/core': 4.3.0
 
   accepts@1.3.8:
     dependencies:
@@ -16768,13 +16797,13 @@ snapshots:
     dependencies:
       pvtsutils: 1.3.6
       pvutils: 1.2.0
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   asn1js@3.1.0:
     dependencies:
       pvtsutils: 1.3.6
       pvutils: 1.2.0
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   assertion-error@2.0.1: {}
 
@@ -16942,6 +16971,10 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
+  brace-expansion@5.0.13:
+    dependencies:
+      balanced-match: 4.0.4
+
   braces@3.0.3:
     dependencies:
       fill-range: 7.1.1
@@ -17036,21 +17069,21 @@ snapshots:
 
   caniuse-lite@1.0.30001820: {}
 
-  cbor-extract@2.2.2:
+  cbor-extract@2.2.3:
     dependencies:
       node-gyp-build-optional-packages: 5.1.1
     optionalDependencies:
-      '@cbor-extract/cbor-extract-darwin-arm64': 2.2.2
-      '@cbor-extract/cbor-extract-darwin-x64': 2.2.2
-      '@cbor-extract/cbor-extract-linux-arm': 2.2.2
-      '@cbor-extract/cbor-extract-linux-arm64': 2.2.2
-      '@cbor-extract/cbor-extract-linux-x64': 2.2.2
-      '@cbor-extract/cbor-extract-win32-x64': 2.2.2
+      '@cbor-extract/cbor-extract-darwin-arm64': 2.2.3
+      '@cbor-extract/cbor-extract-darwin-x64': 2.2.3
+      '@cbor-extract/cbor-extract-linux-arm': 2.2.3
+      '@cbor-extract/cbor-extract-linux-arm64': 2.2.3
+      '@cbor-extract/cbor-extract-linux-x64': 2.2.3
+      '@cbor-extract/cbor-extract-win32-x64': 2.2.3
     optional: true
 
-  cbor-x@1.6.8:
+  cbor-x@1.6.9:
     optionalDependencies:
-      cbor-extract: 2.2.2
+      cbor-extract: 2.2.3
 
   ccount@2.0.1: {}
 
@@ -17312,7 +17345,7 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
-  cron-parser@5.10.2:
+  cron-parser@5.10.6:
     dependencies:
       luxon: 3.7.2
 
@@ -18318,8 +18351,8 @@ snapshots:
       '@hexagon/base64': 2.0.4
       '@peculiar/webcrypto': 1.5.0
       asn1js: 3.0.10
-      cbor-x: 1.6.8
-      jose: 6.2.14
+      cbor-x: 1.6.9
+      jose: 6.2.18
       pkijs: 3.3.3
       punycode.js: 2.3.1
       tldts: 7.0.32
@@ -18510,9 +18543,9 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  glob@14.0.3:
+  glob@14.0.6:
     dependencies:
-      minimatch: 11.0.4
+      minimatch: 11.0.9
       minipass: 7.1.3
       path-scurry: 3.0.0
 
@@ -19213,6 +19246,8 @@ snapshots:
 
   jose@6.2.14: {}
 
+  jose@6.2.18: {}
+
   joycon@3.1.1: {}
 
   js-tokens@4.0.0: {}
@@ -19283,7 +19318,7 @@ snapshots:
       lodash.isstring: 4.0.1
       lodash.once: 4.1.1
       ms: 2.1.3
-      semver: 7.8.5
+      semver: 7.8.6
 
   jsx-ast-utils@3.3.5:
     dependencies:
@@ -19348,14 +19383,14 @@ snapshots:
       type-is: 2.1.0
       vary: 1.1.2
 
-  kysely-codegen@0.20.0(kysely@0.29.7)(pg@8.23.1)(typescript@6.0.3):
+  kysely-codegen@0.20.0(kysely@0.29.9)(pg@8.23.1)(typescript@6.0.3):
     dependencies:
       chalk: 4.1.2
       cosmiconfig: 9.0.2(typescript@6.0.3)
       diff: 8.0.4
       dotenv: 17.4.2
       dotenv-expand: 12.0.3
-      kysely: 0.29.7
+      kysely: 0.29.9
       micromatch: 4.0.8
       minimist: 1.2.8
       pluralize: 8.0.0
@@ -19365,7 +19400,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  kysely@0.29.7: {}
+  kysely@0.29.9: {}
 
   latest-version@7.0.0:
     dependencies:
@@ -20119,6 +20154,11 @@ snapshots:
       '@isaacs/nonrecursive-glob-match': 1.0.3
       brace-expansion: 5.0.12
 
+  minimatch@11.0.9:
+    dependencies:
+      '@isaacs/nonrecursive-glob-match': 1.1.0
+      brace-expansion: 5.0.13
+
   minimatch@3.1.5:
     dependencies:
       brace-expansion: 1.1.21
@@ -20252,11 +20292,13 @@ snapshots:
       schema-utils: 3.3.0
       webpack: 5.112.2(@swc/core@1.16.20(@swc/helpers@0.5.23))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.32))(esbuild@0.28.2)(html-minifier-terser@7.2.0)(postcss@8.5.32)
 
-  oauth4webapi@3.8.8: {}
+  oauth4webapi@3.8.9: {}
 
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
+
+  object-inspect@1.14.0: {}
 
   object-keys@1.1.1: {}
 
@@ -20325,10 +20367,10 @@ snapshots:
 
   opener@1.5.2: {}
 
-  openid-client@6.8.8:
+  openid-client@6.9.1:
     dependencies:
-      jose: 6.2.14
-      oauth4webapi: 3.8.8
+      jose: 6.2.18
+      oauth4webapi: 3.8.9
 
   optionator@0.9.4:
     dependencies:
@@ -20514,13 +20556,13 @@ snapshots:
 
   pathe@2.0.3: {}
 
-  pg-boss@12.38.0(@opentelemetry/api@1.9.1):
+  pg-boss@12.39.0(@opentelemetry/api@1.9.1):
     dependencies:
       '@opentelemetry/api': 1.9.1
-      cron-parser: 5.10.2
+      cron-parser: 5.10.6
       pg: 8.23.1
-      rrule-temporal: 2.2.8
-      serialize-error: 13.0.2
+      rrule-temporal: 2.3.0
+      serialize-error: 13.1.0
     transitivePeerDependencies:
       - pg-native
 
@@ -20586,7 +20628,7 @@ snapshots:
       bytestreamjs: 2.0.1
       pvtsutils: 1.3.6
       pvutils: 1.2.0
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   pkijs@3.4.3:
     dependencies:
@@ -21093,6 +21135,8 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
+  prettier@3.10.1: {}
+
   prettier@3.9.10: {}
 
   pretty-error@4.0.0:
@@ -21148,7 +21192,7 @@ snapshots:
 
   pvtsutils@1.3.6:
     dependencies:
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   pvutils@1.2.0: {}
 
@@ -21189,6 +21233,8 @@ snapshots:
   range-parser@1.3.0: {}
 
   rate-limiter-flexible@11.2.3: {}
+
+  rate-limiter-flexible@11.5.0: {}
 
   raw-body@2.5.3:
     dependencies:
@@ -21679,7 +21725,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  rrule-temporal@2.2.8:
+  rrule-temporal@2.3.0:
     dependencies:
       temporal-spec: 1.0.1
 
@@ -21778,6 +21824,8 @@ snapshots:
 
   semver@7.8.5: {}
 
+  semver@7.8.6: {}
+
   send@0.19.2:
     dependencies:
       debug: 2.6.9
@@ -21812,7 +21860,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serialize-error@13.0.2:
+  serialize-error@13.1.0:
     dependencies:
       non-error: 0.1.0
       type-fest: 5.10.0
@@ -21914,27 +21962,27 @@ snapshots:
   side-channel-list@1.0.1:
     dependencies:
       es-errors: 1.3.0
-      object-inspect: 1.13.4
+      object-inspect: 1.14.0
 
   side-channel-map@1.0.1:
     dependencies:
       call-bound: 1.0.4
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
-      object-inspect: 1.13.4
+      object-inspect: 1.14.0
 
   side-channel-weakmap@1.0.2:
     dependencies:
       call-bound: 1.0.4
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
-      object-inspect: 1.13.4
+      object-inspect: 1.14.0
       side-channel-map: 1.0.1
 
   side-channel@1.1.1:
     dependencies:
       es-errors: 1.3.0
-      object-inspect: 1.13.4
+      object-inspect: 1.14.0
       side-channel-list: 1.0.1
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
@@ -22323,6 +22371,8 @@ snapshots:
 
   tslib@2.8.1: {}
 
+  tslib@2.9.1: {}
+
   tsscmp@1.0.6: {}
 
   tsup@9.0.0(@swc/core@1.16.20(@swc/helpers@0.5.23))(jiti@2.7.0)(postcss@8.5.32)(typescript@6.0.3)(yaml@2.9.1):
@@ -22687,7 +22737,7 @@ snapshots:
       '@peculiar/json-schema': 1.1.12
       '@peculiar/utils': 2.0.3
       asn1js: 3.1.0
-      tslib: 2.8.1
+      tslib: 2.9.1
 
   webidl-conversions@8.0.1: {}
 

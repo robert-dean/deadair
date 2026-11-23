@@ -21,7 +21,7 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@maroonedsoftware/slack": "^3.3.2"
+        "@maroonedsoftware/slack": "^3.3.3"
     },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",

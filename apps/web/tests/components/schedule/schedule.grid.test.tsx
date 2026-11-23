@@ -88,9 +88,12 @@ describe('the timetable grid', () => {
             // the browser's date, and an operator a zone away saw the wrong column marked.
             const { container } = render(<WeekView date="2026-08-17" highlightToday getCurrentTime={() => '2026-08-21 10:00:00'} events={[]} />);
 
-            const labelled = [...container.querySelectorAll('[data-today][aria-label]')].map(marked => marked.getAttribute('aria-label'));
-            expect(labelled).not.toHaveLength(0);
-            expect(labelled.every(label => label?.includes('2026-08-21'))).toBe(true);
+            // Of the marked elements only the weekday header has text, the day of the month (its
+            // aria-label naming the date went in @mantine/schedule 9.8). The week runs 17 to 23, so 21
+            // is the station's Friday and nothing else in it.
+            const headers = [...container.querySelectorAll('[data-today]')].map(marked => marked.textContent ?? '').filter(Boolean);
+            expect(headers).toHaveLength(1);
+            expect(headers[0]).toMatch(/21$/);
         });
     });
 

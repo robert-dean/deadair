@@ -71,9 +71,11 @@ import { UsersModule } from './users/users.module.js';
 //   - Nothing that others depend on may close in its own position. `DataConnectionsModule` is the
 //     whole of that today: the pools have to outlive every module that writes during its own
 //     teardown, which now means registering ahead of `DataModule` rather than behind everything.
-//   - No hook may cost the ones after it their teardown, or the process its exit. That is
-//     `withBoundedShutdown` at the bottom of this file, and the reversal did not change it: the
-//     loop still catches nothing and bounds nothing.
+//   - No hook may cost the ones after it their teardown, or the process its exit. ServerKit now
+//     carries on past a hook that throws and puts one budget on the whole shutdown (set in
+//     `setup.server.ts`), which settles the exit. A hook that hangs would still spend that budget
+//     and skip everything after it, so `withBoundedShutdown` at the bottom of this file bounds each
+//     hook on its own.
 const ordered: ServerKitModule[] = [
     // First so it tears down LAST: its shutdown hook closes the process-level RotatingLogStore, and
     // every other module's shutdown logging has to be flushed through DeadairLogger before that
@@ -319,8 +321,8 @@ const ordered: ServerKitModule[] = [
 /**
  * The list as ServerKit gets it: same modules, same order, with every teardown bounded.
  *
- * Applied here rather than inside each hook because the guarantee is about the LIST — no module may
- * cost the ones that tear down after it their own teardown, and none may cost the process its exit.
- * A module added later gets it without knowing about it.
+ * Applied here rather than inside each hook because the guarantee is about the LIST: no module may
+ * cost the ones that tear down after it their own teardown. The process's exit is ServerKit's
+ * shutdown budget. A module added later gets both without knowing about them.
  */
 export const modules: ServerKitModule[] = ordered.map(module => withBoundedShutdown(module));

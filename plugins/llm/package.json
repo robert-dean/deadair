@@ -21,10 +21,10 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@ai-sdk/anthropic": "^4.0.91",
-        "@ai-sdk/google": "^4.0.107",
-        "@ai-sdk/openai-compatible": "^3.0.80",
-        "ai": "^7.0.156"
+        "@ai-sdk/anthropic": "^4.0.107",
+        "@ai-sdk/google": "^4.0.124",
+        "@ai-sdk/openai-compatible": "^3.0.94",
+        "ai": "^7.0.179"
     },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",
@@ -34,7 +34,7 @@
         "@deadair/plugin-sdk": "workspace:*",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "vitest": "^5.0.5",
+        "vitest": "^5.1.1",
         "zod": "^4.6.7"
     }
 }

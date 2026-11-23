@@ -21,7 +21,7 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@maroonedsoftware/slack": "^3.3.2"
+        "@maroonedsoftware/slack": "^3.3.3"
     },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",
@@ -31,7 +31,7 @@
         "@deadair/plugin-sdk": "workspace:*",
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "vitest": "^5.0.5",
+        "vitest": "^5.1.1",
         "zod": "^4.6.7"
     }
 }

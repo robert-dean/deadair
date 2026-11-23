@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-deezer",
-    "version": "0.105.4",
+    "version": "0.106.0",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

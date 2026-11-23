@@ -88,4 +88,18 @@ describe('search_api', () => {
     it('refuses a name that is no operation', async () => {
         expect((await search({ name: 'launch_the_rockets' })).result.isError).toBe(true);
     });
+
+    it('suggests the operation a near miss meant', async () => {
+        const { result, body } = await search({ name: 'list_album' });
+
+        expect(result.isError).toBe(true);
+        expect(body.suggestions).toContain('list_albums');
+        expect((result.content[0] as { text: string }).text).toMatch(/Did you mean .*list_albums/);
+    });
+
+    it('never suggests what this grant would be refused', async () => {
+        const { body } = await search({ name: 'skip_the_current_itm' }, VIEWER);
+
+        expect(body.suggestions).not.toContain('skip_the_current_item');
+    });
 });

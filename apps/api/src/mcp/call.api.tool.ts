@@ -2,7 +2,9 @@ import { Injectable } from 'injectkit';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { getOAuthSessionClaim } from '@maroonedsoftware/authentication';
 import { requireMcpAuthenticationSession, type McpToolContext, type McpToolHandler } from '@maroonedsoftware/mcp';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { McpToolCatalog } from './mcp.tools.js';
+import { catalogEntries, closestNames, didYouMean, mayUse, type CatalogEntry } from './api.catalog.js';
 
 export const CALL_API_TOOL = 'call_api';
 
@@ -46,15 +48,32 @@ export class CallApiTool implements McpToolHandler {
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     };
 
+    private entries?: CatalogEntry[];
+
     constructor(private readonly catalog: McpToolCatalog) {}
+
+    /**
+     * A name that is no operation, answered with the closest ones this caller may use, so a near miss
+     * (`list_album`) costs the model one corrected call rather than a search first. Only operations the
+     * caller's role and grant allow are suggested, as `search_api` offers only those.
+     */
+    private unknown(name: string, context: McpToolContext): CallToolResult {
+        const actor = context.container?.get(AuthorizationContext).requireUser();
+        this.entries ??= catalogEntries(this.catalog.values());
+        const usable = actor === undefined ? [] : this.entries.filter(entry => mayUse(actor, entry.access));
+        const suggestions = name === '' ? [] : closestNames(usable, name);
+        return {
+            isError: true,
+            content: [{ type: 'text', text: `No operation is called ${name || '(no name)'}.${didYouMean(suggestions)} Use search_api to find one.` }],
+            structuredContent: { suggestions },
+        };
+    }
 
     async handle(args: Json, context: McpToolContext): Promise<CallToolResult> {
         const session = requireMcpAuthenticationSession(context);
         const name = typeof args.name === 'string' ? args.name : '';
         const handler = this.catalog.get(name);
-        if (!handler) {
-            return { isError: true, content: [{ type: 'text', text: `No operation is called ${name || '(no name)'}. Use search_api to find one.` }] };
-        }
+        if (!handler) return this.unknown(name, context);
 
         const started = Date.now();
         const result = await handler.handle(isObject(args.arguments) ? args.arguments : {}, { ...context, toolName: name });

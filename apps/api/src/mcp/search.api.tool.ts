@@ -3,7 +3,7 @@ import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { requireMcpAuthenticationSession, type McpToolContext, type McpToolHandler } from '@maroonedsoftware/mcp';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { McpToolCatalog } from './mcp.tools.js';
-import { catalogEntries, mayUse, searchCatalog, SEARCH_LIMIT, type CatalogEntry } from './api.catalog.js';
+import { catalogEntries, closestNames, didYouMean, mayUse, searchCatalog, SEARCH_LIMIT, type CatalogEntry } from './api.catalog.js';
 
 export const SEARCH_API_TOOL = 'search_api';
 
@@ -52,7 +52,13 @@ export class SearchApiTool implements McpToolHandler {
 
         if (typeof args.name === 'string') {
             const entry = usable.find(candidate => candidate.name === args.name);
-            if (!entry) return failure(`No operation this app may use is called ${args.name}. Search without a name to see what is available.`);
+            if (!entry) {
+                const suggestions = closestNames(usable, args.name);
+                return failure(
+                    `No operation this app may use is called ${args.name}.${didYouMean(suggestions)} Search without a name to see what is available.`,
+                    suggestions,
+                );
+            }
             return answer(detailOf(entry));
         }
 
@@ -103,4 +109,8 @@ const answer = (result: Record<string, unknown>): CallToolResult => ({
     structuredContent: result,
 });
 
-const failure = (text: string): CallToolResult => ({ isError: true, content: [{ type: 'text', text }] });
+const failure = (text: string, suggestions: ReadonlyArray<string>): CallToolResult => ({
+    isError: true,
+    content: [{ type: 'text', text }],
+    structuredContent: { suggestions: [...suggestions] },
+});

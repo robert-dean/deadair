@@ -138,6 +138,24 @@ describe('call_api', () => {
         }
     });
 
+    it('suggests the closest names this grant may use when a name is wrong', async () => {
+        const viewer = contextFor(['view']).context;
+        const manager = contextFor(['view', 'manage']).context;
+
+        const near = await tool.handle({ name: 'list_album' }, viewer);
+        expect(near.isError).toBe(true);
+        expect((near.structuredContent as { suggestions: string[] }).suggestions).toContain('list_albums');
+        expect(text(near)).toMatch(/Did you mean .*list_albums.*Use search_api/);
+
+        const skip = 'skip_current_item';
+        expect((await tool.handle({ name: skip }, manager)).structuredContent).toMatchObject({
+            suggestions: expect.arrayContaining(['skip_the_current_item']),
+        });
+        expect((await tool.handle({ name: skip }, viewer)).structuredContent).not.toMatchObject({
+            suggestions: expect.arrayContaining(['skip_the_current_item']),
+        });
+    });
+
     it('logs every call once, with the grant and how it went', async () => {
         const { context, info } = contextFor(['view']);
 

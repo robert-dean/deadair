@@ -5,7 +5,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { McpToolCatalog, registerMcpCatalog } from '../../src/mcp/mcp.tools.js';
-import { accessOf, catalogEntries, mayUse, SEARCH_LIMIT, searchCatalog, SECURITY_META, type CatalogEntry } from '../../src/mcp/api.catalog.js';
+import {
+    accessOf,
+    catalogEntries,
+    closestNames,
+    mayUse,
+    SEARCH_LIMIT,
+    searchCatalog,
+    SECURITY_META,
+    type CatalogEntry,
+} from '../../src/mcp/api.catalog.js';
 import type { UserActor } from '../../src/modules/permissions/authorization.context.js';
 
 /** The generated tools resolve everything per call, so each is built with nothing. */
@@ -122,5 +131,21 @@ describe('searchCatalog', () => {
     it('weighs argument names, so an operation is found by what it takes', () => {
         const withSearch = (entry: CatalogEntry) => entry.fields.includes('search');
         expect(searchCatalog(entries, { query: 'search' }).results.some(withSearch)).toBe(true);
+    });
+});
+
+describe('closestNames', () => {
+    it('finds the operation a misspelt name meant', () => {
+        expect(closestNames(entries, 'list_album')[0]).toBe('list_albums');
+        expect(closestNames(entries, 'skip_current_item')).toContain('skip_the_current_item');
+        expect(closestNames(entries, 'lsit_albums')[0]).toBe('list_albums');
+    });
+
+    it('ignores filler words, so a name made of them suggests nothing', () => {
+        expect(closestNames(entries, 'the_one_for_it')).toEqual([]);
+    });
+
+    it('answers at most three', () => {
+        expect(closestNames(entries, 'list').length).toBeLessThanOrEqual(3);
     });
 });

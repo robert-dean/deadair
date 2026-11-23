@@ -438,6 +438,15 @@ once at `info` (`mcp: call_api`, with the operation, the grant, `ok` or `refused
 is what the listed set is meant to be grown from: an operation called through here often enough
 deserves an `mcp` block of its own.
 
+**A name that is no operation is answered with the names it most likely meant**, by `search_api` and
+`call_api` alike (`closestNames` in `src/mcp/api.catalog.ts`, at most three, under `suggestions` and in
+the text). Two signals, because each misses what the other catches: the typed name's words scored as a
+search scores them, which finds `skip_the_current_item` from `skip_current_item`, and the edit distance
+of the whole name, which ranks `list_albums` above `list_album_tracks` for `list_album` (the second
+shares every word and more) and still finds `lsit_albums`, which shares none. Only what the caller may
+use is suggested, on the same `mayUse` the index is filtered by, so a view grant is never pointed at an
+operation it would be refused.
+
 **What the model is told before it calls anything is `src/mcp/station.instructions.ts`.** One text,
 sent as `instructions` at `initialize` and opening the answer of the `help` tool, because a client may
 ignore the first and every client exposes tools. It says how the listed tools, `search_api` and

@@ -124,6 +124,62 @@ export interface SearchOptions {
     limit?: number;
 }
 
+/** The most names a miss suggests. */
+export const SUGGESTION_LIMIT = 3;
+
+/** Words in an operation name that say nothing about which one it is. */
+const FILLER = new Set(['the', 'an', 'to', 'of', 'for', 'on', 'in', 'and', 'or', 'by', 'from', 'with', 'my', 'it', 'its', 'this', 'that', 'one']);
+
+/**
+ * How much a name's closeness counts against shared words. A search word scores up to six (name and
+ * description), and an operation like `list_album_tracks` shares every word of `list_album` and then
+ * some through its description and arguments, so closeness has to be able to outweigh a couple of those.
+ */
+const CLOSENESS_WEIGHT = 10;
+
+/** How many single-character edits turn one string into the other. */
+export function editDistance(a: string, b: string): number {
+    let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+        const current = [i];
+        for (let j = 1; j <= b.length; j++) {
+            current[j] = Math.min(previous[j]! + 1, current[j - 1]! + 1, previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+        }
+        previous = current;
+    }
+    return previous[b.length]!;
+}
+
+/**
+ * The operations a name that matched none most likely meant, best first. Two signals, because each
+ * misses what the other catches: the name's words scored as a search would score them, so
+ * `skip_current_item` finds `skip_the_current_item`, and how close the whole name is, so `list_album`
+ * ranks `list_albums` above `list_album_tracks` (which shares as many words) and `lsit_albums`, which
+ * shares none, is still found. Filler words are dropped first, or `launch_the_rockets` would suggest
+ * every operation whose description says "the". Empty when nothing is near.
+ */
+export function closestNames(entries: ReadonlyArray<CatalogEntry>, name: string, limit = SUGGESTION_LIMIT): string[] {
+    const typed = name.toLowerCase();
+    const query = words(typed).filter(word => !FILLER.has(word));
+    return entries
+        .map(entry => {
+            const distance = editDistance(typed, entry.name);
+            const closeness = 1 - distance / Math.max(typed.length, entry.name.length, 1);
+            const near = distance <= Math.max(2, Math.floor(typed.length / 5));
+            const shared = query.length === 0 ? 0 : scoreEntry(entry, query);
+            return { name: entry.name, score: shared + CLOSENESS_WEIGHT * closeness, keep: shared > 0 || near };
+        })
+        .filter(scored => scored.keep)
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+        .slice(0, limit)
+        .map(scored => scored.name);
+}
+
+/** "Did you mean ...?", or nothing when there is nothing to suggest. */
+export function didYouMean(suggestions: ReadonlyArray<string>): string {
+    return suggestions.length === 0 ? '' : ` Did you mean ${suggestions.join(', ')}?`;
+}
+
 /** The best matches for a query, or every entry by name when there is none, with the total before the limit. */
 export function searchCatalog(entries: ReadonlyArray<CatalogEntry>, options: SearchOptions): { total: number; results: CatalogEntry[] } {
     const query = words(options.query ?? '');

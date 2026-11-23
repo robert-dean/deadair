@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.106.0] — 2026-11-23
+
+- An app connected over MCP that searches the station's API with nothing in particular in mind now gets a map of it: every area (the running order, personas, playlists, playout and the rest) with how many operations each holds, instead of the first 25 operations in alphabetical order. It can then list one area, or narrow it with a few words.
+- An app connected over MCP (Claude, say) now gets the names it most likely meant when it asks for an operation that does not exist, so a near miss like `list_album` costs it one corrected call rather than a fresh search. It also suggests only what the connection is allowed to use. `call_api` can now run up to five reads in one call, under `calls`, so a question like "what's on, what's next and what's queued" no longer takes a round trip for each part. A batch with anything that changes the station in it is refused before any of it runs, so every change is still confirmed on its own.
+
 ## [0.105.4] — 2026-11-22
 
 - A talk break that says the record which just finished is "next" ("Ghost is next", "Madhouse is up next") is now refused before it airs, and the station's own phrasing takes its place. Until now the check that stops a break announcing the wrong record only read the cue when it came before the name ("next is Ghost"), so the presenter could introduce the previous song as the coming one.
@@ -2138,7 +2143,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.105.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.106.0...HEAD
+[0.106.0]: https://github.com/robert-dean/deadair/compare/v0.105.4...v0.106.0
 [0.105.4]: https://github.com/robert-dean/deadair/compare/v0.105.3...v0.105.4
 [0.105.3]: https://github.com/robert-dean/deadair/compare/v0.105.2...v0.105.3
 [0.105.2]: https://github.com/robert-dean/deadair/compare/v0.105.1...v0.105.2

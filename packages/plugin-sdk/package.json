@@ -55,11 +55,11 @@
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "vitest": "^5.0.5",
+        "vitest": "^5.1.1",
         "zod": "^4.6.7"
     },
     "dependencies": {
-        "fast-xml-parser": "^5.12.0"
+        "fast-xml-parser": "^5.12.1"
     },
     "publishConfig": {
         "access": "public"

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.106.1] — 2026-11-23
+
+- Stopping or restarting the station now takes at most 30 seconds, whatever a part of it is stuck on, and a part that fails while shutting down is logged once instead of also being reported as one that ran out of time. An unexpected error in the moments before the station starts listening is now reported only in the container's own log, and no longer in `logs/`.
+
 ## [0.106.0] — 2026-11-23
 
 - An app connected over MCP that searches the station's API with nothing in particular in mind now gets a map of it: every area (the running order, personas, playlists, playout and the rest) with how many operations each holds, instead of the first 25 operations in alphabetical order. It can then list one area, or narrow it with a few words.
@@ -2143,7 +2147,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.106.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.106.1...HEAD
+[0.106.1]: https://github.com/robert-dean/deadair/compare/v0.106.0...v0.106.1
 [0.106.0]: https://github.com/robert-dean/deadair/compare/v0.105.4...v0.106.0
 [0.105.4]: https://github.com/robert-dean/deadair/compare/v0.105.3...v0.105.4
 [0.105.3]: https://github.com/robert-dean/deadair/compare/v0.105.2...v0.105.3

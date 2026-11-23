@@ -5,7 +5,19 @@
 import { describe, expect, it } from 'vitest';
 
 import { McpToolCatalog, registerMcpCatalog } from '../../src/mcp/mcp.tools.js';
-import { accessOf, catalogEntries, mayUse, SEARCH_LIMIT, searchCatalog, SECURITY_META, type CatalogEntry } from '../../src/mcp/api.catalog.js';
+import {
+    AREA_META,
+    accessOf,
+    catalogAreas,
+    catalogEntries,
+    closestAreas,
+    closestNames,
+    mayUse,
+    SEARCH_LIMIT,
+    searchCatalog,
+    SECURITY_META,
+    type CatalogEntry,
+} from '../../src/mcp/api.catalog.js';
 import type { UserActor } from '../../src/modules/permissions/authorization.context.js';
 
 /** The generated tools resolve everything per call, so each is built with nothing. */
@@ -122,5 +134,53 @@ describe('searchCatalog', () => {
     it('weighs argument names, so an operation is found by what it takes', () => {
         const withSearch = (entry: CatalogEntry) => entry.fields.includes('search');
         expect(searchCatalog(entries, { query: 'search' }).results.some(withSearch)).toBe(true);
+    });
+});
+
+describe('closestNames', () => {
+    it('finds the operation a misspelt name meant', () => {
+        expect(closestNames(entries, 'list_album')[0]).toBe('list_albums');
+        expect(closestNames(entries, 'skip_current_item')).toContain('skip_the_current_item');
+        expect(closestNames(entries, 'lsit_albums')[0]).toBe('list_albums');
+    });
+
+    it('ignores filler words, so a name made of them suggests nothing', () => {
+        expect(closestNames(entries, 'the_one_for_it')).toEqual([]);
+    });
+
+    it('answers at most three', () => {
+        expect(closestNames(entries, 'list').length).toBeLessThanOrEqual(3);
+    });
+});
+
+describe('catalogAreas', () => {
+    const stamped = (entry: CatalogEntry, area: string): CatalogEntry => ({ ...entry, area });
+
+    it('is empty for a catalog generated without areas, which is what makes search fall back to names', () => {
+        expect(catalogAreas(entries.map(entry => ({ ...entry, area: undefined })))).toEqual([]);
+    });
+
+    it('counts each area and its reads, by name', () => {
+        const albums = byName.get('list_albums')!;
+        const skip = byName.get('skip_the_current_item')!;
+        expect(catalogAreas([stamped(skip, 'playout'), stamped(albums, 'catalog'), stamped(albums, 'catalog')])).toEqual([
+            { area: 'catalog', operations: 2, reads: 2 },
+            { area: 'playout', operations: 1, reads: 0 },
+        ]);
+    });
+
+    it('reads the area ContractKit stamps on a definition', () => {
+        const albums = byName.get('list_albums')!;
+        const definition = { ...albums.definition, _meta: { ...albums.definition._meta, [AREA_META]: 'catalog' } };
+        expect(catalogEntries([{ definition, handle: async () => ({ content: [] }) }])[0]!.area).toBe('catalog');
+    });
+
+    it('suggests the area a misspelt one meant', () => {
+        const areas = [
+            { area: 'playlists', operations: 1, reads: 1 },
+            { area: 'playout', operations: 1, reads: 1 },
+        ];
+        expect(closestAreas(areas, 'playlist')[0]).toBe('playlists');
+        expect(closestAreas(areas, 'zyzzyva')).toEqual([]);
     });
 });

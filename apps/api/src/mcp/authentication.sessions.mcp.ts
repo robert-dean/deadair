@@ -29,7 +29,7 @@ export class ReadSessionMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ReadSessionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(AuthSession, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'authentication' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

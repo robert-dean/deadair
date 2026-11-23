@@ -32,7 +32,7 @@ export class ReadTheTalkDirectionMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ReadTheTalkDirectionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(TalkDirectionReading, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'director' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -55,7 +55,7 @@ export class DirectThePresentersMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(DirectThePresentersArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(TalkDirectionReading, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'director' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -78,7 +78,7 @@ export class StopDirectingThePresentersMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(StopDirectingThePresentersArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(TalkDirectionReading, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'director' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

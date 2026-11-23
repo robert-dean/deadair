@@ -10,7 +10,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { explainToolErrors, type McpToolContext } from '@maroonedsoftware/mcp';
 import { PolicyService } from '@maroonedsoftware/policies';
 
-import { CallApiTool, RESULT_CHAR_LIMIT, shape } from '../../src/mcp/call.api.tool.js';
+import { BATCH_LIMIT, CallApiTool, RESULT_CHAR_LIMIT, shape } from '../../src/mcp/call.api.tool.js';
 import { McpToolCatalog, registerMcpCatalog } from '../../src/mcp/mcp.tools.js';
 import { AuthorizationContext, type UserActor } from '../../src/modules/permissions/authorization.context.js';
 import { PlatformManagePolicy, PlatformViewPolicy, type RequirePolicyContext } from '../../src/modules/policy/policy.mappings.js';
@@ -138,6 +138,24 @@ describe('call_api', () => {
         }
     });
 
+    it('suggests the closest names this grant may use when a name is wrong', async () => {
+        const viewer = contextFor(['view']).context;
+        const manager = contextFor(['view', 'manage']).context;
+
+        const near = await tool.handle({ name: 'list_album' }, viewer);
+        expect(near.isError).toBe(true);
+        expect((near.structuredContent as { suggestions: string[] }).suggestions).toContain('list_albums');
+        expect(text(near)).toMatch(/Did you mean .*list_albums.*Use search_api/);
+
+        const skip = 'skip_current_item';
+        expect((await tool.handle({ name: skip }, manager)).structuredContent).toMatchObject({
+            suggestions: expect.arrayContaining(['skip_the_current_item']),
+        });
+        expect((await tool.handle({ name: skip }, viewer)).structuredContent).not.toMatchObject({
+            suggestions: expect.arrayContaining(['skip_the_current_item']),
+        });
+    });
+
     it('logs every call once, with the grant and how it went', async () => {
         const { context, info } = contextFor(['view']);
 
@@ -148,6 +166,67 @@ describe('call_api', () => {
             { operation: 'get_album', grantId: 'g-1', outcome: 'ok', ms: 0 },
             { operation: 'skip_the_current_item', grantId: 'g-1', outcome: 'refused', ms: 0 },
         ]);
+    });
+});
+
+describe('call_api with several reads', () => {
+    type Batch = { results: Array<{ name: string; ok: boolean; answer?: unknown; error?: string; suggestions?: string[] }> };
+
+    it('runs each read and answers each on its own, a refusal beside a success', async () => {
+        const { context, stubs } = contextFor(['view']);
+
+        const result = await tool.handle(
+            {
+                calls: [{ name: 'list_plugins', fields: ['id'] }, { name: 'get_album', arguments: { id: 'not-an-album' } }, { name: 'list_album' }],
+            },
+            context,
+        );
+        const { results } = result.structuredContent as Batch;
+
+        expect(result.isError).toBeUndefined();
+        expect(results[0]).toEqual({ name: 'list_plugins', ok: true, answer: { items: [{ id: 'deadair.lastfm' }] } });
+        expect(results[1]).toMatchObject({ name: 'get_album', ok: false, error: expect.stringMatching(/^The arguments were not valid/) });
+        expect(results[2]).toMatchObject({ name: 'list_album', ok: false, suggestions: expect.arrayContaining(['list_albums']) });
+        expect(stubs.AlbumsService.getAlbum).not.toHaveBeenCalled();
+    });
+
+    it('refuses a batch with a write in it before running any of it', async () => {
+        const { context, stubs } = contextFor(['view', 'manage']);
+
+        const result = await tool.handle({ calls: [{ name: 'list_plugins' }, { name: 'skip_the_current_item' }] }, context);
+
+        expect(result.isError).toBe(true);
+        expect(text(result)).toMatch(/skip_the_current_item changes the station/);
+        expect(stubs.PluginsService.listPlugins).not.toHaveBeenCalled();
+        expect(stubs.PlayoutService.skip).not.toHaveBeenCalled();
+    });
+
+    it(`refuses more than ${BATCH_LIMIT}, and an empty batch`, async () => {
+        const { context, stubs } = contextFor(['view']);
+
+        const many = await tool.handle({ calls: Array.from({ length: BATCH_LIMIT + 1 }, () => ({ name: 'list_plugins' })) }, context);
+        expect(many.isError).toBe(true);
+        expect((await tool.handle({ calls: [] }, context)).isError).toBe(true);
+        expect(stubs.PluginsService.listPlugins).not.toHaveBeenCalled();
+    });
+
+    it('shares the size ceiling, so a batch costs no more context than one call', async () => {
+        const long = { items: Array.from({ length: 2000 }, (_, n) => ({ id: `track-${n}`, title: `A title long enough to add up ${n}` })) };
+        const stubs = { ...services(), PluginsService: { listPlugins: vi.fn(async () => long.items) } } as unknown as ReturnType<typeof services>;
+        const { context } = contextFor(['view'], stubs);
+
+        const result = await tool.handle({ calls: [{ name: 'list_plugins' }, { name: 'list_plugins' }] }, context);
+
+        expect(text(result).length).toBeLessThanOrEqual(RESULT_CHAR_LIMIT + 500);
+        expect((result.structuredContent as Batch).results.every(entry => entry.ok)).toBe(true);
+    });
+
+    it('logs each read it ran', async () => {
+        const { context, info } = contextFor(['view']);
+
+        await tool.handle({ calls: [{ name: 'list_plugins' }, { name: 'list_albums' }] }, context);
+
+        expect(info.mock.calls.map(([, fields]) => (fields as { operation: string }).operation)).toEqual(['list_plugins', 'list_albums']);
     });
 });
 

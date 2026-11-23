@@ -52,7 +52,7 @@ export class ListPluginsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListPluginsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(z.object({ items: z.array(PluginSummary) }), { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -75,7 +75,7 @@ export class ListPluginGrantsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListPluginGrantsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginGrantList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -97,7 +97,7 @@ export class ListCapabilityProvidersMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListCapabilityProvidersArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ProviderCatalogue, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -119,7 +119,7 @@ export class RescanPluginsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(RescanPluginsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(z.object({ items: z.array(PluginSummary) }), { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -142,7 +142,7 @@ export class GetPluginMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(GetPluginArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -165,7 +165,7 @@ export class EnablePluginMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(EnablePluginArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -188,7 +188,7 @@ export class DisablePluginMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(DisablePluginArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -211,7 +211,7 @@ export class ReloadPluginMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ReloadPluginArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -234,7 +234,7 @@ export class TestPluginConnectionMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(TestPluginConnectionArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginTestResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -257,7 +257,7 @@ export class SuggestPluginConfigOptionsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(SuggestPluginConfigOptionsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginFieldSuggestions, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -280,7 +280,7 @@ export class GetPluginLogsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(GetPluginLogsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginLogPage, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -303,7 +303,7 @@ export class SetPluginLogLevelMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(SetPluginLogLevelArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PluginDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'plugins' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

@@ -53,7 +53,7 @@ export class ListShowsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListShowsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationShowList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -75,7 +75,7 @@ export class SearchPodcastDirectoryMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(SearchPodcastDirectoryArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationDirectoryPage, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -101,7 +101,7 @@ export class ListEpisodesMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListEpisodesArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationEpisodePage, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -124,7 +124,7 @@ export class FetchEpisodeMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(FetchEpisodeArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationEpisode, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -146,7 +146,7 @@ export class RefreshPodcastsMcpTool implements McpToolHandler {
         description: "Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh",
         inputSchema: z.toJSONSchema(RefreshPodcastsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -168,7 +168,7 @@ export class ListOwnShowsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListOwnShowsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(OwnShowList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -190,7 +190,7 @@ export class CreateOwnShowMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(CreateOwnShowArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(OwnShow, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -213,7 +213,7 @@ export class UpdateOwnShowMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(UpdateOwnShowArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(OwnShow, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -235,7 +235,7 @@ export class DeleteOwnShowMcpTool implements McpToolHandler {
         description: 'Removes a show. Its episodes stay on the Productions page, no longer filed under it',
         inputSchema: z.toJSONSchema(DeleteOwnShowArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -258,7 +258,7 @@ export class ListOwnShowEpisodesMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListOwnShowEpisodesArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ProductionList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -281,7 +281,7 @@ export class RequestOwnShowEpisodeMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(RequestOwnShowEpisodeArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(Production, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'podcasts' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

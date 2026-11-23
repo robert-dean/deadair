@@ -48,7 +48,7 @@ export class GetPlayoutStatusMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(GetPlayoutStatusArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'playout' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -71,7 +71,7 @@ export class PlayAPlaylistMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(PlayAPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -95,7 +95,7 @@ export class PlayAStationPlaylistMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(PlayAStationPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -119,7 +119,7 @@ export class PlayAnAlbumMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(PlayAnAlbumArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -143,7 +143,7 @@ export class PlayAChartMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(PlayAChartArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -167,7 +167,7 @@ export class SkipTheCurrentItemMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(SkipTheCurrentItemArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -194,7 +194,7 @@ export class StartPlayoutMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(StartPlayoutArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -217,7 +217,7 @@ export class StopPlayoutMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(StopPlayoutArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -240,7 +240,7 @@ export class ArmTheLiveInputMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ArmTheLiveInputArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -263,7 +263,7 @@ export class DisarmTheLiveInputMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(DisarmTheLiveInputArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playout' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

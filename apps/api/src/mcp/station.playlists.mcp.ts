@@ -47,7 +47,7 @@ export class ListStationPlaylistsMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ListStationPlaylistsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationPlaylistList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -69,7 +69,7 @@ export class GetStationPlaylistMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(GetStationPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationPlaylistDetail, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -92,7 +92,7 @@ export class UpdateStationPlaylistMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(UpdateStationPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(StationPlaylist, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -114,7 +114,7 @@ export class DeleteStationPlaylistMcpTool implements McpToolHandler {
         description: 'Deletes a station playlist. The records it named stay in the library',
         inputSchema: z.toJSONSchema(DeleteStationPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -137,7 +137,7 @@ export class FillStationPlaylistMcpTool implements McpToolHandler {
             'Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went',
         inputSchema: z.toJSONSchema(FillStationPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -160,7 +160,7 @@ export class ExportStationPlaylistMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ExportStationPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlaylistFile, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.view' } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -183,7 +183,7 @@ export class PreviewPlaylistImportMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(PreviewPlaylistImportArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlaylistImportPlan, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
@@ -206,7 +206,7 @@ export class ImportPlaylistMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ImportPlaylistArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlaylistImportResult, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: 'platform.manage' } },
+        _meta: { 'contractkit/security': { policy: 'platform.manage' }, 'contractkit/area': 'playlists' },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

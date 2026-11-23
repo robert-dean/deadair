@@ -412,9 +412,10 @@ not an `HttpError` still fails the protocol.
 **Every other operation is one search away, not one listing away.** About two hundred operations
 would cost every conversation the whole API in `tools/list` before it asked anything, so only a
 handful are listed. `catalog: true` generates a handler for every operation a tool can serve, held
-apart from the listed ones as `McpToolCatalog`, and `search_api` reaches them in two modes: a query
-answers a compact index of at most 25 (the name, one sentence, whether it reads or changes something,
-and the tier it needs), and a name answers that one operation in full with its argument schema. The
+apart from the listed ones as `McpToolCatalog`, and `search_api` reaches them in three modes: nothing
+answers the map of areas (below), a query or an area answers a compact index of at most 25 (the name,
+one sentence, whether it reads or changes something, and the tier it needs), and a name answers that
+one operation in full with its argument schema. The
 index is filtered to what the caller may actually use, their role AND their grant (`mayUse` in
 `src/mcp/api.catalog.ts`), so a view grant is never offered something it would be refused. Everything
 it says comes from the generated definitions themselves: the description, the hints, and the policy
@@ -424,6 +425,17 @@ its contract: signing in and credentials, connected apps and their consent, firs
 and fetcher sign-in and configuration, station settings (which hold sign-in providers), log files
 (which can hold the bridge secret), and the two long model calls, which run outside the request
 transaction over HTTP and would hold a pooled connection for minutes here.
+
+**Searching with nothing answers the map of the API, not its first page.** Each generated tool
+carries its contract's `area` in `_meta['contractkit/area']`, which `@contractkit/plugin-typescript`
+writes from 0.44.0 (the floor `apps/api/package.json` pins) beside the security entry, and `search_api` with no query, area or name answers every area the caller may use
+something in, with how many operations it holds and how many of those only read (`catalogAreas`):
+about 1,300 characters for the whole station, where the old answer was the first 25 of 273 operations
+in alphabetical order. `area` then lists one area's operations, and combines with `query` to narrow
+it, and a misspelt area is answered with the closest ones. The counts are filtered by `mayUse` like
+everything else here, so a view grant sees a smaller `playout`. A catalog generated before the area
+was reported carries none, and an empty search then falls back to listing operations by name, which is
+why the tests build their area fixtures from the per-contract registrations rather than assuming it.
 
 **`call_api` runs what `search_api` found, through the same handler a listed tool would be.** It
 looks the name up in `McpToolCatalog` and calls the generated handler with the caller's context, so
@@ -437,6 +449,24 @@ description tells the model to confirm before an operation whose index entry is.
 once at `info` (`mcp: call_api`, with the operation, the grant, `ok` or `refused`, and the time), which
 is what the listed set is meant to be grown from: an operation called through here often enough
 deserves an `mcp` block of its own.
+
+**Several reads go in one `call_api`, and a change never does.** `calls` takes up to five `{ name,
+arguments, fields }`, because "what is on, what is next and what is queued" is three round trips
+otherwise. The whole batch is checked before any of it runs: more than five, or any operation whose
+entry is not read-only, refuses it, since a batch with a write in it would turn "confirm before anything
+destructive" into one yes for several changes. Each read answers on its own (`{ name, ok, answer }` or
+`{ name, ok: false, error }`, with suggestions for a wrong name), they run one after another because
+they share the request's one transaction, and they split the 12,000-character ceiling between them, so a
+batch costs no more context than a single call may. Each read is logged as a single call is.
+
+**A name that is no operation is answered with the names it most likely meant**, by `search_api` and
+`call_api` alike (`closestNames` in `src/mcp/api.catalog.ts`, at most three, under `suggestions` and in
+the text). Two signals, because each misses what the other catches: the typed name's words scored as a
+search scores them, which finds `skip_the_current_item` from `skip_current_item`, and the edit distance
+of the whole name, which ranks `list_albums` above `list_album_tracks` for `list_album` (the second
+shares every word and more) and still finds `lsit_albums`, which shares none. Only what the caller may
+use is suggested, on the same `mayUse` the index is filtered by, so a view grant is never pointed at an
+operation it would be refused.
 
 **What the model is told before it calls anything is `src/mcp/station.instructions.ts`.** One text,
 sent as `instructions` at `initialize` and opening the answer of the `help` tool, because a client may

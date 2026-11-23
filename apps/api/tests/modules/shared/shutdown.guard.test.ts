@@ -41,6 +41,16 @@ describe('withBoundedShutdown', () => {
         expect(finished).toEqual(['Data', 'Playout', 'Logging']);
     });
 
+    it('reports a hook that threw once, as a failure and not as one that ran out of time', async () => {
+        const warn = vi.mocked(logger.warn);
+        warn.mockClear();
+        const modules: ServerKitModule[] = [{ name: 'Data', shutdown: async () => void (await Promise.reject(new Error('redis went away'))) }];
+
+        await shutdownAll(wrap(modules));
+
+        expect(warn.mock.calls.map(([line]) => line)).toEqual(['shutdown: Data failed to tear down (redis went away)']);
+    });
+
     it('gives up on one that never settles, which is the case that would not exit', async () => {
         const stopped: string[] = [];
         const modules: ServerKitModule[] = [

@@ -58,15 +58,18 @@ export function withBoundedShutdown(module: ServerKitModule, budgetMs = SHUTDOWN
             // logger captured at wrap time would be the one from before the container was built.
             const logger = loggerFor(container);
             const overran = Symbol('overran');
+            const failed = Symbol('failed');
             const deadline = expire(budgetMs, overran);
 
             try {
                 // The `catch` is on the hook's own promise as well as on the race, because an
                 // abandoned hook that rejects LATER has nobody left awaiting it, and an unhandled
-                // rejection during shutdown is a crash where a clean exit was one line away.
+                // rejection during shutdown is a crash where a clean exit was one line away. It
+                // answers its own token, not `overran`, or a hook that threw would also be reported
+                // as one that ran out of time.
                 const running = hook(container).catch((error: unknown) => {
                     logger?.warn(`shutdown: ${label} failed to tear down (${errorText(error)})`);
-                    return overran;
+                    return failed;
                 });
 
                 if ((await Promise.race([running, deadline.promise])) === overran) {

@@ -438,6 +438,15 @@ once at `info` (`mcp: call_api`, with the operation, the grant, `ok` or `refused
 is what the listed set is meant to be grown from: an operation called through here often enough
 deserves an `mcp` block of its own.
 
+**Several reads go in one `call_api`, and a change never does.** `calls` takes up to five `{ name,
+arguments, fields }`, because "what is on, what is next and what is queued" is three round trips
+otherwise. The whole batch is checked before any of it runs: more than five, or any operation whose
+entry is not read-only, refuses it, since a batch with a write in it would turn "confirm before anything
+destructive" into one yes for several changes. Each read answers on its own (`{ name, ok, answer }` or
+`{ name, ok: false, error }`, with suggestions for a wrong name), they run one after another because
+they share the request's one transaction, and they split the 12,000-character ceiling between them, so a
+batch costs no more context than a single call may. Each read is logged as a single call is.
+
 **A name that is no operation is answered with the names it most likely meant**, by `search_api` and
 `call_api` alike (`closestNames` in `src/mcp/api.catalog.ts`, at most three, under `suggestions` and in
 the text). Two signals, because each misses what the other catches: the typed name's words scored as a

@@ -412,9 +412,10 @@ not an `HttpError` still fails the protocol.
 **Every other operation is one search away, not one listing away.** About two hundred operations
 would cost every conversation the whole API in `tools/list` before it asked anything, so only a
 handful are listed. `catalog: true` generates a handler for every operation a tool can serve, held
-apart from the listed ones as `McpToolCatalog`, and `search_api` reaches them in two modes: a query
-answers a compact index of at most 25 (the name, one sentence, whether it reads or changes something,
-and the tier it needs), and a name answers that one operation in full with its argument schema. The
+apart from the listed ones as `McpToolCatalog`, and `search_api` reaches them in three modes: nothing
+answers the map of areas (below), a query or an area answers a compact index of at most 25 (the name,
+one sentence, whether it reads or changes something, and the tier it needs), and a name answers that
+one operation in full with its argument schema. The
 index is filtered to what the caller may actually use, their role AND their grant (`mayUse` in
 `src/mcp/api.catalog.ts`), so a view grant is never offered something it would be refused. Everything
 it says comes from the generated definitions themselves: the description, the hints, and the policy
@@ -426,8 +427,8 @@ and fetcher sign-in and configuration, station settings (which hold sign-in prov
 transaction over HTTP and would hold a pooled connection for minutes here.
 
 **Searching with nothing answers the map of the API, not its first page.** Each generated tool
-carries its contract's `area` in `_meta['contractkit/area']`, which ContractKit writes (from the plugin-typescript release after 0.43.1) beside the
-security entry, and `search_api` with no query, area or name answers every area the caller may use
+carries its contract's `area` in `_meta['contractkit/area']`, which `@contractkit/plugin-typescript`
+writes from 0.44.0 (the floor `apps/api/package.json` pins) beside the security entry, and `search_api` with no query, area or name answers every area the caller may use
 something in, with how many operations it holds and how many of those only read (`catalogAreas`):
 about 1,300 characters for the whole station, where the old answer was the first 25 of 273 operations
 in alphabetical order. `area` then lists one area's operations, and combines with `query` to narrow

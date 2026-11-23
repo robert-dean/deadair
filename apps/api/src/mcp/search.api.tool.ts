@@ -45,7 +45,8 @@ export class SearchApiTool implements McpToolHandler {
             properties: {
                 query: {
                     type: 'string',
-                    description: 'Words to match against operation names, descriptions and argument names. Omit to list everything.',
+                    description:
+                        "Words to match against operation names, descriptions and argument names. Omit to see the station's areas, or to list an area's operations when area is given.",
                 },
                 area: {
                     type: 'string',

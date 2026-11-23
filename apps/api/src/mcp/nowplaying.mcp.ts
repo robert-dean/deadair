@@ -29,7 +29,7 @@ export class GetNowPlayingMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(GetNowPlayingArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(NowPlaying, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': 'none' },
+        _meta: { 'contractkit/security': 'none', 'contractkit/area': 'nowplaying' },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {

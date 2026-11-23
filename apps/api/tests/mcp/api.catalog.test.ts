@@ -6,8 +6,11 @@ import { describe, expect, it } from 'vitest';
 
 import { McpToolCatalog, registerMcpCatalog } from '../../src/mcp/mcp.tools.js';
 import {
+    AREA_META,
     accessOf,
+    catalogAreas,
     catalogEntries,
+    closestAreas,
     closestNames,
     mayUse,
     SEARCH_LIMIT,
@@ -147,5 +150,37 @@ describe('closestNames', () => {
 
     it('answers at most three', () => {
         expect(closestNames(entries, 'list').length).toBeLessThanOrEqual(3);
+    });
+});
+
+describe('catalogAreas', () => {
+    const stamped = (entry: CatalogEntry, area: string): CatalogEntry => ({ ...entry, area });
+
+    it('is empty for a catalog generated without areas, which is what makes search fall back to names', () => {
+        expect(catalogAreas(entries.map(entry => ({ ...entry, area: undefined })))).toEqual([]);
+    });
+
+    it('counts each area and its reads, by name', () => {
+        const albums = byName.get('list_albums')!;
+        const skip = byName.get('skip_the_current_item')!;
+        expect(catalogAreas([stamped(skip, 'playout'), stamped(albums, 'catalog'), stamped(albums, 'catalog')])).toEqual([
+            { area: 'catalog', operations: 2, reads: 2 },
+            { area: 'playout', operations: 1, reads: 0 },
+        ]);
+    });
+
+    it('reads the area ContractKit stamps on a definition', () => {
+        const albums = byName.get('list_albums')!;
+        const definition = { ...albums.definition, _meta: { ...albums.definition._meta, [AREA_META]: 'catalog' } };
+        expect(catalogEntries([{ definition, handle: async () => ({ content: [] }) }])[0]!.area).toBe('catalog');
+    });
+
+    it('suggests the area a misspelt one meant', () => {
+        const areas = [
+            { area: 'playlists', operations: 1, reads: 1 },
+            { area: 'playout', operations: 1, reads: 1 },
+        ];
+        expect(closestAreas(areas, 'playlist')[0]).toBe('playlists');
+        expect(closestAreas(areas, 'zyzzyva')).toEqual([]);
     });
 });

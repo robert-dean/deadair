@@ -28,11 +28,16 @@ export interface CatalogEntry {
     idempotent: boolean;
     /** The argument names, top level and inside `body` and `query`, which the search also weighs. */
     fields: string[];
+    /** The contract's area (`playlists`, `director`), from `_meta['contractkit/area']`; absent when the generator wrote none. */
+    area?: string;
     definition: Tool;
 }
 
 /** The security meta key ContractKit writes on every generated tool. */
 export const SECURITY_META = 'contractkit/security';
+
+/** The area meta key ContractKit writes on a generated tool whose contract names an `area`. */
+export const AREA_META = 'contractkit/area';
 
 /**
  * What a tool's security asks of its caller. A policy this does not know is treated as `manage`, the
@@ -74,7 +79,9 @@ const fieldsOf = (schema: Tool['inputSchema']): string[] => {
 
 export function toCatalogEntry(definition: Tool): CatalogEntry {
     const description = definition.description ?? '';
+    const area = definition._meta?.[AREA_META];
     return {
+        ...(typeof area === 'string' && area !== '' ? { area } : {}),
         name: definition.name,
         summary: firstSentence(description),
         description,
@@ -121,7 +128,49 @@ export function scoreEntry(entry: CatalogEntry, query: ReadonlyArray<string>): n
 export interface SearchOptions {
     query?: string;
     readOnly?: boolean;
+    /** Only operations in this area. */
+    area?: string;
     limit?: number;
+}
+
+/** One area as the map of the API shows it: how many operations it holds, and how many of those only read. */
+export interface CatalogArea {
+    area: string;
+    operations: number;
+    reads: number;
+}
+
+/**
+ * The map of the API: every area the given entries fall in, with its counts, by name. What a model is
+ * shown when it searches with nothing, so it can see how the station is organised before it guesses
+ * words, rather than the first 25 of two hundred operations in alphabetical order. Empty when no entry
+ * carries an area, which is what a catalog generated before areas were reported looks like.
+ */
+export function catalogAreas(entries: ReadonlyArray<CatalogEntry>): CatalogArea[] {
+    const areas = new Map<string, CatalogArea>();
+    for (const entry of entries) {
+        if (entry.area === undefined) continue;
+        const area = areas.get(entry.area) ?? { area: entry.area, operations: 0, reads: 0 };
+        area.operations += 1;
+        if (entry.readOnly) area.reads += 1;
+        areas.set(entry.area, area);
+    }
+    return [...areas.values()].sort((a, b) => a.area.localeCompare(b.area));
+}
+
+/** The areas a name that is none most likely meant, closest first, for a mistyped `area`. */
+export function closestAreas(areas: ReadonlyArray<CatalogArea>, name: string, limit = SUGGESTION_LIMIT): string[] {
+    const typed = name.toLowerCase();
+    return areas
+        .map(area => ({
+            area: area.area,
+            distance: editDistance(typed, area.area),
+            contains: area.area.includes(typed) || typed.includes(area.area),
+        }))
+        .filter(scored => scored.contains || scored.distance <= Math.max(2, Math.floor(typed.length / 3)))
+        .sort((a, b) => Number(b.contains) - Number(a.contains) || a.distance - b.distance || a.area.localeCompare(b.area))
+        .slice(0, limit)
+        .map(scored => scored.area);
 }
 
 /** The most names a miss suggests. */
@@ -183,7 +232,10 @@ export function didYouMean(suggestions: ReadonlyArray<string>): string {
 /** The best matches for a query, or every entry by name when there is none, with the total before the limit. */
 export function searchCatalog(entries: ReadonlyArray<CatalogEntry>, options: SearchOptions): { total: number; results: CatalogEntry[] } {
     const query = words(options.query ?? '');
-    const eligible = options.readOnly === undefined ? entries : entries.filter(entry => entry.readOnly === options.readOnly);
+    const eligible = entries.filter(
+        entry =>
+            (options.readOnly === undefined || entry.readOnly === options.readOnly) && (options.area === undefined || entry.area === options.area),
+    );
     const ranked =
         query.length === 0
             ? [...eligible]

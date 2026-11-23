@@ -425,6 +425,17 @@ and fetcher sign-in and configuration, station settings (which hold sign-in prov
 (which can hold the bridge secret), and the two long model calls, which run outside the request
 transaction over HTTP and would hold a pooled connection for minutes here.
 
+**Searching with nothing answers the map of the API, not its first page.** Each generated tool
+carries its contract's `area` in `_meta['contractkit/area']`, which ContractKit writes (from the plugin-typescript release after 0.43.1) beside the
+security entry, and `search_api` with no query, area or name answers every area the caller may use
+something in, with how many operations it holds and how many of those only read (`catalogAreas`):
+about 1,300 characters for the whole station, where the old answer was the first 25 of 273 operations
+in alphabetical order. `area` then lists one area's operations, and combines with `query` to narrow
+it, and a misspelt area is answered with the closest ones. The counts are filtered by `mayUse` like
+everything else here, so a view grant sees a smaller `playout`. A catalog generated before the area
+was reported carries none, and an empty search then falls back to listing operations by name, which is
+why the tests build their area fixtures from the per-contract registrations rather than assuming it.
+
 **`call_api` runs what `search_api` found, through the same handler a listed tool would be.** It
 looks the name up in `McpToolCatalog` and calls the generated handler with the caller's context, so
 the operation's policy, validation and service run exactly as they do for a listed tool, and the

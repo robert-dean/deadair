@@ -107,10 +107,14 @@ export const JobsModule: ServerKitModule = {
     // wrong, the pg-boss schema migration refused, a queue that would not create) the process
     // printed "Boot complete", answered every route and reported healthy while the running order
     // ran out and nothing was written to fill it: a station that was up in every way except the one
-    // that airs. That is the wrong side of fail-open, so the failure is made the loud kind. It asks
-    // for the same graceful close a SIGTERM does rather than calling `process.exit` itself, so every
-    // module still tears down in order and the log store flushes the line that says why; the exit
-    // code is set first so what supervises the process sees a failure rather than a clean stop.
+    // that airs. That is the wrong side of fail-open, so the failure is made the loud kind:
+    // `readyRequired` tells ServerKit that a throw from this hook closes the server, logging the
+    // error, setting exit code 1 so what supervises the process sees a failure rather than a clean
+    // stop, and taking the same orderly close a SIGTERM does, so every module still tears down and
+    // the log store flushes the line that says why. The hook still catches, for one case ServerKit
+    // cannot tell apart: a start abandoned because shutdown began is not a failure, and rethrowing it
+    // would turn an ordinary stop into exit code 1.
+    readyRequired: true,
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         const jobRunner = container.get(JobRunner);
@@ -119,11 +123,9 @@ export const JobsModule: ServerKitModule = {
         } catch (error) {
             // A start abandoned because shutdown already began is not a failure of the runner.
             if (signal.aborted) return;
-            container
-                .get(Logger)
-                .error('jobs: the runner failed to start; stopping the station rather than serving without it', { error: serverkitErrorText(error) });
-            process.exitCode = 1;
-            process.kill(process.pid, 'SIGTERM');
+            throw new Error(`jobs: the runner failed to start; stopping the station rather than serving without it (${serverkitErrorText(error)})`, {
+                cause: error,
+            });
         }
     },
     shutdown: async (container: Container) => {

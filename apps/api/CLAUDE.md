@@ -158,10 +158,12 @@ to stop the process itself.** ServerKit's ready loop is fault-isolated, which is
 and was wrong for `JobsModule`: the runner is what consumes every row the director enqueues and what
 fires every cron, and with its `start()` failed the process printed "Boot complete", served every route
 and answered `/health` 200 while the running order ran out with nothing to fill it. That module now
-catches the failure, sets `process.exitCode = 1` and sends itself `SIGTERM`: the same graceful close a
-supervisor's stop takes, so every module still tears down in order and the log store flushes the line
-that says why. Nothing else in the list has earned that; a new hook that does should copy the shape
-rather than call `process.exit`, which skips both. `setup.server.ts` starts the server with
+declares ServerKit's `readyRequired`, so a throw from its hook is logged, sets exit code 1 and takes
+the same graceful close a supervisor's stop takes: every module still tears down in order and the log
+store flushes the line that says why. The hook still returns quietly when the start failed because
+shutdown had already begun, which ServerKit cannot tell from a real failure. Nothing else in the list
+has earned that; a new hook that does should set `readyRequired` rather than call `process.exit`,
+which skips both. `setup.server.ts` starts the server with
 ServerKit's `gracefulCrash`, which gives `unhandledRejection` and `uncaughtException` the same
 shape: a line naming the cause, exit code 1, the orderly close. It is installed when the socket is
 bound, so a failure before that (a module's `setup`, the config build) exits with Node's own report

@@ -8,6 +8,7 @@ import { ChipList } from '../components/chip.list';
 import { ConsoleTour, type TourStop } from '../components/console.tour';
 import { FeatureRow } from '../components/feature.row';
 import { Figure } from '../components/figure';
+import { PromoVideo } from '../components/promo.video';
 import styles from './index.module.css';
 
 const repository = 'https://github.com/robert-dean/deadair';
@@ -160,6 +161,10 @@ export default function Home() {
                         <strong>A radio station, not a playlist.</strong> There is no per-listener shuffle and no skip button. What is on is what is
                         on, and the station decides. You run it from a desk, and everybody else hears it.
                     </p>
+                </section>
+
+                <section className={styles.film} aria-label="The promo">
+                    <PromoVideo caption="Sonny and Tiffani, two of the station’s presenters, in their own voices · 0:53" />
                 </section>
 
                 <FeatureRow

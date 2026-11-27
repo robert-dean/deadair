@@ -1,0 +1,29 @@
+.figure {
+    margin: 0;
+    min-width: 0;
+}
+
+/* The same frame a screenshot sits in, so the film reads as one more figure on the page. */
+.frame {
+    border: 1px solid var(--da-border-strong);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--da-panel);
+    box-shadow: var(--da-shadow);
+}
+
+.video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+.caption {
+    margin-top: 0.75rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+}

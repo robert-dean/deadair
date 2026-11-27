@@ -113,6 +113,14 @@
     font-weight: 500;
 }
 
+/* The promo, under the statement it acts out, narrow enough that the player and its caption fit a laptop's screen. */
+
+.film {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 0;
+}
+
 /* The long sections after the feature rows, ruled as the rows are. */
 
 .section {

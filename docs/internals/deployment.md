@@ -152,7 +152,10 @@ real with `REAL_IP_FROM` set, the tunnel's without it. **2.5 moved this setting.
 `<paths><x-forwarded-for>` still parses and does nothing, which is easy to ship by mistake because nothing
 fails: measured on `libretime/icecast:2.5.0`, the 2.4 form left every address at `127.0.0.1` and the 2.5 form
 gave the listener's. The compose dev tree's nginx is a separate container and is not trusted, so a dev
-listener reads as that container's address.
+listener reads as that container's address. The edge also sends Icecast no `Cookie` header
+(`nginx/snippets/icecast.conf`): Icecast resets a request whose headers pass about 4 KB, nginx answers that
+with a 502, and a browser carrying other apps' cookies for the same host can cross that line where curl never
+does. Measured on the live station: a 3.5 KB Cookie played and a 4.5 KB one got a 502.
 
 **Three paths reach the API that are not under `/api/`.** Every edge (the image's nginx, both compose
 edges, Vite) forwards `/.well-known/oauth-` and `/.well-known/assetlinks.json` to the API with the path

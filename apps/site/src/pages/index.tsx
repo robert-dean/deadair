@@ -12,6 +12,8 @@ import { PromoVideo } from '../components/promo.video';
 import styles from './index.module.css';
 
 const repository = 'https://github.com/robert-dean/deadair';
+/** The promo on YouTube, where it can be found and shared; the page plays its own copy. */
+const promoOnYouTube = 'https://youtu.be/IbGvBIQp8LM';
 const playStore = 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair';
 /** The Stream Deck plugin's listing on the Elgato Marketplace, which installs it and keeps it updated. */
 const streamDeckMarketplace = 'https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656';
@@ -164,7 +166,7 @@ export default function Home() {
                 </section>
 
                 <section className={styles.film} aria-label="The promo">
-                    <PromoVideo caption="Sonny and Tiffani, two of the station’s presenters, in their own voices · 0:53" />
+                    <PromoVideo caption="Sonny and Tiffani, two of the station’s presenters, in their own voices · 0:53" youtube={promoOnYouTube} />
                 </section>
 
                 <FeatureRow

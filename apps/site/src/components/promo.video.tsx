@@ -1,9 +1,12 @@
+import Link from '@docusaurus/Link';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import styles from './promo.video.module.css';
 
 export interface PromoVideoProps {
     caption: string;
+    /** The same film on YouTube, linked rather than embedded, for a reader who wants to share it. */
+    youtube: string;
 }
 
 /**
@@ -15,7 +18,7 @@ export interface PromoVideoProps {
  * downloads the poster and nothing else. The captions are written from the same schedule the
  * voiceover was mixed to, one cue per line with who says it.
  */
-export function PromoVideo({ caption }: PromoVideoProps) {
+export function PromoVideo({ caption, youtube }: PromoVideoProps) {
     return (
         <figure className={styles.figure}>
             <div className={styles.frame}>
@@ -33,7 +36,12 @@ export function PromoVideo({ caption }: PromoVideoProps) {
                     <track kind="captions" src={useBaseUrl('/video/promo.en.vtt')} srcLang="en" label="English" />
                 </video>
             </div>
-            <figcaption className={styles.caption}>{caption}</figcaption>
+            <figcaption className={styles.caption}>
+                <span>{caption}</span>
+                <Link className={styles.share} href={youtube}>
+                    Watch on YouTube
+                </Link>
+            </figcaption>
         </figure>
     );
 }

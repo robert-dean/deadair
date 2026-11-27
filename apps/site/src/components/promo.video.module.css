@@ -20,10 +20,19 @@
 }
 
 .caption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
     margin-top: 0.75rem;
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.72rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--da-text-dimmed);
+}
+
+.share {
+    color: var(--da-phosphor);
+    white-space: nowrap;
 }

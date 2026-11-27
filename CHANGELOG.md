@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.106.2] — 2026-11-27
+
+- The stream no longer fails to start in a browser that holds a lot of cookies for the station's address. The station's web server used to pass every cookie the browser sent on to Icecast, which drops any request whose headers come to more than about 4 KB, so the player got a 502 and stayed silent. Cookies set by other apps on the same hostname or its parent domain count towards that, which is why the same stream played in a fresh browser profile or a command-line client and not in an everyday browser. Icecast never reads a cookie, so none is sent to it now. Nothing changes for players that were already working.
+
 ## [0.106.1] — 2026-11-23
 
 - Stopping or restarting the station now takes at most 30 seconds, whatever a part of it is stuck on, and a part that fails while shutting down is logged once instead of also being reported as one that ran out of time. An unexpected error in the moments before the station starts listening is now reported only in the container's own log, and no longer in `logs/`.
@@ -2147,7 +2151,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.106.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.106.2...HEAD
+[0.106.2]: https://github.com/robert-dean/deadair/compare/v0.106.1...v0.106.2
 [0.106.1]: https://github.com/robert-dean/deadair/compare/v0.106.0...v0.106.1
 [0.106.0]: https://github.com/robert-dean/deadair/compare/v0.105.4...v0.106.0
 [0.105.4]: https://github.com/robert-dean/deadair/compare/v0.105.3...v0.105.4
